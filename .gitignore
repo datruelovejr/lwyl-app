@@ -39,3 +39,25 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Client assessment data — do not commit
+src/Knowledge/
+public/Friction*
+"Friction Map - Daniel & Rey.pdf"
+Friction\ Map\ -\ Daniel\ \&\ Rey.pdf
+
+# Design reference images — large files, local use only
+src/*.png
+src/*.webp
+src/*.tar.gz
+*.webp
+*.tar.gz
+
+# Skill/reference files — local use only
+*.skill
+SKILL.md
+LWYL_DESIGN_SKILL.md
+FEATURE_GUIDE.md
+framework-quick-reference.md
+sprint1-test.mjs
+*.pdf

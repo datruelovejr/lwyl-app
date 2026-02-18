@@ -2,7 +2,7 @@
 
 import { useState, useRef } from "react";
 import {
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, ReferenceLine,
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, ReferenceLine, LabelList,
   PieChart, Pie, Legend
 } from "recharts";
 
@@ -11,7 +11,7 @@ const C = {
   disc: { D: "#C62828", I: "#FFC107", S: "#4CAF50", C: "#29B6F6", gray: "#9E9E9E" },
   values: { Aesthetic: "#7CB342", Economic: "#5C8DC4", Individualistic: "#F28C4E", Political: "#E05252", Altruistic: "#FFB74D", Regulatory: "#757575", Theoretical: "#B8864A" },
   attr: { ext: "#4f92cf", int: "#C62828" },
-  bg: "#F8F7F4", card: "#FFFFFF", border: "#E5E2DC", text: "#1A1A1A", muted: "#777", accent: "#2D2D2D", hi: "#F3F1EC", blue: "#1565C0", green: "#2E7D32"
+  bg: "#F9FAFB", card: "#FFFFFF", border: "#E5E7EB", text: "#111827", muted: "#6B7280", accent: "#1F2937", hi: "#F3F4F6", blue: "#29B6F6", green: "#2E7D32"
 };
 
 const discFull = { D: "Dominance", I: "Influence", S: "Steadiness", C: "Compliance" };
@@ -52,8 +52,60 @@ const initPeople = [
 
 // ────── SMALL COMPONENTS ──────
 const Bias = ({ bias }) => { const b = biasInfo[bias] || biasInfo["="]; return <span style={{ display: "inline-block", padding: "2px 8px", borderRadius: 4, fontSize: 10, fontWeight: 700, background: b.bg, color: b.fg, borderLeft: `3px solid ${b.bd}` }}>({bias}) {b.word}</span>; };
-const Sec = ({ title, sub, color }) => (<div style={{ marginBottom: 12 }}><div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 2 }}><div style={{ width: 4, height: 20, borderRadius: 2, background: color }} /><h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: C.text }}>{title}</h3></div>{sub && <div style={{ fontSize: 11, color: C.muted, marginLeft: 12 }}>{sub}</div>}</div>);
-const Btn = ({ children, onClick, primary, small, disabled, style: s }) => (<button onClick={onClick} disabled={disabled} style={{ padding: small ? "4px 10px" : "8px 16px", borderRadius: 7, border: primary ? "none" : `1px solid ${C.border}`, background: disabled ? "#ccc" : primary ? C.accent : C.card, color: disabled ? "#999" : primary ? "#fff" : C.text, fontSize: small ? 11 : 12, fontWeight: 600, cursor: disabled ? "default" : "pointer", transition: "all 0.15s", ...s }}>{children}</button>);
+const CircleProgress = ({ value, max = 10, color, label, name, bias }) => {
+  const radius = 32; const circ = 2 * Math.PI * radius;
+  const offset = circ - (value / max) * circ;
+  return (
+    <div style={{ textAlign: "center", flex: 1 }}>
+      <svg width="84" height="84" viewBox="0 0 84 84">
+        <circle cx="42" cy="42" r={radius} fill="none" stroke={C.hi} strokeWidth="8" />
+        <circle cx="42" cy="42" r={radius} fill="none" stroke={color} strokeWidth="8"
+          strokeDasharray={circ} strokeDashoffset={offset}
+          strokeLinecap="round" transform="rotate(-90 42 42)" />
+        <text x="42" y="47" textAnchor="middle" fontSize="18" fontWeight="700" fill={C.text}>{value}</text>
+      </svg>
+      <div style={{ fontSize: 13, fontWeight: 600, color: C.text, marginTop: 4 }}>{label}</div>
+      <div style={{ fontSize: 11, color: C.muted }}>{name}</div>
+      {bias && <div style={{ marginTop: 4 }}><Bias bias={bias} /></div>}
+    </div>
+  );
+};
+const Sec = ({ title, sub, color }) => (<div style={{ marginBottom: 16 }}><h2 style={{ margin: "0 0 4px", fontSize: 24, fontWeight: 600, color: C.text, lineHeight: 1.3 }}>{title}</h2>{sub && <div style={{ fontSize: 14, color: C.muted }}>{sub}</div>}</div>);
+
+// ────── PHOTO AVATAR ──────
+const PhotoAvatar = ({ personId, name, bgColor, photo, onUpload, size = 40, square = false }) => {
+  const inputRef = useRef(null);
+  const [hovered, setHovered] = useState(false);
+  const radius = square ? 8 : "50%";
+  const initials = name ? name.split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase() : "?";
+  const handleFile = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => onUpload(personId, ev.target.result);
+    reader.readAsDataURL(file);
+  };
+  return (
+    <div style={{ position: "relative", width: size, height: size, flexShrink: 0, cursor: "pointer" }}
+      onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)}
+      onClick={() => inputRef.current?.click()}>
+      <input ref={inputRef} type="file" accept="image/*" style={{ display: "none" }} onChange={handleFile} />
+      {photo ? (
+        <img src={photo} alt={name} style={{ width: size, height: size, borderRadius: radius, objectFit: "cover", display: "block" }} />
+      ) : (
+        <div style={{ width: size, height: size, borderRadius: radius, background: bgColor || C.accent, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, fontSize: size * 0.32, color: "#fff" }}>
+          {initials}
+        </div>
+      )}
+      {hovered && (
+        <div style={{ position: "absolute", inset: 0, borderRadius: radius, background: "rgba(0,0,0,0.45)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <span style={{ fontSize: size * 0.35, color: "#fff" }}>📷</span>
+        </div>
+      )}
+    </div>
+  );
+};
+const Btn = ({ children, onClick, primary, small, disabled, style: s }) => (<button onClick={onClick} disabled={disabled} style={{ padding: small ? "4px 10px" : "12px 24px", borderRadius: 8, border: primary ? "none" : "2px solid #29B6F6", background: disabled ? "#D1D5DB" : primary ? "#29B6F6" : "#FFFFFF", color: disabled ? "#9CA3AF" : primary ? "#fff" : "#29B6F6", fontSize: small ? 11 : 16, fontWeight: 600, cursor: disabled ? "default" : "pointer", transition: "all 0.15s", ...s }}>{children}</button>);
 
 // ────── TOOLTIPS ──────
 const DTip = ({ active, payload }) => { if (!active || !payload?.length) return null; const d = payload[0]?.payload; return (<div style={{ background: "#fff", border: `1px solid ${C.border}`, borderRadius: 8, padding: "10px 14px", boxShadow: "0 4px 12px rgba(0,0,0,0.08)" }}><div style={{ fontWeight: 700, fontSize: 13, marginBottom: 4 }}>{d.full}</div>{payload.map((p, i) => (<div key={i} style={{ fontSize: 12, color: C.muted }}><span style={{ color: p.color, fontWeight: 600 }}>{p.name}:</span> {p.value}</div>))}{d.gap !== undefined && <div style={{ fontSize: 11, color: Math.abs(d.gap) >= 10 ? "#C62828" : C.muted, marginTop: 3, fontWeight: 600 }}>Gap: {d.gap > 0 ? "+" : ""}{d.gap}{Math.abs(d.gap) >= 10 ? " ⚡ Energy cost" : ""}</div>}</div>); };
@@ -398,17 +450,26 @@ function UploadForm({ orgs, selOrgId, selTeamId: parentTeamId, onAdd, onCancel }
   };
 
   if (step === "upload") return (
-    <div style={{ padding: 24, maxWidth: 600, margin: "0 auto" }}>
-      <h2 style={{ fontSize: 20, fontWeight: 800, marginBottom: 4, color: C.text }}>Upload Assessment</h2>
-      <p style={{ fontSize: 12, color: C.muted, marginBottom: 20 }}>Upload an Innermetrix ADVanced Insights PDF. The system will attempt to auto-extract DISC, Values, and Attributes data.</p>
-      <div onDragOver={e => e.preventDefault()} onDrop={handleDrop} onClick={() => fileRef.current?.click()} style={{ border: `2px dashed ${C.border}`, borderRadius: 12, padding: "48px 24px", textAlign: "center", cursor: "pointer", background: C.hi, transition: "all 0.15s" }}>
-        <div style={{ fontSize: 36, marginBottom: 8 }}>📄</div>
-        <div style={{ fontSize: 14, fontWeight: 600, color: C.text, marginBottom: 4 }}>Drop Innermetrix PDF here</div>
-        <div style={{ fontSize: 12, color: C.muted }}>or click to browse files</div>
+    <div style={{ padding: 48, maxWidth: 600, margin: "0 auto", background: C.card, borderRadius: 12, boxShadow: "0 1px 3px rgba(0,0,0,0.1)" }}>
+      <div onDragOver={e => e.preventDefault()} onDrop={handleDrop} onClick={() => fileRef.current?.click()}
+        style={{ border: "2px dashed #29B6F6", borderRadius: 12, padding: "48px 32px", textAlign: "center", cursor: "pointer", background: "#F9FAFB", transition: "all 0.15s", marginBottom: 24 }}>
+        {/* Blue upload arrow SVG */}
+        <svg width="64" height="64" viewBox="0 0 64 64" fill="none" style={{ marginBottom: 20, display: "block", margin: "0 auto 20px" }}>
+          <circle cx="32" cy="32" r="32" fill="#E3F2FD" />
+          <path d="M32 42V24M32 24L24 32M32 24L40 32" stroke="#29B6F6" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"/>
+          <path d="M20 44h24" stroke="#29B6F6" strokeWidth="3" strokeLinecap="round"/>
+        </svg>
+        <div style={{ fontSize: 22, fontWeight: 700, color: C.text, marginBottom: 8 }}>Drag &amp; Drop Your Assessment File Here</div>
+        <div style={{ fontSize: 14, color: C.muted, marginBottom: 4 }}>Or click to browse</div>
+        <div style={{ fontSize: 14, color: C.muted, marginBottom: 4 }}>Supported formats: PDF, DOCX</div>
+        <div style={{ fontSize: 14, color: C.muted }}>Max size: 10MB</div>
         <input ref={fileRef} type="file" accept=".pdf" style={{ display: "none" }} onChange={e => handleFile(e.target.files)} />
       </div>
-      <div style={{ marginTop: 16, display: "flex", gap: 8 }}>
-        <Btn onClick={() => setStep("entry")}>Skip — Enter Scores Manually</Btn>
+      <button onClick={() => fileRef.current?.click()} style={{ width: "100%", padding: "14px 24px", borderRadius: 8, border: "none", background: "#29B6F6", color: "#fff", fontSize: 16, fontWeight: 600, cursor: "pointer", marginBottom: 16 }}>
+        Select File to Upload
+      </button>
+      <div style={{ display: "flex", gap: 8 }}>
+        <Btn onClick={() => setStep("entry")} style={{ flex: 1 }}>Skip — Enter Scores Manually</Btn>
         <Btn onClick={onCancel}>Cancel</Btn>
       </div>
     </div>
@@ -450,19 +511,19 @@ function UploadForm({ orgs, selOrgId, selTeamId: parentTeamId, onAdd, onCancel }
       <div style={{ background: C.card, borderRadius: 10, padding: 16, border: `1px solid ${C.border}`, marginBottom: 12 }}>
         <div style={{ display: "flex", gap: 12 }}>
           <div style={{ flex: 1 }}>
-            <label style={{ fontSize: 10, fontWeight: 600, color: C.muted, display: "block", marginBottom: 4 }}>Full Name *</label>
+            <label style={{ fontSize: 14, fontWeight: 500, color: C.text, display: "block", marginBottom: 6 }}>Full Name *</label>
             <input value={form.name} onChange={f("name")} placeholder="e.g. Jane Smith" style={{
-              width: "100%", padding: "8px 10px", borderRadius: 7, fontSize: 13, boxSizing: "border-box",
-              border: `1px solid ${C.border}`,
-              background: "#fff"
+              width: "100%", padding: 12, borderRadius: 8, fontSize: 16, boxSizing: "border-box",
+              border: "1px solid #D1D5DB",
+              background: "#FFFFFF"
             }} />
           </div>
           <div style={{ flex: 1 }}>
-            <label style={{ fontSize: 10, fontWeight: 600, color: C.muted, display: "block", marginBottom: 4 }}>Assign to Team *</label>
+            <label style={{ fontSize: 14, fontWeight: 500, color: C.text, display: "block", marginBottom: 6 }}>Assign to Team *</label>
             <select value={form.teamId} onChange={f("teamId")} style={{
-              width: "100%", padding: "8px 10px", borderRadius: 7, fontSize: 13, boxSizing: "border-box",
-              border: `1px solid ${C.border}`,
-              background: "#fff"
+              width: "100%", padding: 12, borderRadius: 8, fontSize: 16, boxSizing: "border-box",
+              border: "1px solid #D1D5DB",
+              background: "#FFFFFF"
             }}>
               <option value="">Select team...</option>
               {org?.teams.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
@@ -1023,21 +1084,21 @@ function EnvironmentReport({ person, onClose }) {
 
   return (
     <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.55)", display: "flex", alignItems: "flex-start", justifyContent: "center", zIndex: 300, overflowY: "auto", padding: "24px 16px" }}>
-      <div style={{ background: C.bg, borderRadius: 14, width: "min(760px, 100%)", boxShadow: "0 20px 60px rgba(0,0,0,0.25)", fontFamily: "'DM Sans', sans-serif" }}>
+      <div style={{ background: C.card, borderRadius: 12, width: "min(900px, 100%)", boxShadow: "0 20px 25px rgba(0,0,0,0.15)", fontFamily: "'DM Sans', sans-serif" }}>
 
         {/* Controls */}
-        <div style={{ background: "#1A1A18", color: "#fff", borderRadius: "14px 14px 0 0", padding: "14px 20px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        <div style={{ background: "#1F2937", color: "#fff", borderRadius: "12px 12px 0 0", padding: "20px 48px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           <div>
-            <div style={{ fontWeight: 800, fontSize: 14, color: "#C8A96E" }}>Environment Report</div>
-            <div style={{ fontSize: 11, opacity: 0.65 }}>{p.name} · Love Where You Lead</div>
+            <div style={{ fontWeight: 700, fontSize: 32, color: "#fff" }}>Environment Report: {p.name}</div>
+            <div style={{ fontSize: 16, color: "rgba(255,255,255,0.65)", marginTop: 4 }}>Natural vs Adaptive · Love Where You Lead</div>
           </div>
-          <div style={{ display: "flex", gap: 8 }}>
-            <button onClick={() => window.print()} style={{ padding: "6px 14px", borderRadius: 6, border: "1px solid rgba(255,255,255,0.3)", background: "rgba(255,255,255,0.15)", color: "#fff", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>🖨 Print Report</button>
-            <button onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 20, color: "rgba(255,255,255,0.7)", lineHeight: 1, padding: "0 4px" }}>✕</button>
+          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            <button onClick={() => window.print()} style={{ padding: "10px 20px", borderRadius: 8, border: "1px solid rgba(255,255,255,0.3)", background: "rgba(255,255,255,0.1)", color: "#fff", fontSize: 14, fontWeight: 600, cursor: "pointer" }}>Print Report</button>
+            <button onClick={onClose} style={{ width: 32, height: 32, borderRadius: "50%", background: "rgba(255,255,255,0.1)", border: "none", cursor: "pointer", fontSize: 18, color: "rgba(255,255,255,0.7)", lineHeight: 1, display: "flex", alignItems: "center", justifyContent: "center" }}>✕</button>
           </div>
         </div>
 
-        <div style={{ padding: "24px 28px" }} id="report-content">
+        <div style={{ padding: 48 }} id="report-content">
 
           {/* Cover */}
           <div style={{ textAlign: "center", padding: "20px 0 28px", borderBottom: `1px solid ${C.border}`, marginBottom: 28 }}>
@@ -1054,52 +1115,47 @@ function EnvironmentReport({ person, onClose }) {
 
           {/* 1: YOUR PREFERENCE — Natural */}
           <ReportSection num={1} title="YOUR PREFERENCE — Natural Style">
-            <p style={{ fontSize: 12, color: C.muted, margin: "0 0 12px", lineHeight: 1.6 }}>Your Natural style reflects how you are hardwired to lead when you are comfortable, off-guard, or under pressure. This is who you are when no one is adjusting for the room.</p>
+            <p style={{ fontSize: 14, color: C.muted, margin: "0 0 16px", lineHeight: 1.6 }}>Your Natural style reflects how you are hardwired to lead when you are comfortable, off-guard, or under pressure. This is who you are when no one is adjusting for the room.</p>
+            <div style={{ background: "#F9FAFB", borderRadius: 8, padding: 24, marginBottom: 12 }}>
             {discRows.map(({ d, full, nat }) => (
-              <div key={d} style={{ display: "flex", gap: 10, marginBottom: 10, padding: "10px 12px", borderRadius: 8, background: C.card, border: `1px solid ${C.border}` }}>
-                <div style={{ flexShrink: 0, textAlign: "center", width: 56 }}>
-                  <div style={{ fontSize: 9, fontWeight: 700, color: C.disc[d], textTransform: "uppercase" }}>{full}</div>
-                  <div style={{ fontSize: 26, fontWeight: 800, color: C.disc[d], lineHeight: 1.1 }}>{nat}</div>
-                  <div style={{ fontSize: 9, fontWeight: 600, color: C.muted }}>{discLevelLabel(nat)}</div>
+              <div key={d} style={{ marginBottom: 12, padding: 16, borderRadius: 8, background: C.card, borderLeft: `4px solid ${C.disc[d]}` }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
+                  <div style={{ width: 32, height: 32, borderRadius: "50%", background: C.disc[d], display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, fontSize: 16, color: d === "I" ? "#111827" : "#fff", flexShrink: 0 }}>{d}</div>
+                  <span style={{ padding: "2px 8px", borderRadius: 10, fontSize: 11, fontWeight: 600, background: C.hi, color: C.muted, letterSpacing: "0.05em" }}>DISC</span>
+                  <span style={{ fontSize: 18, fontWeight: 600, color: C.text }}>{full} ({d})</span>
                 </div>
-                <div style={{ flex: 1 }}>
-                  <div style={{ height: 6, background: C.hi, borderRadius: 3, marginBottom: 6, overflow: "hidden" }}>
-                    <div style={{ height: "100%", width: `${nat}%`, background: C.disc[d], borderRadius: 3 }} />
-                  </div>
-                  <div style={{ fontSize: 11, color: C.text, lineHeight: 1.6 }}>{discInterp[d][discLevel(nat)]}</div>
-                </div>
+                <div style={{ fontSize: 15, color: C.text, lineHeight: 1.6, marginBottom: 8 }}>{discInterp[d][discLevel(nat)]}</div>
+                <div style={{ fontSize: 13, color: C.muted }}>Score: {nat}</div>
               </div>
             ))}
+            </div>
           </ReportSection>
 
           {/* 2: Adaptive Style */}
           <ReportSection num={2} title="YOUR PREFERENCE — Adaptive Style">
-            <p style={{ fontSize: 12, color: C.muted, margin: "0 0 12px", lineHeight: 1.6 }}>Your Adaptive style reflects how you are adjusting to the demands of your current environment. When Natural and Adaptive differ significantly, your environment is asking you to be someone you are not — and that costs energy.</p>
+            <p style={{ fontSize: 14, color: C.muted, margin: "0 0 16px", lineHeight: 1.6 }}>Your Adaptive style reflects how you are adjusting to the demands of your current environment. When Natural and Adaptive differ significantly, your environment is asking you to be someone you are not — and that costs energy.</p>
+            <div style={{ background: "#F9FAFB", borderRadius: 8, padding: 24, marginBottom: 12 }}>
             {discRows.map(({ d, full, nat, adp, gap }) => {
               const absgap = Math.abs(gap);
               const costly = absgap >= 20;
               const dir = gap > 0 ? "Environment is demanding more " + full : "Environment is suppressing your " + full;
               return (
-                <div key={d} style={{ display: "flex", gap: 10, marginBottom: 10, padding: "10px 12px", borderRadius: 8, background: C.card, border: `1px solid ${C.border}`, borderLeft: costly ? "3px solid #E65100" : `1px solid ${C.border}` }}>
-                  <div style={{ flexShrink: 0, textAlign: "center", width: 56 }}>
-                    <div style={{ fontSize: 9, fontWeight: 700, color: C.disc[d], textTransform: "uppercase" }}>{full}</div>
-                    <div style={{ fontSize: 22, fontWeight: 800, color: C.disc[d], lineHeight: 1.1 }}>{adp}</div>
-                    <div style={{ fontSize: 9, fontWeight: 600, color: costly ? "#E65100" : C.muted }}>{costly ? "⚡ Gap" : "Gap"}: {gap > 0 ? "+" : ""}{gap}</div>
+                <div key={d} style={{ marginBottom: 12, padding: 16, borderRadius: 8, background: C.card, borderLeft: costly ? "4px solid #E65100" : `4px solid ${C.disc[d]}` }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
+                    <div style={{ width: 32, height: 32, borderRadius: "50%", background: costly ? "#E65100" : C.disc[d], display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, fontSize: 16, color: d === "I" && !costly ? "#111827" : "#fff", flexShrink: 0 }}>{d}</div>
+                    <span style={{ padding: "2px 8px", borderRadius: 10, fontSize: 11, fontWeight: 600, background: C.hi, color: C.muted, letterSpacing: "0.05em" }}>DISC</span>
+                    <span style={{ fontSize: 18, fontWeight: 600, color: C.text }}>{full} ({d})</span>
+                    {costly && <span style={{ marginLeft: "auto", fontSize: 12, fontWeight: 600, color: "#E65100" }}>+{Math.abs(gap)} gap ⚡</span>}
                   </div>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ display: "flex", gap: 4, height: 6, marginBottom: 6 }}>
-                      <div style={{ flex: nat, background: C.disc[d], borderRadius: "3px 0 0 3px", minWidth: 2 }} />
-                      <div style={{ flex: 100 - Math.max(nat, adp), background: "transparent" }} />
-                    </div>
-                    <div style={{ fontSize: 11, color: C.text, lineHeight: 1.5 }}>
-                      Natural: <strong>{nat}</strong> → Adaptive: <strong>{adp}</strong>
-                      {costly && <span style={{ color: "#E65100", fontWeight: 700, marginLeft: 6 }}>⚡ Energy cost</span>}
-                    </div>
-                    {costly && <div style={{ fontSize: 10, color: "#5D4037", marginTop: 3, lineHeight: 1.4 }}>{dir}</div>}
+                  <div style={{ fontSize: 15, color: C.text, lineHeight: 1.5, marginBottom: 8 }}>
+                    Natural: <strong>{nat}</strong> → Adaptive: <strong>{adp}</strong>
+                    {costly && <div style={{ fontSize: 13, color: "#E65100", marginTop: 4 }}>{dir}</div>}
                   </div>
+                  <div style={{ fontSize: 13, color: C.muted }}>Score: {adp}</div>
                 </div>
               );
             })}
+            </div>
           </ReportSection>
 
           {/* 3: Preference Tax */}
@@ -1247,7 +1303,7 @@ function EnvironmentReport({ person, onClose }) {
 }
 
 // ────── SPRINT 4B: TEAM SUMMARY ──────
-function TeamSummary({ people, teamId, orgId, leader, onClose }) {
+function TeamSummary({ people, teamId, orgId, leader, onClose, photos = {}, onUploadPhoto }) {
   const members = people.filter(p => p.orgId === orgId && (teamId ? p.teamId === teamId : true) && p.status !== "pending");
 
   const summaryCard = (p) => {
@@ -1258,70 +1314,54 @@ function TeamSummary({ people, teamId, orgId, leader, onClose }) {
     const leaderDom = leader ? getDom(leader.disc.natural) : null;
 
     return (
-      <div key={p.id} style={{ background: C.card, borderRadius: 12, border: `1px solid ${C.border}`, marginBottom: 24, pageBreakInside: "avoid", overflow: "hidden" }}>
+      <div key={p.id} style={{ background: C.card, borderRadius: 12, border: `1px solid ${C.border}`, pageBreakInside: "avoid", overflow: "hidden", boxShadow: "0 1px 3px rgba(0,0,0,0.1)" }}>
         {/* Card header */}
-        <div style={{ background: C.accent, padding: "12px 16px", display: "flex", alignItems: "center", gap: 10 }}>
-          <div style={{ width: 38, height: 38, borderRadius: "50%", background: "rgba(255,255,255,0.2)", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: 13, color: "#fff" }}>
-            {p.name.split(" ").map(n => n[0]).join("").slice(0, 2)}
-          </div>
+        <div style={{ background: "#1F2937", padding: "16px", display: "flex", alignItems: "center", gap: 12 }}>
+          <PhotoAvatar personId={p.id} name={p.name} bgColor="rgba(255,255,255,0.2)" photo={photos[p.id]} onUpload={onUploadPhoto} size={44} square={true} />
           <div>
-            <div style={{ fontWeight: 800, fontSize: 14, color: "#fff" }}>{p.name}</div>
-            <div style={{ fontSize: 10, color: "rgba(255,255,255,0.7)" }}>Love Where You Lead — Member Summary</div>
+            <div style={{ fontWeight: 700, fontSize: 15, color: "#fff" }}>{p.name}</div>
+            <div style={{ fontSize: 11, color: "rgba(255,255,255,0.6)", marginTop: 2 }}>Love Where You Lead</div>
           </div>
         </div>
-        <div style={{ padding: "14px 16px", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-          {/* Section 1: Leadership Style */}
-          <div style={{ padding: "10px 12px", borderRadius: 8, background: C.hi, border: `1px solid ${C.border}` }}>
-            <div style={{ fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5, color: C.muted, marginBottom: 4 }}>Leadership Style</div>
-            <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
-              {dom.split("/").map(d => <span key={d} style={{ fontSize: 13, fontWeight: 800, color: C.disc[d], background: `${C.disc[d]}12`, border: `1px solid ${C.disc[d]}33`, borderRadius: 6, padding: "2px 8px" }}>{discFull[d]}</span>)}
-            </div>
-            <div style={{ fontSize: 10, color: C.muted, marginTop: 4 }}>Natural: D{p.disc.natural.D} I{p.disc.natural.I} S{p.disc.natural.S} C{p.disc.natural.C}</div>
-            {leaderDom && leaderDom !== dom && (
-              <div style={{ fontSize: 10, color: "#E65100", marginTop: 4, fontWeight: 600 }}>⚡ Leader is {leaderDom} — style gap exists</div>
-            )}
-          </div>
-          {/* Section 2: Top Drivers */}
-          <div style={{ padding: "10px 12px", borderRadius: 8, background: C.hi, border: `1px solid ${C.border}` }}>
-            <div style={{ fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5, color: C.muted, marginBottom: 4 }}>Top Drivers</div>
-            {topVals.length > 0 ? topVals.slice(0, 3).map(v => (
-              <div key={v} style={{ display: "flex", alignItems: "center", gap: 5, marginBottom: 3 }}>
-                <span style={{ width: 6, height: 6, borderRadius: "50%", background: C.values[v], flexShrink: 0 }} />
-                <span style={{ fontSize: 11, fontWeight: 600, color: C.values[v] }}>{v}</span>
-                <span style={{ fontSize: 10, color: C.muted }}>{p.values[v]}</span>
-                {leaderTopVals.includes(v) && <span style={{ fontSize: 8, color: "#2E7D32", fontWeight: 700 }}>★ shared</span>}
-              </div>
-            )) : <div style={{ fontSize: 10, color: C.muted }}>No strong drivers identified</div>}
-          </div>
-          {/* Section 3: Decision Style */}
-          <div style={{ padding: "10px 12px", borderRadius: 8, background: C.hi, border: `1px solid ${C.border}` }}>
-            <div style={{ fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5, color: C.muted, marginBottom: 4 }}>Decision Style</div>
-            {extSorted.map((a, i) => (
-              <div key={a.name} style={{ display: "flex", alignItems: "center", gap: 5, marginBottom: 3 }}>
-                <span style={{ fontSize: 9, fontWeight: 800, color: i === 0 ? C.attr.ext : C.muted, minWidth: 12 }}>{i + 1}.</span>
-                <span style={{ fontSize: 11, fontWeight: i === 0 ? 700 : 400, color: i === 0 ? C.attr.ext : C.text }}>{a.label}</span>
-                <span style={{ fontSize: 10, color: C.muted }}>{a.score}</span>
-                <Bias bias={a.bias} />
-              </div>
+        <div style={{ padding: 24 }}>
+          {/* DISC Badges Row */}
+          <div style={{ fontSize: 12, fontWeight: 600, color: C.muted, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 10 }}>DISC Profile</div>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 20 }}>
+            {["D","I","S","C"].map(d => (
+              <span key={d} style={{ padding: "5px 14px", borderRadius: 20, fontSize: 14, fontWeight: 700, background: C.disc[d], color: d === "I" ? "#111827" : "#fff", letterSpacing: 0.2 }}>
+                {d} ({p.disc.natural[d]})
+              </span>
             ))}
           </div>
-          {/* Section 4: What Your Leader Learned */}
-          <div style={{ padding: "10px 12px", borderRadius: 8, background: C.card, border: `1px solid ${C.border}`, borderLeft: "3px solid #C8A96E" }}>
-            <div style={{ fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5, color: "#C8A96E", marginBottom: 4 }}>What Your Leader Learned</div>
-            {leader ? (
-              <div style={{ fontSize: 10, color: "#5D4037", lineHeight: 1.5 }}>
-                {extSorted[0].label === "Heart" && `Lead with who is affected — ${p.name.split(" ")[0]} sees people first.`}
-                {extSorted[0].label === "Hand" && `Lead with what works — ${p.name.split(" ")[0]} needs to see practical outcomes.`}
-                {extSorted[0].label === "Head" && `Lead with the system — ${p.name.split(" ")[0]} needs the logic before the story.`}
-                {topVals.length > 0 && ` Connect work to ${topVals[0]} to keep them engaged.`}
+          {/* Values List */}
+          <div style={{ fontSize: 12, fontWeight: 600, color: C.muted, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8 }}>Core Values</div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 12, marginBottom: 20 }}>
+            {topVals.length > 0 ? topVals.slice(0, 3).map(v => (
+              <div key={v} style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <span style={{ width: 8, height: 8, borderRadius: "50%", background: C.values[v], flexShrink: 0 }} />
+                <span style={{ fontSize: 14, fontWeight: 500, color: C.text, flex: 1 }}>{v}</span>
+                <span style={{ fontSize: 14, fontWeight: 600, color: C.values[v] }}>{p.values[v]}</span>
               </div>
-            ) : <div style={{ fontSize: 10, color: C.muted }}>Designate a leader to see personalized insights.</div>}
+            )) : <div style={{ fontSize: 14, color: C.muted }}>No strong drivers (≥60)</div>}
           </div>
-          {/* Section 5: Go Deeper */}
-          <div style={{ padding: "10px 12px", borderRadius: 8, background: C.card, border: `1px solid ${C.border}`, borderLeft: `3px solid ${C.attr.ext}`, gridColumn: "1 / -1" }}>
-            <div style={{ fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5, color: C.attr.ext, marginBottom: 4 }}>Go Deeper</div>
-            <div style={{ fontSize: 10, color: "#1A237E", lineHeight: 1.6 }}>
-              Use the <strong>Compare to Leader</strong> tab on {p.name.split(" ")[0]}&apos;s profile for a full gap analysis. Use the <strong>Connection Agreement</strong> tool to build specific commitments with this team member.
+          {/* Attributes */}
+          <div style={{ fontSize: 12, fontWeight: 600, color: C.muted, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8 }}>Attributes</div>
+          <div style={{ display: "flex", gap: 8 }}>
+            <div style={{ flex: 1, padding: "10px 12px", borderRadius: 8, background: C.hi, borderLeft: `3px solid ${C.attr.ext}` }}>
+              <div style={{ fontSize: 11, fontWeight: 600, color: C.attr.ext, marginBottom: 6 }}>External</div>
+              {extSorted.map((a, i) => (
+                <div key={a.name} style={{ display: "flex", justifyContent: "space-between", fontSize: 13, color: i === 0 ? C.text : C.muted, fontWeight: i === 0 ? 600 : 400, marginBottom: 3 }}>
+                  <span>{i + 1}. {a.label}</span><span style={{ color: C.attr.ext, fontWeight: 600 }}>{a.score}</span>
+                </div>
+              ))}
+            </div>
+            <div style={{ flex: 1, padding: "10px 12px", borderRadius: 8, background: C.hi, borderLeft: `3px solid ${C.attr.int}` }}>
+              <div style={{ fontSize: 11, fontWeight: 600, color: C.attr.int, marginBottom: 6 }}>Internal</div>
+              {p.attr.int.map((a, i) => (
+                <div key={a.name} style={{ display: "flex", justifyContent: "space-between", fontSize: 13, color: i === 0 ? C.text : C.muted, fontWeight: i === 0 ? 600 : 400, marginBottom: 3 }}>
+                  <span>{a.name.split(" ")[0]}</span><span style={{ color: C.attr.int, fontWeight: 600 }}>{a.score}</span>
+                </div>
+              ))}
             </div>
           </div>
         </div>
@@ -1331,21 +1371,25 @@ function TeamSummary({ people, teamId, orgId, leader, onClose }) {
 
   return (
     <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.55)", display: "flex", alignItems: "flex-start", justifyContent: "center", zIndex: 300, overflowY: "auto", padding: "24px 16px" }}>
-      <div style={{ background: C.bg, borderRadius: 14, width: "min(760px, 100%)", boxShadow: "0 20px 60px rgba(0,0,0,0.25)" }}>
-        <div style={{ background: "#1A1A18", color: "#fff", borderRadius: "14px 14px 0 0", padding: "14px 20px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+      <div style={{ background: C.card, borderRadius: 12, width: "min(1000px, 100%)", boxShadow: "0 20px 25px rgba(0,0,0,0.15)" }}>
+        <div style={{ background: "#1F2937", color: "#fff", borderRadius: "12px 12px 0 0", padding: "20px 48px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           <div>
-            <div style={{ fontWeight: 800, fontSize: 14, color: "#C8A96E" }}>Team Member Summary</div>
-            <div style={{ fontSize: 11, opacity: 0.65 }}>{members.length} members · Love Where You Lead</div>
+            <div style={{ fontWeight: 700, fontSize: 32, color: "#fff" }}>Team Summary</div>
+            <div style={{ fontSize: 14, color: "rgba(255,255,255,0.65)", marginTop: 2 }}>{members.length} members · Love Where You Lead</div>
           </div>
-          <div style={{ display: "flex", gap: 8 }}>
-            <button onClick={() => window.print()} style={{ padding: "6px 14px", borderRadius: 6, border: "1px solid rgba(255,255,255,0.3)", background: "rgba(255,255,255,0.15)", color: "#fff", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>🖨 Print All</button>
-            <button onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 20, color: "rgba(255,255,255,0.7)", lineHeight: 1, padding: "0 4px" }}>✕</button>
+          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            <button onClick={() => window.print()} style={{ padding: "10px 20px", borderRadius: 8, border: "1px solid rgba(255,255,255,0.3)", background: "rgba(255,255,255,0.1)", color: "#fff", fontSize: 14, fontWeight: 600, cursor: "pointer" }}>Print All</button>
+            <button onClick={onClose} style={{ width: 32, height: 32, borderRadius: "50%", background: "rgba(255,255,255,0.1)", border: "none", cursor: "pointer", fontSize: 18, color: "rgba(255,255,255,0.7)", lineHeight: 1, display: "flex", alignItems: "center", justifyContent: "center" }}>✕</button>
           </div>
         </div>
-        <div style={{ padding: "20px 24px" }}>
+        <div style={{ padding: 48 }}>
           {members.length === 0 ? (
             <div style={{ textAlign: "center", padding: 40, color: C.muted }}>No complete assessments to summarize.</div>
-          ) : members.map(p => summaryCard(p))}
+          ) : (
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 24 }}>
+              {members.map(p => summaryCard(p))}
+            </div>
+          )}
         </div>
       </div>
     </div>
@@ -1353,7 +1397,7 @@ function TeamSummary({ people, teamId, orgId, leader, onClose }) {
 }
 
 // ────── VIEWER ──────
-function Viewer({ person, leader, agreements, setAgreements }) {
+function Viewer({ person, leader, agreements, setAgreements, photos = {}, onUploadPhoto }) {
   const [dv, setDv] = useState("both");
   const [tab, setTab] = useState("profile");
   const [showWizard, setShowWizard] = useState(false);
@@ -1373,9 +1417,12 @@ function Viewer({ person, leader, agreements, setAgreements }) {
       )}
 
       <div style={{ marginBottom: 20, display: "flex", alignItems: "flex-start", justifyContent: "space-between" }}>
-        <div>
-          <h1 style={{ margin: 0, fontSize: 24, fontWeight: 800, letterSpacing: -0.5 }}>{sel.name}</h1>
-          <div style={{ fontSize: 12, color: C.muted, marginTop: 2 }}>Love Where You Lead Profile</div>
+        <div style={{ display: "flex", gap: 16, alignItems: "center" }}>
+          <PhotoAvatar personId={sel.id} name={sel.name} bgColor={C.disc[getDom(sel.disc.natural).split("/")[0]] || C.accent} photo={photos[sel.id]} onUpload={onUploadPhoto} size={72} square={true} />
+          <div>
+            <h1 style={{ margin: 0, fontSize: 24, fontWeight: 800, letterSpacing: -0.5 }}>{sel.name}</h1>
+            <div style={{ fontSize: 12, color: C.muted, marginTop: 2 }}>Love Where You Lead Profile · click photo to update</div>
+          </div>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", justifyContent: "flex-end" }}>
           <Btn onClick={() => setShowReport(true)} style={{ fontSize: 11 }}>📄 Environment Report</Btn>
@@ -1399,21 +1446,30 @@ function Viewer({ person, leader, agreements, setAgreements }) {
       ) : (<div>
 
       {/* DISC */}
-      <div style={{ background: C.card, borderRadius: 10, padding: "16px 20px", border: `1px solid ${C.border}`, marginBottom: 14 }}>
-        <Sec title="YOUR PREFERENCE" sub={"Preference — How your environment shaped your leadership"} color={C.disc[getDom(sel.disc.natural).split("/")[0]] || C.accent} />
+      <div style={{ background: C.card, borderRadius: 12, padding: 24, border: `1px solid ${C.border}`, marginBottom: 32, boxShadow: "0 1px 3px rgba(0,0,0,0.1)" }}>
+        <Sec title="DISC Profile" sub={"How your environment shaped your leadership"} color={C.disc[getDom(sel.disc.natural).split("/")[0]] || C.accent} />
         <div style={{ display: "flex", gap: 4, marginBottom: 12 }}>
           {["both", "natural", "adaptive"].map(v => (
             <button key={v} onClick={() => setDv(v)} style={{ padding: "4px 12px", borderRadius: 6, border: `1px solid ${dv === v ? C.accent : C.border}`, background: dv === v ? C.accent : "transparent", color: dv === v ? "#fff" : C.text, fontSize: 10, fontWeight: 600, cursor: "pointer", textTransform: "capitalize" }}>{v}</button>
           ))}
         </div>
-        <ResponsiveContainer width="100%" height={200}>
-          <BarChart data={discD} barGap={2}>
+        <ResponsiveContainer width="100%" height={220}>
+          <BarChart data={discD} barGap={8}>
             <CartesianGrid strokeDasharray="3 3" stroke="#eee" vertical={false} />
-            <XAxis dataKey="dim" tick={{ fontSize: 11, fontWeight: 700, fill: C.text }} axisLine={false} tickLine={false} />
-            <YAxis domain={[0, 100]} tick={{ fontSize: 9, fill: C.muted }} axisLine={false} tickLine={false} />
+            <XAxis dataKey="dim" tick={{ fontSize: 12, fontWeight: 600, fill: C.text }} axisLine={false} tickLine={false} />
+            <YAxis domain={[0, 100]} tick={{ fontSize: 11, fill: C.muted }} axisLine={false} tickLine={false} />
             <Tooltip content={<DTip />} />
-            {(dv === "both" || dv === "natural") && <Bar dataKey="Natural" barSize={dv === "both" ? 24 : 40} radius={[4, 4, 0, 0]}>{discD.map((e, i) => <Cell key={i} fill={C.disc[e.dim]} />)}</Bar>}
-            {(dv === "both" || dv === "adaptive") && <Bar dataKey="Adaptive" barSize={dv === "both" ? 24 : 40} radius={[4, 4, 0, 0]} fill={C.disc.gray} />}
+            {(dv === "both" || dv === "natural") && (
+              <Bar dataKey="Natural" barSize={40} radius={[4, 4, 0, 0]}>
+                {discD.map((e, i) => <Cell key={i} fill={C.disc[e.dim]} />)}
+                <LabelList dataKey="Natural" position="center" style={{ fontSize: 13, fontWeight: 700, fill: "#fff" }} />
+              </Bar>
+            )}
+            {(dv === "both" || dv === "adaptive") && (
+              <Bar dataKey="Adaptive" barSize={40} radius={[4, 4, 0, 0]} fill={C.disc.gray}>
+                <LabelList dataKey="Adaptive" position="center" style={{ fontSize: 13, fontWeight: 700, fill: "#fff" }} />
+              </Bar>
+            )}
           </BarChart>
         </ResponsiveContainer>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 6, marginTop: 8 }}>
@@ -1434,42 +1490,35 @@ function Viewer({ person, leader, agreements, setAgreements }) {
       </div>
 
       {/* VALUES */}
-      <div style={{ background: C.card, borderRadius: 10, padding: "16px 20px", border: `1px solid ${C.border}`, marginBottom: 14 }}>
-        <Sec title="YOUR PASSION" sub={"Passion — The fuel your leadership runs on"} color={C.values.Altruistic} />
-        <ResponsiveContainer width="100%" height={220}>
-          <BarChart data={valD} layout="vertical" barSize={18}>
+      <div style={{ background: C.card, borderRadius: 12, padding: 24, border: `1px solid ${C.border}`, marginBottom: 32, boxShadow: "0 1px 3px rgba(0,0,0,0.1)" }}>
+        <Sec title="Values &amp; Passion" sub={"The fuel your leadership runs on"} color={C.values.Altruistic} />
+        <ResponsiveContainer width="100%" height={280}>
+          <BarChart data={valD} layout="vertical" barSize={32} barCategoryGap="30%">
             <CartesianGrid strokeDasharray="3 3" stroke="#eee" horizontal={false} />
-            <XAxis type="number" domain={[0, 100]} tick={{ fontSize: 9, fill: C.muted }} axisLine={false} tickLine={false} />
-            <YAxis type="category" dataKey="name" width={95} tick={{ fontSize: 10, fontWeight: 600, fill: C.text }} axisLine={false} tickLine={false} />
+            <XAxis type="number" domain={[0, 100]} tick={{ fontSize: 11, fill: C.muted }} axisLine={false} tickLine={false} />
+            <YAxis type="category" dataKey="name" width={110} tick={{ fontSize: 13, fontWeight: 500, fill: C.text }} axisLine={false} tickLine={false} />
             <Tooltip content={<VTip />} />
-            <ReferenceLine x={40} stroke="#ddd" strokeDasharray="4 4" />
-            <ReferenceLine x={60} stroke="#ddd" strokeDasharray="4 4" />
-            <Bar dataKey="score" radius={[0, 4, 4, 0]}>{valD.map((e, i) => <Cell key={i} fill={e.color} />)}</Bar>
+            <Bar dataKey="score" radius={[0, 4, 4, 0]}>
+              {valD.map((e, i) => <Cell key={i} fill={e.color} />)}
+              <LabelList dataKey="score" position="insideRight" style={{ fontSize: 14, fontWeight: 700, fill: "#fff" }} offset={12} />
+            </Bar>
           </BarChart>
         </ResponsiveContainer>
-        <div style={{ display: "flex", gap: 5, flexWrap: "wrap", marginTop: 8 }}>
-          {valD.map(v => { const lv = valLevel(v.score); return (<div key={v.name} style={{ flex: "1 1 80px", padding: "6px 8px", borderRadius: 7, background: C.hi, border: `1px solid ${C.border}`, textAlign: "center", minWidth: 75 }}><div style={{ fontSize: 9, fontWeight: 700, color: v.color }}>{v.name}</div><div style={{ fontSize: 18, fontWeight: 800 }}>{v.score}</div><div style={{ fontSize: 9, fontWeight: 600, color: lv.c }}>{lv.l}</div></div>); })}
-        </div>
       </div>
 
       {/* ATTRIBUTES */}
-      <div style={{ background: C.card, borderRadius: 10, padding: "16px 20px", border: `1px solid ${C.border}`, marginBottom: 14 }}>
-        <Sec title="YOUR PROCESS" sub={"Process — How your mind works best"} color={C.attr.ext} />
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
-          {[{ label: "External — Heart, Hand, Head", color: C.attr.ext, data: sel.attr.ext, hasLabel: true }, { label: "Internal — Your Leadership Foundation", color: C.attr.int, data: sel.attr.int, hasLabel: false }].map(section => (
+      <div style={{ background: C.card, borderRadius: 12, padding: 24, border: `1px solid ${C.border}`, marginBottom: 32, boxShadow: "0 1px 3px rgba(0,0,0,0.1)" }}>
+        <Sec title="Process &amp; Attributes" sub={"How your mind works best"} color={C.attr.ext} />
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 32 }}>
+          {[{ label: "External", subtitle: "Heart · Hand · Head", color: C.attr.ext, data: sel.attr.ext, useLabel: true }, { label: "Internal", subtitle: "Foundation", color: C.attr.int, data: sel.attr.int, useLabel: false }].map(section => (
             <div key={section.label}>
-              <div style={{ fontSize: 10, fontWeight: 700, color: section.color, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 8 }}>{section.label}</div>
-              <ResponsiveContainer width="100%" height={140}>
-                <BarChart data={section.data} barSize={28}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#eee" vertical={false} />
-                  <XAxis dataKey={section.hasLabel ? "label" : "name"} tick={{ fontSize: 9, fill: C.text }} axisLine={false} tickLine={false} />
-                  <YAxis domain={[0, 10]} ticks={[0, 2, 4, 6, 8, 10]} tick={{ fontSize: 9, fill: C.muted }} axisLine={false} tickLine={false} />
-                  <Tooltip content={<ATip />} />
-                  <Bar dataKey="score" fill={section.color} radius={[4, 4, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-              <div style={{ display: "flex", gap: 5, marginTop: 6 }}>
-                {section.data.map(a => (<div key={a.name} style={{ flex: 1, padding: "6px 6px", borderRadius: 7, background: C.hi, border: `1px solid ${C.border}`, textAlign: "center" }}><div style={{ fontSize: 9, fontWeight: 600, color: C.muted, marginBottom: 2 }}>{a.name}</div><div style={{ fontSize: 16, fontWeight: 800, color: section.color }}>{a.score}</div><div style={{ marginTop: 3 }}><Bias bias={a.bias} /></div></div>))}
+              <div style={{ fontSize: 16, fontWeight: 600, color: section.color, marginBottom: 4 }}>{section.label}</div>
+              <div style={{ fontSize: 13, color: C.muted, marginBottom: 16 }}>{section.subtitle}</div>
+              <div style={{ display: "flex", gap: 8, justifyContent: "space-around" }}>
+                {section.data.map(a => (
+                  <CircleProgress key={a.name} value={a.score} max={10} color={section.color}
+                    label={section.useLabel ? a.label : a.name} name={section.useLabel ? a.name : ""} bias={a.bias} />
+                ))}
               </div>
             </div>
           ))}
@@ -1627,7 +1676,7 @@ function LeaderComparison({ leader, team }) {
 }
 
 // ────── TEAM INSIGHTS ──────
-function TeamInsights({ people, teamId, orgId, leaderId }) {
+function TeamInsights({ people, teamId, orgId, leaderId, photos = {}, onUploadPhoto }) {
   const [showSummary, setShowSummary] = useState(false);
   const complete = people.filter(p => p.orgId === orgId && (teamId ? p.teamId === teamId : true) && p.status !== "pending");
   const pending = people.filter(p => p.orgId === orgId && (teamId ? p.teamId === teamId : true) && p.status === "pending");
@@ -1711,7 +1760,7 @@ function TeamInsights({ people, teamId, orgId, leaderId }) {
   return (
     <div>
       {showSummary && (
-        <TeamSummary people={people} teamId={teamId} orgId={orgId} leader={leader} onClose={() => setShowSummary(false)} />
+        <TeamSummary people={people} teamId={teamId} orgId={orgId} leader={leader} onClose={() => setShowSummary(false)} photos={photos} onUploadPhoto={onUploadPhoto} />
       )}
       <div style={{ marginBottom: 20, display: "flex", alignItems: "flex-start", justifyContent: "space-between" }}>
         <div>
@@ -1723,7 +1772,7 @@ function TeamInsights({ people, teamId, orgId, leaderId }) {
 
       {/* 2B: Completion Tracker */}
       {total > 0 && (
-        <div style={{ background: C.card, borderRadius: 10, padding: "14px 20px", border: `1px solid ${C.border}`, marginBottom: 14 }}>
+        <div style={{ background: C.card, borderRadius: 12, padding: 24, border: `1px solid ${C.border}`, marginBottom: 32, boxShadow: "0 1px 3px rgba(0,0,0,0.1)" }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
             <div style={{ fontSize: 12, fontWeight: 700, color: C.text }}>Assessment Completion</div>
             <div style={{ fontSize: 11, fontWeight: 700, color: complete.length === total ? C.green : C.muted }}>{complete.length}/{total} complete</div>
@@ -1747,56 +1796,41 @@ function TeamInsights({ people, teamId, orgId, leaderId }) {
       )}
 
       {/* 1C: DISC Distribution */}
-      <div style={{ background: C.card, borderRadius: 12, padding: "20px 24px", border: `1px solid ${C.border}`, marginBottom: 16, boxShadow: "0 1px 3px rgba(0,0,0,0.04)" }}>
+      <div style={{ background: C.card, borderRadius: 12, padding: 24, border: `1px solid ${C.border}`, marginBottom: 32, boxShadow: "0 1px 3px rgba(0,0,0,0.1)" }}>
         <div style={{ marginBottom: 16 }}>
           <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.07em", textTransform: "uppercase", color: C.muted, marginBottom: 4 }}>THE TEAM YOU LEAD</div>
           <div style={{ fontSize: 13, color: C.muted }}>Natural DISC style distribution · {complete.length} assessed members</div>
         </div>
-        <div style={{ display: "flex", gap: 28, flexWrap: "wrap", alignItems: "flex-start" }}>
-          {/* Aggregated score bars — D, I, S, C */}
-          <div style={{ flex: "0 0 200px" }}>
-            {["D", "I", "S", "C"].map(d => {
-              const count = dimCounts[d];
-              const pct = complete.length > 0 ? Math.round((count / complete.length) * 100) : 0;
-              return (
-                <div key={d} style={{ marginBottom: 16 }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 5 }}>
-                    <span style={{ fontSize: 12, fontWeight: 700, color: C.disc[d] }}>{discFull[d]}</span>
-                    <span style={{ fontSize: 22, fontWeight: 800, color: count > 0 ? C.disc[d] : C.muted, lineHeight: 1 }}>{count}</span>
-                  </div>
-                  <div style={{ height: 8, background: C.hi, borderRadius: 4, overflow: "hidden" }}>
-                    <div style={{ height: "100%", width: `${pct}%`, background: C.disc[d], borderRadius: 4, transition: "width 0.6s ease-out" }} />
-                  </div>
-                  <div style={{ fontSize: 10, color: C.muted, marginTop: 3 }}>{pct}% of team</div>
+        {/* 4-column DISC card grid */}
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 32 }}>
+          {["D", "I", "S", "C"].map(d => {
+            const count = dimCounts[d];
+            const pct = complete.length > 0 ? Math.round((count / complete.length) * 100) : 0;
+            return (
+              <div key={d} style={{ background: C.card, borderRadius: 12, padding: 24, boxShadow: "0 1px 3px rgba(0,0,0,0.1)", borderLeft: `4px solid ${C.disc[d]}` }}>
+                <div style={{ fontSize: 28, fontWeight: 700, color: C.disc[d], lineHeight: 1, marginBottom: 8 }}>{d}</div>
+                <div style={{ fontSize: 56, fontWeight: 700, color: C.text, lineHeight: 1, marginBottom: 4 }}>{count}</div>
+                <div style={{ fontSize: 14, color: C.muted, marginBottom: 12 }}>{pct}%</div>
+                <div style={{ height: 6, background: C.hi, borderRadius: 4, overflow: "hidden" }}>
+                  <div style={{ height: "100%", width: `${pct}%`, background: C.disc[d], borderRadius: 4, transition: "width 0.6s ease-out" }} />
                 </div>
-              );
-            })}
-          </div>
-          {/* Dimension description cards with left-border accent */}
-          <div style={{ flex: 1, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, minWidth: 260 }}>
-            {["D", "I", "S", "C"].map(d => (
-              <div key={d} style={{ padding: "10px 14px", borderRadius: 8, background: C.card, border: `1px solid ${C.border}`, borderLeft: `3px solid ${C.disc[d]}`, boxShadow: "0 1px 2px rgba(0,0,0,0.03)" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 5 }}>
-                  <div style={{ fontSize: 11, fontWeight: 800, color: C.disc[d] }}>{discFull[d]}</div>
-                  <div style={{ marginLeft: "auto", fontSize: 18, fontWeight: 800, color: dimCounts[d] > 0 ? C.disc[d] : C.muted }}>{dimCounts[d]}</div>
-                </div>
-                <div style={{ fontSize: 10, color: C.muted, lineHeight: 1.4 }}>
-                  {dimCounts[d] > 0
-                    ? `${dimCounts[d]} ${dimCounts[d] === 1 ? "person is" : "people are"} ${discStyleDescs[d]}`
+                <div style={{ fontSize: 12, color: C.muted, marginTop: 10, lineHeight: 1.4 }}>
+                  {count > 0
+                    ? `${count} ${count === 1 ? "person is" : "people are"} ${discStyleDescs[d]}`
                     : `No ${discFull[d]}-dominant members.`}
                 </div>
               </div>
-            ))}
-          </div>
+            );
+          })}
         </div>
       </div>
 
       {/* 1D: Values Distribution */}
-      <div style={{ background: C.card, borderRadius: 10, padding: "16px 20px", border: `1px solid ${C.border}`, marginBottom: 14 }}>
-        <Sec title="WHAT YOUR TEAM RUNS ON" sub="Their Motivational Drivers" color={C.values.Altruistic} />
+      <div style={{ background: C.card, borderRadius: 12, padding: 24, border: `1px solid ${C.border}`, marginBottom: 32, boxShadow: "0 1px 3px rgba(0,0,0,0.1)" }}>
+        <Sec title="Team Values Distribution" sub="Motivational drivers across your team" color={C.values.Altruistic} />
         <div style={{ fontSize: 11, color: C.muted, marginBottom: 10 }}>Values with score ≥ 60 count as a Top Driver</div>
         <ResponsiveContainer width="100%" height={200}>
-          <BarChart data={valData} layout="vertical" barSize={16}>
+          <BarChart data={valData} layout="vertical" barSize={24} barCategoryGap="20%">
             <CartesianGrid strokeDasharray="3 3" stroke="#eee" horizontal={false} />
             <XAxis type="number" domain={[0, complete.length]} allowDecimals={false} tick={{ fontSize: 9, fill: C.muted }} axisLine={false} tickLine={false} />
             <YAxis type="category" dataKey="name" width={100} tick={{ fontSize: 10, fontWeight: 600, fill: C.text }} axisLine={false} tickLine={false} />
@@ -1815,8 +1849,8 @@ function TeamInsights({ people, teamId, orgId, leaderId }) {
       </div>
 
       {/* 1E: Attributes Distribution */}
-      <div style={{ background: C.card, borderRadius: 10, padding: "16px 20px", border: `1px solid ${C.border}`, marginBottom: 14 }}>
-        <Sec title="HOW YOUR TEAM DECIDES" sub="Their Decision-Making Order" color={C.attr.ext} />
+      <div style={{ background: C.card, borderRadius: 12, padding: 24, border: `1px solid ${C.border}`, marginBottom: 32, boxShadow: "0 1px 3px rgba(0,0,0,0.1)" }}>
+        <Sec title="How Your Team Decides" sub="Decision-making order by average attribute score" color={C.attr.ext} />
         <div style={{ fontSize: 11, color: C.muted, marginBottom: 12 }}>
           Ranked by team average score — this is the order your team processes decisions.
         </div>
@@ -2184,8 +2218,126 @@ function AuditDashboard({ person }) {
   );
 }
 
+// ────── LOGIN PAGE ──────
+function LoginPage({ onLogin }) {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [remember, setRemember] = useState(false);
+  const [focused, setFocused] = useState(null);
+
+  const inputStyle = (field) => ({
+    width: "100%", height: 48, padding: "0 16px", borderRadius: 8, fontSize: 16,
+    border: `1px solid ${focused === field ? C.blue : "#D1D5DB"}`,
+    boxShadow: focused === field ? "0 0 0 3px rgba(41,182,246,0.1)" : "none",
+    outline: "none", boxSizing: "border-box", transition: "border 0.15s, box-shadow 0.15s",
+    background: "#fff", color: C.text,
+  });
+
+  return (
+    <div style={{ minHeight: "100vh", background: "#F9FAFB", display: "flex", alignItems: "center", justifyContent: "center", padding: "24px 16px", fontFamily: "Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" }}>
+      <div style={{ width: "100%", maxWidth: 960, background: "#fff", borderRadius: 16, boxShadow: "0 4px 24px rgba(0,0,0,0.1)", display: "grid", gridTemplateColumns: "1fr 1fr", overflow: "hidden" }}>
+
+        {/* LEFT — Branding */}
+        <div style={{ background: "linear-gradient(160deg, #E3F7FF 0%, #F0FAF0 100%)", padding: 48, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", textAlign: "center" }}>
+          {/* Logo mark */}
+          <svg width="72" height="72" viewBox="0 0 72 72" fill="none" style={{ marginBottom: 12 }}>
+            <circle cx="36" cy="36" r="34" stroke={C.blue} strokeWidth="4" fill="#fff" />
+            <circle cx="36" cy="36" r="6" fill={C.blue} />
+            <line x1="36" y1="4" x2="36" y2="20" stroke={C.blue} strokeWidth="3" strokeLinecap="round" />
+            <line x1="36" y1="52" x2="36" y2="68" stroke={C.blue} strokeWidth="3" strokeLinecap="round" />
+            <line x1="4" y1="36" x2="20" y2="36" stroke={C.blue} strokeWidth="3" strokeLinecap="round" />
+            <line x1="52" y1="36" x2="68" y2="36" stroke={C.blue} strokeWidth="3" strokeLinecap="round" />
+            <line x1="36" y1="10" x2="48" y2="28" stroke="#FFC107" strokeWidth="2.5" strokeLinecap="round" />
+          </svg>
+
+          <div style={{ fontSize: 26, fontWeight: 800, color: C.text, lineHeight: 1.2, marginBottom: 12, letterSpacing: "-0.5px" }}>
+            LOVE WHERE<br />YOU LEAD
+          </div>
+          <div style={{ fontSize: 16, color: C.muted, marginBottom: 40, lineHeight: 1.5 }}>
+            The Environment You Need.<br />Right Where You Are.
+          </div>
+
+          {/* Illustration — team climbing steps */}
+          <svg width="280" height="220" viewBox="0 0 280 220" fill="none">
+            {/* Steps */}
+            <rect x="20" y="180" width="240" height="16" rx="4" fill={C.blue} opacity="0.15" />
+            <rect x="40" y="155" width="200" height="16" rx="4" fill={C.blue} opacity="0.2" />
+            <rect x="65" y="130" width="155" height="16" rx="4" fill={C.blue} opacity="0.3" />
+            <rect x="90" y="105" width="110" height="16" rx="4" fill={C.blue} opacity="0.4" />
+            <rect x="115" y="80" width="70" height="16" rx="4" fill={C.blue} opacity="0.55" />
+            {/* Flag */}
+            <line x1="150" y1="80" x2="150" y2="20" stroke="#1F2937" strokeWidth="2.5" strokeLinecap="round" />
+            <polygon points="150,20 175,33 150,46" fill="#FFC107" />
+            {/* Person 1 (front, blue) */}
+            <circle cx="140" cy="68" r="9" fill={C.blue} />
+            <path d="M132 90 Q140 78 148 90 L145 115 H135 Z" fill={C.blue} opacity="0.8" />
+            {/* Person 2 (middle, green) */}
+            <circle cx="110" cy="93" r="8" fill="#4CAF50" />
+            <path d="M103 112 Q110 101 117 112 L115 134 H106 Z" fill="#4CAF50" opacity="0.8" />
+            {/* Person 3 (back, navy) */}
+            <circle cx="82" cy="118" r="7" fill="#1F2937" />
+            <path d="M76 135 Q82 125 88 135 L86 155 H78 Z" fill="#1F2937" opacity="0.8" />
+            {/* Connecting lines (team connection) */}
+            <path d="M118 100 Q125 90 132 82" stroke={C.blue} strokeWidth="1.5" strokeDasharray="4 3" opacity="0.4" />
+            <path d="M89 124 Q100 112 103 108" stroke="#4CAF50" strokeWidth="1.5" strokeDasharray="4 3" opacity="0.4" />
+          </svg>
+        </div>
+
+        {/* RIGHT — Form */}
+        <div style={{ padding: 48, display: "flex", flexDirection: "column", justifyContent: "center" }}>
+          <div style={{ fontSize: 28, fontWeight: 700, color: C.text, marginBottom: 8 }}>Welcome back</div>
+          <div style={{ fontSize: 15, color: C.muted, marginBottom: 36 }}>Sign in to your Love Where You Lead account</div>
+
+          <form onSubmit={e => { e.preventDefault(); onLogin(); }} aria-label="Sign in form">
+            {/* Email */}
+            <div style={{ marginBottom: 20 }}>
+              <label style={{ display: "block", fontSize: 14, fontWeight: 500, color: "#374151", marginBottom: 6 }}>Email</label>
+              <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="Enter your email"
+                onFocus={() => setFocused("email")} onBlur={() => setFocused(null)}
+                style={inputStyle("email")} autoComplete="email" />
+            </div>
+
+            {/* Password */}
+            <div style={{ marginBottom: 20 }}>
+              <label style={{ display: "block", fontSize: 14, fontWeight: 500, color: "#374151", marginBottom: 6 }}>Password</label>
+              <input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="Enter your password"
+                onFocus={() => setFocused("password")} onBlur={() => setFocused(null)}
+                style={inputStyle("password")} autoComplete="current-password" />
+            </div>
+
+            {/* Remember me + Forgot password */}
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 28 }}>
+              <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 14, color: C.muted, cursor: "pointer" }}>
+                <input type="checkbox" checked={remember} onChange={e => setRemember(e.target.checked)} style={{ width: 16, height: 16, accentColor: C.blue }} />
+                Remember me
+              </label>
+              <button type="button" style={{ background: "none", border: "none", fontSize: 14, color: C.blue, cursor: "pointer", padding: 0, fontWeight: 500 }}
+                onMouseEnter={e => e.target.style.textDecoration = "underline"}
+                onMouseLeave={e => e.target.style.textDecoration = "none"}>
+                Forgot password?
+              </button>
+            </div>
+
+            {/* Sign In Button */}
+            <button type="submit" style={{ width: "100%", padding: "14px 24px", borderRadius: 8, border: "none", background: C.blue, color: "#fff", fontSize: 16, fontWeight: 600, cursor: "pointer", transition: "background 0.15s", letterSpacing: "0.1px" }}
+              onMouseEnter={e => e.currentTarget.style.background = "#1E88E5"}
+              onMouseLeave={e => e.currentTarget.style.background = C.blue}>
+              Sign In to Your Dashboard
+            </button>
+          </form>
+
+          <div style={{ marginTop: 20, textAlign: "center", fontSize: 12, color: C.muted }}>
+            🔒 Secure Login
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ────── MAIN SYSTEM ──────
 export default function BTCGSystem() {
+  const [loggedIn, setLoggedIn] = useState(false);
   const [orgs, setOrgs] = useState(initOrgs);
   const [people, setPeople] = useState(initPeople);
   const [selOrgId, setSelOrgId] = useState("org1");
@@ -2198,6 +2350,8 @@ export default function BTCGSystem() {
   const [newName, setNewName] = useState("");
   const [leaderId, setLeaderId] = useState(null);
   const [hoveredPersonId, setHoveredPersonId] = useState(null);
+  const [photos, setPhotos] = useState({});
+  const onUploadPhoto = (personId, dataUrl) => setPhotos(prev => ({ ...prev, [personId]: dataUrl }));
   const [showAddPending, setShowAddPending] = useState(false);
   const [pendingName, setPendingName] = useState("");
   const [agreements, setAgreements] = useState([]);
@@ -2235,30 +2389,14 @@ export default function BTCGSystem() {
 
   const domColor = (p) => { if (!p.disc) return C.border; const dom = getDom(p.disc.natural); return dom.includes("D") ? C.disc.D : dom.includes("I") ? C.disc.I : dom.includes("S") ? C.disc.S : C.disc.C; };
 
+  if (!loggedIn) return <LoginPage onLogin={() => setLoggedIn(true)} />;
+
   return (
-    <div style={{ fontFamily: "'DM Sans', 'Helvetica Neue', system-ui, sans-serif", background: C.bg, minHeight: "100vh", color: C.text }}>
+    <div style={{ fontFamily: "Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif", background: C.bg, minHeight: "100vh", color: C.text }}>
 
       {/* TOP BAR */}
-      <nav style={{ background: "#1A1A18", color: "#fff", height: "56px", padding: "0 24px", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
-        {/* Wordmark */}
-        <div style={{ fontWeight: 600, fontSize: 17, color: "#C8A96E", letterSpacing: "-0.3px" }}>Love Where You Lead</div>
-
-        {/* Right controls */}
-        <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-          {/* Mode toggle pill */}
-          <div style={{ display: "flex", background: "rgba(255,255,255,0.07)", borderRadius: 8, border: "1px solid rgba(255,255,255,0.1)" }}>
-            {[["team", "Team Mode"], ["individual", "Individual Mode"]].map(([m, label]) => (
-              <button key={m} onClick={() => setMode(m)} style={{ padding: "6px 14px", background: mode === m ? "rgba(255,255,255,0.12)" : "transparent", color: mode === m ? "#fff" : "rgba(255,255,255,0.5)", border: "none", fontSize: 11, fontWeight: 600, cursor: "pointer", letterSpacing: "0.2px", borderRadius: 7, transition: "all 0.15s ease-out" }}>{label}</button>
-            ))}
-          </div>
-          {mode === "team" && (<>
-            <select value={selOrgId} onChange={e => { setSelOrgId(e.target.value); setSelTeamId(null); }} style={{ padding: "5px 10px", borderRadius: 6, border: "1px solid rgba(255,255,255,0.12)", background: "rgba(255,255,255,0.07)", color: "#fff", fontSize: 11, fontWeight: 600 }}>
-              {orgs.map(o => <option key={o.id} value={o.id} style={{ color: "#000" }}>{o.name}</option>)}
-            </select>
-            <button onClick={() => setShowNewOrg(true)} style={{ padding: "5px 10px", borderRadius: 6, border: "1px solid rgba(255,255,255,0.12)", background: "transparent", color: "rgba(255,255,255,0.65)", fontSize: 11, fontWeight: 500, cursor: "pointer" }}>+ Org</button>
-            <div style={{ fontSize: 11, color: "rgba(255,255,255,0.35)" }}>{orgPeople.length} people</div>
-          </>)}
-        </div>
+      <nav style={{ background: "#1A1A18", color: "#fff", height: "48px", padding: "0 24px", display: "flex", alignItems: "center", flexShrink: 0 }}>
+        <div style={{ fontWeight: 700, fontSize: 13, color: "#C8A96E", letterSpacing: "0.5px", textTransform: "uppercase" }}>BTCG · Bridging the Connection Gap</div>
       </nav>
 
       {/* New Org Modal */}
@@ -2266,7 +2404,7 @@ export default function BTCGSystem() {
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 100 }}>
           <div style={{ background: C.card, borderRadius: 12, padding: 24, width: 360, boxShadow: "0 8px 32px rgba(0,0,0,0.15)" }}>
             <h3 style={{ margin: "0 0 12px", fontSize: 16, fontWeight: 700 }}>New Organization</h3>
-            <input value={newName} onChange={e => setNewName(e.target.value)} placeholder="Organization name..." style={{ width: "100%", padding: "10px 12px", borderRadius: 8, border: `1px solid ${C.border}`, fontSize: 13, boxSizing: "border-box", marginBottom: 12 }} autoFocus />
+            <input value={newName} onChange={e => setNewName(e.target.value)} placeholder="Organization name..." style={{ width: "100%", padding: 12, borderRadius: 8, border: "1px solid #D1D5DB", fontSize: 16, background: "#FFFFFF", boxSizing: "border-box", marginBottom: 16 }} autoFocus />
             <div style={{ display: "flex", gap: 8 }}><Btn primary onClick={addOrg}>Create</Btn><Btn onClick={() => { setShowNewOrg(false); setNewName(""); }}>Cancel</Btn></div>
           </div>
         </div>
@@ -2277,53 +2415,69 @@ export default function BTCGSystem() {
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 100 }}>
           <div style={{ background: C.card, borderRadius: 12, padding: 24, width: 360, boxShadow: "0 8px 32px rgba(0,0,0,0.15)" }}>
             <h3 style={{ margin: "0 0 12px", fontSize: 16, fontWeight: 700 }}>New Team in {org?.name}</h3>
-            <input value={newName} onChange={e => setNewName(e.target.value)} placeholder="Team name..." style={{ width: "100%", padding: "10px 12px", borderRadius: 8, border: `1px solid ${C.border}`, fontSize: 13, boxSizing: "border-box", marginBottom: 12 }} autoFocus />
+            <input value={newName} onChange={e => setNewName(e.target.value)} placeholder="Team name..." style={{ width: "100%", padding: 12, borderRadius: 8, border: "1px solid #D1D5DB", fontSize: 16, background: "#FFFFFF", boxSizing: "border-box", marginBottom: 16 }} autoFocus />
             <div style={{ display: "flex", gap: 8 }}><Btn primary onClick={addTeam}>Create</Btn><Btn onClick={() => { setShowNewTeam(false); setNewName(""); }}>Cancel</Btn></div>
           </div>
         </div>
       )}
 
-      <div style={{ display: "flex", minHeight: "calc(100vh - 44px)" }}>
+      <div style={{ display: "flex", minHeight: "calc(100vh - 48px)" }}>
 
-        {/* SIDEBAR — hidden in Individual mode */}
-        <div style={{ width: mode === "individual" ? 0 : 260, flexShrink: 0, background: C.card, borderRight: mode === "individual" ? "none" : `1px solid ${C.border}`, display: "flex", flexDirection: "column", maxHeight: "calc(100vh - 44px)", overflow: "hidden", transition: "width 0.25s" }}>
+        {/* SIDEBAR */}
+        <div style={{ width: 260, flexShrink: 0, background: "#FFFFFF", borderRight: `1px solid ${C.border}`, display: "flex", flexDirection: "column", maxHeight: "calc(100vh - 48px)", overflow: "hidden" }}>
 
-          {/* Teams */}
-          <div style={{ padding: "10px 10px 6px", borderBottom: `1px solid ${C.border}` }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-              <div style={{ fontSize: 9, fontWeight: 700, color: C.muted, textTransform: "uppercase", letterSpacing: 1 }}>Teams</div>
-              <button onClick={() => setShowNewTeam(true)} style={{ fontSize: 10, color: C.blue, background: "none", border: "none", cursor: "pointer", fontWeight: 600 }}>+ Add Team</button>
+          {/* Title */}
+          <div style={{ padding: "20px 16px 12px" }}>
+            <div style={{ fontSize: 22, fontWeight: 700, color: C.text, lineHeight: 1.2, marginBottom: 16 }}>Love Where You Lead</div>
+
+            {/* Mode Toggle */}
+            <div style={{ display: "flex", background: "#F3F4F6", borderRadius: 10, padding: 3, marginBottom: 16 }}>
+              {[["team", "Team Mode"], ["individual", "Individual Mode"]].map(([m, label]) => (
+                <button key={m} onClick={() => setMode(m)} style={{ flex: 1, padding: "8px 4px", background: mode === m ? C.blue : "transparent", color: mode === m ? "#fff" : C.blue, border: mode === m ? "none" : "none", fontSize: 13, fontWeight: 600, cursor: "pointer", borderRadius: 8, transition: "all 0.15s ease-out", outline: "none" }}>{label}</button>
+              ))}
             </div>
-            <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
-              <button onClick={() => { setSelTeamId(null); setSelPersonId(null); setView("teamInsights"); }} style={{ padding: "3px 9px", borderRadius: 5, border: `1px solid ${view === "teamInsights" && !selTeamId ? C.accent : C.border}`, background: view === "teamInsights" && !selTeamId ? C.accent : "transparent", color: view === "teamInsights" && !selTeamId ? "#fff" : C.text, fontSize: 10, fontWeight: 600, cursor: "pointer" }}>
-                All ({orgPeople.length})
-              </button>
-              {org?.teams.map(t => {
-                const count = orgPeople.filter(p => p.teamId === t.id).length;
-                const active = view === "teamInsights" && selTeamId === t.id;
-                return (
-                  <button key={t.id} onClick={() => { setSelTeamId(t.id); setSelPersonId(null); setView("teamInsights"); }} style={{ padding: "3px 9px", borderRadius: 5, border: `1px solid ${active ? C.accent : C.border}`, background: active ? C.accent : "transparent", color: active ? "#fff" : C.text, fontSize: 10, fontWeight: 600, cursor: "pointer" }}>
-                    {t.name} ({count})
-                  </button>
-                );
-              })}
-            </div>
-          </div>
 
-          {/* Upload Button */}
-          <div style={{ padding: "8px 10px", borderBottom: `1px solid ${C.border}` }}>
-            <button onClick={() => setView("upload")} style={{ width: "100%", padding: "8px 12px", borderRadius: 8, border: `2px dashed ${view === "upload" ? C.blue : C.border}`, background: view === "upload" ? "#E3F2FD" : C.hi, color: view === "upload" ? C.blue : C.text, fontSize: 11, fontWeight: 700, cursor: "pointer", transition: "all 0.15s" }}>
+            {/* Org Selection */}
+            {mode === "team" && (<>
+              <div style={{ fontSize: 13, fontWeight: 500, color: C.text, marginBottom: 6 }}>Organization selection</div>
+              <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
+                <select value={selOrgId} onChange={e => { setSelOrgId(e.target.value); setSelTeamId(null); }} style={{ flex: 1, padding: "8px 10px", borderRadius: 8, border: `1px solid ${C.border}`, background: "#fff", color: C.text, fontSize: 13, fontWeight: 500, outline: "none" }}>
+                  {orgs.map(o => <option key={o.id} value={o.id}>{o.name.length > 10 ? o.name.slice(0, 10) + "..." : o.name}</option>)}
+                </select>
+                <button onClick={() => setShowNewTeam(true)} style={{ padding: "8px 12px", borderRadius: 8, border: `1.5px solid ${C.blue}`, background: "#fff", color: C.blue, fontSize: 13, fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap" }}>+ Add Team</button>
+              </div>
+
+              {/* Team Filter Pills */}
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 16 }}>
+                <button onClick={() => { setSelTeamId(null); setSelPersonId(null); setView("teamInsights"); }} style={{ padding: "6px 14px", borderRadius: 20, border: `1.5px solid ${view === "teamInsights" && !selTeamId ? C.blue : C.border}`, background: view === "teamInsights" && !selTeamId ? C.blue : "#fff", color: view === "teamInsights" && !selTeamId ? "#fff" : C.text, fontSize: 13, fontWeight: 600, cursor: "pointer", transition: "all 0.15s" }}>
+                  All ({orgPeople.length})
+                </button>
+                {org?.teams.map(t => {
+                  const count = orgPeople.filter(p => p.teamId === t.id).length;
+                  const active = view === "teamInsights" && selTeamId === t.id;
+                  return (
+                    <button key={t.id} onClick={() => { setSelTeamId(t.id); setSelPersonId(null); setView("teamInsights"); }} style={{ padding: "6px 14px", borderRadius: 20, border: `1.5px solid ${active ? C.blue : C.border}`, background: active ? C.blue : "#fff", color: active ? "#fff" : C.text, fontSize: 13, fontWeight: 600, cursor: "pointer", transition: "all 0.15s" }}>
+                      {t.name} ({count})
+                    </button>
+                  );
+                })}
+              </div>
+            </>)}
+
+            {/* Upload Assessment Button */}
+            <button onClick={() => setView("upload")} style={{ width: "100%", padding: "14px 0", borderRadius: 10, border: "none", background: C.blue, color: "#fff", fontSize: 15, fontWeight: 700, cursor: "pointer", marginBottom: 12, transition: "opacity 0.15s" }}>
               + Upload Assessment
             </button>
-          </div>
 
-          {/* Search */}
-          <div style={{ padding: "8px 10px 4px" }}>
-            <input type="text" placeholder="Search by name..." value={search} onChange={e => setSearch(e.target.value)} style={{ width: "100%", padding: "7px 10px", borderRadius: 7, border: `1px solid ${C.border}`, fontSize: 11, background: C.hi, outline: "none", boxSizing: "border-box" }} />
+            {/* Search Bar */}
+            <div style={{ position: "relative" }}>
+              <span style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", color: C.muted, fontSize: 14, pointerEvents: "none" }}>🔍</span>
+              <input type="text" placeholder="Search" value={search} onChange={e => setSearch(e.target.value)} style={{ width: "100%", padding: "9px 10px 9px 32px", borderRadius: 8, border: `1px solid ${C.border}`, fontSize: 13, background: "#fff", outline: "none", boxSizing: "border-box" }} />
+            </div>
           </div>
 
           {/* People List */}
-          <div style={{ flex: 1, overflowY: "auto", padding: "4px 10px 10px" }}>
+          <div style={{ flex: 1, overflowY: "auto", padding: "4px 16px 16px" }}>
             {filtered.map(p => {
               const isPending = p.status === "pending";
               const isLeader = p.id === leaderId;
@@ -2334,14 +2488,16 @@ export default function BTCGSystem() {
                   onMouseEnter={() => setHoveredPersonId(p.id)}
                   onMouseLeave={() => setHoveredPersonId(null)}>
                   <button onClick={() => { if (!isPending) { setSelPersonId(p.id); setView("viewer"); } }} style={{
-                    width: "100%", textAlign: "left", padding: "10px 12px", background: isSelected ? C.hi : C.card,
-                    border: `1.5px solid ${isLeader ? "#FFC107" : isSelected ? C.accent : C.border}`,
+                    width: "100%", textAlign: "left", padding: "10px 12px", background: isSelected ? "rgba(41, 182, 246, 0.1)" : C.card,
+                    border: `1.5px solid ${isLeader ? "#FFC107" : isSelected ? "#29B6F6" : C.border}`,
                     borderRadius: 9, cursor: isPending ? "default" : "pointer", display: "flex", alignItems: "center", gap: 10, transition: "all 0.15s",
                     opacity: isPending ? 0.6 : 1
                   }}>
-                    <div style={{ width: 34, height: 34, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, fontSize: 12, color: isPending ? C.muted : "#fff", flexShrink: 0, background: isPending ? "#E0E0E0" : domColor(p), border: isPending ? `2px dashed ${C.border}` : "none" }}>
-                      {isPending ? "⏳" : p.name.split(" ").map(n => n[0]).join("").slice(0, 2)}
-                    </div>
+                    {isPending ? (
+                      <div style={{ width: 34, height: 34, borderRadius: 6, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, flexShrink: 0, background: "#E0E0E0", border: `2px dashed ${C.border}` }}>⏳</div>
+                    ) : (
+                      <PhotoAvatar personId={p.id} name={p.name} bgColor={domColor(p)} photo={photos[p.id]} onUpload={onUploadPhoto} size={34} square={true} />
+                    )}
                     <div style={{ minWidth: 0, flex: 1 }}>
                       <div style={{ fontWeight: 600, fontSize: 12, color: C.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                         {isLeader && <span style={{ color: "#FFC107", marginRight: 4 }}>★</span>}
@@ -2383,7 +2539,7 @@ export default function BTCGSystem() {
                 </div>
               </div>
             ) : (
-              <button onClick={() => setShowAddPending(true)} style={{ width: "100%", padding: "6px 0", background: "none", border: `1px dashed ${C.border}`, borderRadius: 7, color: C.muted, fontSize: 10, cursor: "pointer", marginTop: 4 }}>
+              <button onClick={() => setShowAddPending(true)} style={{ width: "100%", padding: "10px 0", background: "none", border: `2px dashed ${C.blue}`, borderRadius: 8, color: C.blue, fontSize: 13, fontWeight: 600, cursor: "pointer", marginTop: 8 }}>
                 + Add Expected Member
               </button>
             )}
@@ -2391,15 +2547,15 @@ export default function BTCGSystem() {
         </div>
 
         {/* MAIN CONTENT */}
-        <div style={{ flex: 1, padding: "16px 24px", overflowY: "auto", maxHeight: "calc(100vh - 44px)" }}>
+        <div style={{ flex: 1, padding: "16px 24px", overflowY: "auto", maxHeight: "calc(100vh - 48px)" }}>
           {mode === "individual" ? (
             <AuditDashboard person={selPerson} />
           ) : view === "upload" ? (
             <UploadForm orgs={orgs} selOrgId={selOrgId} selTeamId={selTeamId} onAdd={addPerson} onCancel={() => setView(selPerson ? "viewer" : "teamInsights")} />
           ) : view === "teamInsights" ? (
-            <TeamInsights people={people} teamId={selTeamId} orgId={selOrgId} leaderId={leaderId} />
+            <TeamInsights people={people} teamId={selTeamId} orgId={selOrgId} leaderId={leaderId} photos={photos} onUploadPhoto={onUploadPhoto} />
           ) : selPerson ? (
-            <Viewer person={selPerson} leader={people.find(p => p.id === leaderId) || null} agreements={agreements} setAgreements={setAgreements} />
+            <Viewer person={selPerson} leader={people.find(p => p.id === leaderId) || null} agreements={agreements} setAgreements={setAgreements} photos={photos} onUploadPhoto={onUploadPhoto} />
           ) : (
             <div style={{ textAlign: "center", padding: 60, color: C.muted }}>
               <div style={{ fontSize: 36, marginBottom: 12 }}>📋</div>
