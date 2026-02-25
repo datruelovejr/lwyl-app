@@ -4221,6 +4221,8 @@ export default function BTCGSystem() {
     }
     async function loadData() {
       try {
+        console.log('[LWYL] Loading data from Supabase...');
+
         const { data: dbOrgs, error: orgsError } = await supabase
           .from('organizations')
           .select('*')
@@ -4236,8 +4238,18 @@ export default function BTCGSystem() {
           .select('*')
           .order('created_at');
 
+        console.log('[LWYL] Query results:', {
+          orgs: dbOrgs?.length || 0,
+          teams: dbTeams?.length || 0,
+          people: dbPeople?.length || 0,
+          orgsError,
+          teamsError,
+          peopleError
+        });
+
         if (orgsError || teamsError || peopleError) {
           console.error('Error loading data:', orgsError || teamsError || peopleError);
+          alert(`Database error: ${(orgsError || teamsError || peopleError)?.message}`);
           setIsLoading(false);
           return;
         }
@@ -4267,17 +4279,23 @@ export default function BTCGSystem() {
             photoUrl: p.photo_url
           }));
 
+          console.log('[LWYL] Setting state with:', {
+            orgs: transformedOrgs.length,
+            people: transformedPeople.length
+          });
           setOrgs(transformedOrgs);
           setPeople(transformedPeople);
           if (transformedOrgs.length > 0) setSelOrgId(transformedOrgs[0].id);
           if (transformedPeople.length > 0) setSelPersonId(transformedPeople[0].id);
         } else {
+          console.log('[LWYL] No orgs found, seeding initial data...');
           // Seed initial data to database
           await seedDataToSupabase();
         }
         setDataLoaded(true);
       } catch (err) {
-        console.error('Failed to load data:', err);
+        console.error('[LWYL] Failed to load data:', err);
+        alert(`Failed to load data: ${err.message}`);
       } finally {
         setIsLoading(false);
       }
