@@ -4373,7 +4373,11 @@ export default function BTCGSystem() {
     setOrgs([...orgs, newOrg]);
     setSelOrgId(id); setNewName(""); setShowNewOrg(false);
     // Persist to Supabase
-    await supabase.from('organizations').insert({ id, name: newName.trim() });
+    const { error } = await supabase.from('organizations').insert({ id, name: newName.trim() });
+    if (error) {
+      console.error('Failed to save organization to database:', error);
+      alert(`Failed to save organization to database: ${error.message}`);
+    }
   };
 
   const addTeam = async () => {
@@ -4382,7 +4386,11 @@ export default function BTCGSystem() {
     setOrgs(orgs.map(o => o.id === selOrgId ? { ...o, teams: [...o.teams, { id: teamId, name: newName.trim() }] } : o));
     setNewName(""); setShowNewTeam(false);
     // Persist to Supabase
-    await supabase.from('teams').insert({ id: teamId, org_id: selOrgId, name: newName.trim() });
+    const { error } = await supabase.from('teams').insert({ id: teamId, org_id: selOrgId, name: newName.trim() });
+    if (error) {
+      console.error('Failed to save team to database:', error);
+      alert(`Failed to save team to database: ${error.message}`);
+    }
   };
 
   const addPerson = async (p, { bulk = false } = {}) => {
@@ -4392,7 +4400,7 @@ export default function BTCGSystem() {
       setView("viewer");
     }
     // Persist to Supabase
-    await supabase.from('people').insert({
+    const { error } = await supabase.from('people').insert({
       id: p.id,
       team_id: p.teamId,
       name: p.name,
@@ -4403,6 +4411,10 @@ export default function BTCGSystem() {
       values_data: p.values || null,
       attributes: p.attr || null,
     });
+    if (error) {
+      console.error('Failed to save person to database:', error);
+      alert(`Failed to save ${p.name} to database: ${error.message}`);
+    }
   };
 
   const addPendingPerson = async () => {
@@ -4414,12 +4426,16 @@ export default function BTCGSystem() {
     setPeople([...people, newPerson]);
     setPendingName(""); setShowAddPending(false);
     // Persist to Supabase
-    await supabase.from('people').insert({
+    const { error } = await supabase.from('people').insert({
       id: personId,
       team_id: teamId,
       name: nm,
       is_leader: false,
     });
+    if (error) {
+      console.error('Failed to save person to database:', error);
+      alert(`Failed to save ${nm} to database: ${error.message}`);
+    }
   };
 
   // Edit Team Name
