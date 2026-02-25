@@ -1,10 +1,11 @@
 'use client';
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, ReferenceLine, LabelList,
   PieChart, Pie, Legend
 } from "recharts";
+import { supabase, signIn, signUp, signOut, resetPassword, getSession, onAuthStateChange, getReflections, createReflection, deleteReflection } from "../lib/supabase";
 
 // ────── BRAND COLORS ──────
 const C = {
@@ -266,9 +267,624 @@ function parseAttributes(text) {
   return result;
 }
 
+// ────── FRICTION CALCULATION ──────
+// Calculate pairwise friction scores between two people
+function calculateFriction(personA, personB) {
+  const dims = ["D", "I", "S", "C"];
+
+  // PREFERENCE friction (DISC gaps)
+  // HIGH ≥ 40 pts | MODERATE 20–39 pts | LOW < 20 pts
+  const discGaps = dims.map(d => {
+    const aScore = personA.disc.natural[d];
+    const bScore = personB.disc.natural[d];
+    const gap = Math.abs(aScore - bScore);
+    const tier = gap >= 40 ? "high" : gap >= 20 ? "moderate" : "low";
+    return { dim: d, gap, tier, aScore, bScore };
+  });
+
+  const preferenceScore = discGaps.reduce((sum, g) => {
+    if (g.tier === "high") return sum + 3;
+    if (g.tier === "moderate") return sum + 1;
+    return sum;
+  }, 0);
+
+  // PASSION friction (Values gaps)
+  const aTopVals = Object.entries(personA.values).filter(([, s]) => s >= 60).map(([k]) => k);
+  const bTopVals = Object.entries(personB.values).filter(([, s]) => s >= 60).map(([k]) => k);
+  const sharedVals = aTopVals.filter(v => bTopVals.includes(v));
+  const aOnlyVals = aTopVals.filter(v => !bTopVals.includes(v));
+  const bOnlyVals = bTopVals.filter(v => !aTopVals.includes(v));
+  const passionScore = aOnlyVals.length + bOnlyVals.length; // More unshared = more friction
+
+  // PROCESS friction (Attributes bias comparison)
+  // CONFLICT = + vs − (3 pts) | TENSION = + vs = or − vs = (1 pt) | ALIGNED = same (0 pts)
+  const processBiasScore = (aBias, bBias) => {
+    if ((aBias === "+" && bBias === "−") || (aBias === "−" && bBias === "+")) return { resultType: "conflict", score: 3 };
+    if (aBias === bBias) return { resultType: "aligned", score: 0 };
+    return { resultType: "tension", score: 1 };
+  };
+
+  const processResults = ["Heart", "Hand", "Head"].map(attrLabel => {
+    const aAttr = personA.attr.ext.find(a => a.label === attrLabel);
+    const bAttr = personB.attr.ext.find(a => a.label === attrLabel);
+    if (!aAttr || !bAttr) return { label: attrLabel, resultType: "aligned", score: 0, aBias: "=", bBias: "=" };
+    const result = processBiasScore(aAttr.bias, bAttr.bias);
+    return { label: attrLabel, ...result, aBias: aAttr.bias, bBias: bAttr.bias };
+  });
+
+  const processScore = processResults.reduce((sum, r) => sum + r.score, 0);
+
+  // Aggregate score (weighted)
+  const totalScore = preferenceScore + passionScore + processScore;
+
+  // Tier for display
+  const tier = totalScore >= 12 ? "high" : totalScore >= 6 ? "moderate" : "low";
+
+  return {
+    preferenceScore,
+    passionScore,
+    processScore,
+    totalScore,
+    tier,
+    discGaps,
+    valuesDetail: { shared: sharedVals, aOnly: aOnlyVals, bOnly: bOnlyVals },
+    processResults
+  };
+}
+
+// ────── FRICTION MAP COMPONENT ──────
+function FrictionMap({ people, teamId, orgId, onClose, onViewComparison }) {
+  const [selectedPair, setSelectedPair] = useState(null);
+  const members = people.filter(p => p.orgId === orgId && (teamId ? p.teamId === teamId : true) && p.status !== "pending" && p.disc);
+
+  if (members.length < 2) {
+    return (
+      <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.55)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 300 }}>
+        <div style={{ background: C.card, borderRadius: 12, padding: 48, maxWidth: 400, textAlign: "center", boxShadow: "0 20px 25px rgba(0,0,0,0.15)" }}>
+          <div style={{ fontSize: 48, marginBottom: 16 }}>👥</div>
+          <div style={{ fontSize: 18, fontWeight: 700, color: C.text, marginBottom: 8 }}>Not Enough Data</div>
+          <div style={{ fontSize: 14, color: C.muted, marginBottom: 24 }}>Need at least 2 team members with complete assessments to generate a friction map.</div>
+          <Btn primary onClick={onClose}>Close</Btn>
+        </div>
+      </div>
+    );
+  }
+
+  // Calculate all pairwise friction
+  const frictionMatrix = {};
+  for (let i = 0; i < members.length; i++) {
+    for (let j = i + 1; j < members.length; j++) {
+      const key = `${members[i].id}-${members[j].id}`;
+      frictionMatrix[key] = {
+        personA: members[i],
+        personB: members[j],
+        friction: calculateFriction(members[i], members[j])
+      };
+    }
+  }
+
+  const getFriction = (idA, idB) => {
+    if (idA === idB) return null;
+    const key1 = `${idA}-${idB}`;
+    const key2 = `${idB}-${idA}`;
+    return frictionMatrix[key1] || frictionMatrix[key2];
+  };
+
+  const tierColors = {
+    high: { bg: "#FFEBEE", border: "#EF9A9A", text: "#B71C1C" },
+    moderate: { bg: "#FFF3E0", border: "#FFCC80", text: "#E65100" },
+    low: { bg: "#E8F5E9", border: "#A5D6A7", text: "#2E7D32" }
+  };
+
+  // Detail view for selected pair
+  if (selectedPair) {
+    const { personA, personB, friction } = selectedPair;
+    const tierStyle = tierColors[friction.tier];
+
+    return (
+      <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.55)", display: "flex", alignItems: "flex-start", justifyContent: "center", zIndex: 300, overflowY: "auto", padding: "24px 16px" }}>
+        <div style={{ background: C.card, borderRadius: 12, width: "min(700px, 100%)", boxShadow: "0 20px 25px rgba(0,0,0,0.15)" }}>
+          {/* Header */}
+          <div style={{ background: "#1F2937", color: "#fff", borderRadius: "12px 12px 0 0", padding: "20px 32px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <div>
+              <div style={{ fontWeight: 700, fontSize: 20, color: "#fff" }}>Friction Analysis</div>
+              <div style={{ fontSize: 14, color: "rgba(255,255,255,0.65)", marginTop: 2 }}>{personA.name} & {personB.name}</div>
+            </div>
+            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+              <button onClick={() => setSelectedPair(null)} style={{ padding: "8px 16px", borderRadius: 6, border: "1px solid rgba(255,255,255,0.3)", background: "rgba(255,255,255,0.1)", color: "#fff", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>Back to Map</button>
+              <button onClick={onClose} style={{ width: 32, height: 32, borderRadius: "50%", background: "rgba(255,255,255,0.1)", border: "none", cursor: "pointer", fontSize: 18, color: "rgba(255,255,255,0.7)", lineHeight: 1, display: "flex", alignItems: "center", justifyContent: "center" }}>✕</button>
+            </div>
+          </div>
+
+          <div style={{ padding: "24px 32px" }}>
+            {/* Overall score */}
+            <div style={{ background: tierStyle.bg, border: `1px solid ${tierStyle.border}`, borderRadius: 10, padding: 20, marginBottom: 20, textAlign: "center" }}>
+              <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: tierStyle.text, marginBottom: 6 }}>OVERALL FRICTION</div>
+              <div style={{ fontSize: 48, fontWeight: 800, color: tierStyle.text, lineHeight: 1 }}>{friction.totalScore}</div>
+              <div style={{ fontSize: 13, color: tierStyle.text, fontWeight: 600, marginTop: 4 }}>{friction.tier.toUpperCase()} FRICTION</div>
+            </div>
+
+            {/* Three pillars breakdown */}
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12, marginBottom: 20 }}>
+              {[
+                { label: "Preference", sub: "DISC Style Gaps", score: friction.preferenceScore, max: 12, color: C.disc.D },
+                { label: "Passion", sub: "Values Misalignment", score: friction.passionScore, max: 14, color: C.values.Altruistic },
+                { label: "Process", sub: "Bias Conflicts", score: friction.processScore, max: 9, color: C.attr.ext }
+              ].map(p => (
+                <div key={p.label} style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: 16, textAlign: "center" }}>
+                  <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: C.muted, marginBottom: 4 }}>{p.label}</div>
+                  <div style={{ fontSize: 32, fontWeight: 800, color: p.score >= p.max * 0.5 ? "#C62828" : p.score >= p.max * 0.25 ? "#E65100" : "#2E7D32", lineHeight: 1 }}>{p.score}</div>
+                  <div style={{ fontSize: 10, color: C.muted, marginTop: 4 }}>{p.sub}</div>
+                </div>
+              ))}
+            </div>
+
+            {/* DISC gaps detail */}
+            <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: 16, marginBottom: 12 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: C.muted, marginBottom: 12 }}>PREFERENCE GAPS (DISC)</div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                {friction.discGaps.map(g => {
+                  const ts = tierColors[g.tier];
+                  return (
+                    <div key={g.dim} style={{ padding: "10px 12px", borderRadius: 6, background: ts.bg, border: `1px solid ${ts.border}` }}>
+                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
+                        <span style={{ fontWeight: 700, color: C.disc[g.dim] }}>{discFull[g.dim]}</span>
+                        <span style={{ fontSize: 10, fontWeight: 700, color: ts.text, padding: "2px 8px", borderRadius: 8, background: "#fff" }}>{g.tier.toUpperCase()}</span>
+                      </div>
+                      <div style={{ fontSize: 12, color: C.text }}>
+                        {personA.name.split(" ")[0]}: {g.aScore} · {personB.name.split(" ")[0]}: {g.bScore} · Gap: {g.gap}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Values detail */}
+            <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: 16, marginBottom: 12 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: C.muted, marginBottom: 12 }}>PASSION GAPS (VALUES)</div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                {friction.valuesDetail.shared.length > 0 && (
+                  <div style={{ padding: "8px 12px", borderRadius: 6, background: "#E8F5E9", borderLeft: "3px solid #2E7D32" }}>
+                    <span style={{ fontSize: 10, fontWeight: 700, color: "#2E7D32" }}>SHARED: </span>
+                    {friction.valuesDetail.shared.map(v => (
+                      <span key={v} style={{ fontSize: 11, marginLeft: 6, padding: "2px 8px", borderRadius: 10, background: C.values[v] + "20", color: C.values[v], fontWeight: 600 }}>{v}</span>
+                    ))}
+                  </div>
+                )}
+                {friction.valuesDetail.aOnly.length > 0 && (
+                  <div style={{ padding: "8px 12px", borderRadius: 6, background: "#FFF3E0", borderLeft: "3px solid #E65100" }}>
+                    <span style={{ fontSize: 10, fontWeight: 700, color: "#E65100" }}>{personA.name.split(" ")[0]} ONLY: </span>
+                    {friction.valuesDetail.aOnly.map(v => (
+                      <span key={v} style={{ fontSize: 11, marginLeft: 6, padding: "2px 8px", borderRadius: 10, background: C.values[v] + "20", color: C.values[v], fontWeight: 600 }}>{v}</span>
+                    ))}
+                  </div>
+                )}
+                {friction.valuesDetail.bOnly.length > 0 && (
+                  <div style={{ padding: "8px 12px", borderRadius: 6, background: "#E3F2FD", borderLeft: "3px solid #1565C0" }}>
+                    <span style={{ fontSize: 10, fontWeight: 700, color: "#1565C0" }}>{personB.name.split(" ")[0]} ONLY: </span>
+                    {friction.valuesDetail.bOnly.map(v => (
+                      <span key={v} style={{ fontSize: 11, marginLeft: 6, padding: "2px 8px", borderRadius: 10, background: C.values[v] + "20", color: C.values[v], fontWeight: 600 }}>{v}</span>
+                    ))}
+                  </div>
+                )}
+                {friction.valuesDetail.shared.length === 0 && friction.valuesDetail.aOnly.length === 0 && friction.valuesDetail.bOnly.length === 0 && (
+                  <div style={{ fontSize: 12, color: C.muted, padding: 8 }}>No strong value drivers (≥60) for either person</div>
+                )}
+              </div>
+            </div>
+
+            {/* Process detail */}
+            <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: 16 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: C.muted, marginBottom: 12 }}>PROCESS GAPS (ATTRIBUTES)</div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                {friction.processResults.map(r => {
+                  const colors = { conflict: { bg: "#FFEBEE", border: "#B71C1C", text: "#B71C1C" }, tension: { bg: "#FFF3E0", border: "#E65100", text: "#E65100" }, aligned: { bg: "#E8F5E9", border: "#2E7D32", text: "#2E7D32" } };
+                  const c = colors[r.resultType];
+                  return (
+                    <div key={r.label} style={{ padding: "10px 14px", borderRadius: 6, background: c.bg, borderLeft: `3px solid ${c.border}`, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                      <div>
+                        <span style={{ fontSize: 13, fontWeight: 700, color: C.text }}>{r.label}</span>
+                        <span style={{ fontSize: 11, color: C.muted, marginLeft: 12 }}>{personA.name.split(" ")[0]}: {r.aBias} · {personB.name.split(" ")[0]}: {r.bBias}</span>
+                      </div>
+                      <span style={{ fontSize: 10, fontWeight: 700, color: c.text, padding: "2px 10px", borderRadius: 8, background: "#fff" }}>{r.resultType.toUpperCase()}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Main heatmap grid view
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.55)", display: "flex", alignItems: "flex-start", justifyContent: "center", zIndex: 300, overflowY: "auto", padding: "24px 16px" }}>
+      <div style={{ background: C.card, borderRadius: 12, width: "min(900px, 100%)", boxShadow: "0 20px 25px rgba(0,0,0,0.15)" }}>
+        {/* Header */}
+        <div style={{ background: "#1F2937", color: "#fff", borderRadius: "12px 12px 0 0", padding: "20px 32px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <div>
+            <div style={{ fontWeight: 700, fontSize: 24, color: "#fff" }}>Friction Map</div>
+            <div style={{ fontSize: 14, color: "rgba(255,255,255,0.65)", marginTop: 2 }}>{members.length} members · Pairwise conflict potential</div>
+          </div>
+          <button onClick={onClose} style={{ width: 32, height: 32, borderRadius: "50%", background: "rgba(255,255,255,0.1)", border: "none", cursor: "pointer", fontSize: 18, color: "rgba(255,255,255,0.7)", lineHeight: 1, display: "flex", alignItems: "center", justifyContent: "center" }}>✕</button>
+        </div>
+
+        <div style={{ padding: "24px 32px" }}>
+          {/* Legend */}
+          <div style={{ display: "flex", gap: 16, marginBottom: 20, fontSize: 11, color: C.muted }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 6 }}><div style={{ width: 16, height: 16, borderRadius: 4, background: tierColors.low.bg, border: `1px solid ${tierColors.low.border}` }} /> Low Friction</div>
+            <div style={{ display: "flex", alignItems: "center", gap: 6 }}><div style={{ width: 16, height: 16, borderRadius: 4, background: tierColors.moderate.bg, border: `1px solid ${tierColors.moderate.border}` }} /> Moderate</div>
+            <div style={{ display: "flex", alignItems: "center", gap: 6 }}><div style={{ width: 16, height: 16, borderRadius: 4, background: tierColors.high.bg, border: `1px solid ${tierColors.high.border}` }} /> High Friction</div>
+            <div style={{ marginLeft: "auto", fontWeight: 600 }}>Click any cell to see breakdown</div>
+          </div>
+
+          {/* Grid */}
+          <div style={{ overflowX: "auto" }}>
+            <table style={{ borderCollapse: "collapse", width: "100%", minWidth: members.length * 80 + 150 }}>
+              <thead>
+                <tr>
+                  <th style={{ padding: 8, fontSize: 11, fontWeight: 700, color: C.muted, textAlign: "left", borderBottom: `1px solid ${C.border}` }}></th>
+                  {members.map(m => (
+                    <th key={m.id} style={{ padding: 8, fontSize: 11, fontWeight: 600, color: C.text, textAlign: "center", borderBottom: `1px solid ${C.border}`, minWidth: 70 }}>
+                      {m.name.split(" ")[0]}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {members.map((rowPerson, rowIdx) => (
+                  <tr key={rowPerson.id}>
+                    <td style={{ padding: 8, fontSize: 11, fontWeight: 600, color: C.text, borderRight: `1px solid ${C.border}`, whiteSpace: "nowrap" }}>
+                      {rowPerson.name.split(" ")[0]}
+                    </td>
+                    {members.map((colPerson, colIdx) => {
+                      if (rowIdx === colIdx) {
+                        return (
+                          <td key={colPerson.id} style={{ padding: 6, textAlign: "center", background: "#F5F5F5" }}>
+                            <div style={{ width: 40, height: 40, margin: "0 auto", borderRadius: 6, background: "#E0E0E0", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, color: "#9E9E9E" }}>—</div>
+                          </td>
+                        );
+                      }
+                      // Only show lower triangle (avoid duplicates)
+                      if (colIdx > rowIdx) {
+                        return <td key={colPerson.id} style={{ padding: 6, background: "#FAFAFA" }}></td>;
+                      }
+                      const pair = getFriction(rowPerson.id, colPerson.id);
+                      if (!pair) return <td key={colPerson.id} style={{ padding: 6 }}></td>;
+                      const tc = tierColors[pair.friction.tier];
+                      return (
+                        <td key={colPerson.id} style={{ padding: 6, textAlign: "center" }}>
+                          <button
+                            onClick={() => setSelectedPair(pair)}
+                            style={{
+                              width: 48, height: 48, margin: "0 auto", borderRadius: 8,
+                              background: tc.bg, border: `2px solid ${tc.border}`,
+                              cursor: "pointer", display: "flex", flexDirection: "column",
+                              alignItems: "center", justifyContent: "center", transition: "transform 0.15s"
+                            }}
+                            onMouseEnter={e => e.currentTarget.style.transform = "scale(1.1)"}
+                            onMouseLeave={e => e.currentTarget.style.transform = "scale(1)"}
+                          >
+                            <div style={{ fontSize: 16, fontWeight: 800, color: tc.text, lineHeight: 1 }}>{pair.friction.totalScore}</div>
+                            <div style={{ fontSize: 8, fontWeight: 700, color: tc.text, opacity: 0.8, marginTop: 2 }}>{pair.friction.tier.slice(0, 3).toUpperCase()}</div>
+                          </button>
+                        </td>
+                      );
+                    })}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Top friction pairs */}
+          <div style={{ marginTop: 24 }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: C.text, marginBottom: 12 }}>Highest Friction Pairs</div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {Object.values(frictionMatrix)
+                .sort((a, b) => b.friction.totalScore - a.friction.totalScore)
+                .slice(0, 3)
+                .map((pair, i) => {
+                  const tc = tierColors[pair.friction.tier];
+                  return (
+                    <button
+                      key={i}
+                      onClick={() => setSelectedPair(pair)}
+                      style={{
+                        padding: "12px 16px", borderRadius: 8, background: tc.bg,
+                        border: `1px solid ${tc.border}`, cursor: "pointer",
+                        display: "flex", alignItems: "center", justifyContent: "space-between",
+                        textAlign: "left"
+                      }}
+                    >
+                      <div>
+                        <div style={{ fontSize: 13, fontWeight: 700, color: C.text }}>{pair.personA.name} & {pair.personB.name}</div>
+                        <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>
+                          Preference: {pair.friction.preferenceScore} · Passion: {pair.friction.passionScore} · Process: {pair.friction.processScore}
+                        </div>
+                      </div>
+                      <div style={{ fontSize: 24, fontWeight: 800, color: tc.text }}>{pair.friction.totalScore}</div>
+                    </button>
+                  );
+                })}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ────── VOICE JOURNAL COMPONENT ──────
+function VoiceJournal({ userId, people, teamId, orgId, onClose }) {
+  const [isRecording, setIsRecording] = useState(false);
+  const [transcript, setTranscript] = useState("");
+  const [reflections, setReflections] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [selectedPersonId, setSelectedPersonId] = useState("");
+  const [editingId, setEditingId] = useState(null);
+  const [editText, setEditText] = useState("");
+  const recognitionRef = useRef(null);
+
+  const teamMembers = people.filter(p => p.orgId === orgId && (teamId ? p.teamId === teamId : true) && p.status !== "pending");
+
+  // Load existing reflections (silently fails if table doesn't exist)
+  useEffect(() => {
+    async function loadReflections() {
+      try {
+        const data = await getReflections(userId);
+        setReflections(data || []);
+      } catch {
+        // Table may not exist yet - silently handle
+        setReflections([]);
+      } finally {
+        setLoading(false);
+      }
+    }
+    if (userId) {
+      loadReflections();
+    } else {
+      setLoading(false);
+    }
+  }, [userId]);
+
+  // Initialize speech recognition
+  useEffect(() => {
+    if (typeof window !== "undefined" && ("SpeechRecognition" in window || "webkitSpeechRecognition" in window)) {
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      recognitionRef.current = new SpeechRecognition();
+      recognitionRef.current.continuous = true;
+      recognitionRef.current.interimResults = true;
+      recognitionRef.current.lang = "en-US";
+
+      recognitionRef.current.onresult = (event) => {
+        let finalTranscript = "";
+        let interimTranscript = "";
+
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+          const result = event.results[i];
+          if (result.isFinal) {
+            finalTranscript += result[0].transcript;
+          } else {
+            interimTranscript += result[0].transcript;
+          }
+        }
+
+        setTranscript(prev => prev + finalTranscript + interimTranscript.replace(prev, ""));
+      };
+
+      recognitionRef.current.onerror = (event) => {
+        console.error("Speech recognition error:", event.error);
+        setIsRecording(false);
+      };
+
+      recognitionRef.current.onend = () => {
+        if (isRecording) {
+          // Restart if we're still supposed to be recording
+          try { recognitionRef.current.start(); } catch (e) { /* ignore */ }
+        }
+      };
+    }
+
+    return () => {
+      if (recognitionRef.current) {
+        try { recognitionRef.current.stop(); } catch (e) { /* ignore */ }
+      }
+    };
+  }, [isRecording]);
+
+  const toggleRecording = () => {
+    if (!recognitionRef.current) {
+      alert("Speech recognition is not supported in this browser. Please use Chrome, Edge, or Safari.");
+      return;
+    }
+
+    if (isRecording) {
+      recognitionRef.current.stop();
+      setIsRecording(false);
+    } else {
+      setTranscript("");
+      recognitionRef.current.start();
+      setIsRecording(true);
+    }
+  };
+
+  const saveReflection = async () => {
+    if (!transcript.trim()) return;
+
+    setSaving(true);
+    const reflection = {
+      id: crypto.randomUUID(),
+      leader_id: userId,
+      person_id: selectedPersonId || null,
+      content: transcript.trim(),
+      created_at: new Date().toISOString()
+    };
+
+    // Try to save to database, but store locally regardless
+    try {
+      await createReflection(reflection);
+    } catch {
+      // Database save failed (table may not exist) - continue with local storage
+    }
+
+    setReflections(prev => [reflection, ...prev]);
+    setTranscript("");
+    setSelectedPersonId("");
+    setSaving(false);
+  };
+
+  const handleDelete = async (id) => {
+    if (!confirm("Delete this reflection?")) return;
+    // Try to delete from database
+    try {
+      await deleteReflection(id);
+    } catch {
+      // Silently handle - table may not exist
+    }
+    setReflections(prev => prev.filter(r => r.id !== id));
+  };
+
+  const formatDate = (dateStr) => {
+    const date = new Date(dateStr);
+    return date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" });
+  };
+
+  const getPersonName = (personId) => {
+    const person = teamMembers.find(p => p.id === personId);
+    return person ? person.name : "General";
+  };
+
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.55)", display: "flex", alignItems: "flex-start", justifyContent: "center", zIndex: 300, overflowY: "auto", padding: "24px 16px" }}>
+      <div style={{ background: C.card, borderRadius: 12, width: "min(700px, 100%)", boxShadow: "0 20px 25px rgba(0,0,0,0.15)" }}>
+        {/* Header */}
+        <div style={{ background: "#1F2937", color: "#fff", borderRadius: "12px 12px 0 0", padding: "20px 32px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <div>
+            <div style={{ fontWeight: 700, fontSize: 20, color: "#fff" }}>Leader Reflections</div>
+            <div style={{ fontSize: 13, color: "rgba(255,255,255,0.65)", marginTop: 2 }}>Voice-powered journaling for leadership insights</div>
+          </div>
+          <button onClick={onClose} style={{ width: 32, height: 32, borderRadius: "50%", background: "rgba(255,255,255,0.1)", border: "none", cursor: "pointer", fontSize: 18, color: "rgba(255,255,255,0.7)" }}>✕</button>
+        </div>
+
+        <div style={{ padding: "24px 32px" }}>
+          {/* Recording section */}
+          <div style={{ background: isRecording ? "#FFEBEE" : C.hi, borderRadius: 12, padding: 24, marginBottom: 24, border: `2px solid ${isRecording ? "#EF5350" : C.border}`, transition: "all 0.3s" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 16 }}>
+              <button
+                onClick={toggleRecording}
+                style={{
+                  width: 64, height: 64, borderRadius: "50%",
+                  background: isRecording ? "#EF5350" : C.blue,
+                  border: "none", cursor: "pointer",
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  boxShadow: isRecording ? "0 0 0 8px rgba(239,83,80,0.2)" : "none",
+                  transition: "all 0.3s"
+                }}
+              >
+                {isRecording ? (
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="#fff"><rect x="6" y="6" width="12" height="12" rx="2" /></svg>
+                ) : (
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="#fff"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5.91-3c-.49 0-.9.36-.98.85C16.52 14.2 14.47 16 12 16c-2.47 0-4.52-1.8-4.93-4.15-.08-.49-.49-.85-.98-.85-.61 0-1.09.54-1 1.14.49 3 2.89 5.35 5.91 5.78V20c0 .55.45 1 1 1s1-.45 1-1v-2.08c3.02-.43 5.42-2.78 5.91-5.78.1-.6-.39-1.14-1-1.14z"/></svg>
+                )}
+              </button>
+              <div>
+                <div style={{ fontSize: 16, fontWeight: 700, color: isRecording ? "#C62828" : C.text }}>
+                  {isRecording ? "Recording..." : "Tap to Start Recording"}
+                </div>
+                <div style={{ fontSize: 12, color: C.muted }}>
+                  {isRecording ? "Tap again to stop" : "Share your leadership insights and reflections"}
+                </div>
+              </div>
+            </div>
+
+            {/* Transcript area */}
+            <textarea
+              value={transcript}
+              onChange={e => setTranscript(e.target.value)}
+              placeholder={isRecording ? "Listening..." : "Your voice transcript will appear here, or type directly..."}
+              style={{
+                width: "100%", minHeight: 120, padding: 16, borderRadius: 8,
+                border: `1px solid ${C.border}`, fontSize: 14, lineHeight: 1.6,
+                resize: "vertical", fontFamily: "inherit", background: "#fff"
+              }}
+            />
+
+            {/* Person selector and save */}
+            <div style={{ display: "flex", gap: 12, marginTop: 16, alignItems: "center" }}>
+              <div style={{ flex: 1 }}>
+                <label style={{ fontSize: 11, color: C.muted, display: "block", marginBottom: 4 }}>Associate with team member (optional)</label>
+                <select
+                  value={selectedPersonId}
+                  onChange={e => setSelectedPersonId(e.target.value)}
+                  style={{ width: "100%", padding: "10px 12px", borderRadius: 6, border: `1px solid ${C.border}`, fontSize: 13 }}
+                >
+                  <option value="">General reflection</option>
+                  {teamMembers.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
+                </select>
+              </div>
+              <Btn
+                primary
+                onClick={saveReflection}
+                disabled={!transcript.trim() || saving}
+                style={{ marginTop: 16 }}
+              >
+                {saving ? "Saving..." : "Save Reflection"}
+              </Btn>
+            </div>
+          </div>
+
+          {/* Past reflections */}
+          <div>
+            <div style={{ fontSize: 13, fontWeight: 700, color: C.muted, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 12 }}>
+              Past Reflections ({reflections.length})
+            </div>
+
+            {loading ? (
+              <div style={{ textAlign: "center", padding: 32, color: C.muted }}>Loading reflections...</div>
+            ) : reflections.length === 0 ? (
+              <div style={{ textAlign: "center", padding: 32, color: C.muted, background: C.hi, borderRadius: 8 }}>
+                <div style={{ fontSize: 32, marginBottom: 8 }}>🎙️</div>
+                <div>No reflections yet. Start recording to capture your leadership insights.</div>
+              </div>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 12, maxHeight: 400, overflowY: "auto" }}>
+                {reflections.map(r => (
+                  <div key={r.id} style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: 16 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
+                      <div>
+                        <span style={{ fontSize: 11, color: C.muted }}>{formatDate(r.created_at)}</span>
+                        {r.person_id && (
+                          <span style={{ fontSize: 11, marginLeft: 8, padding: "2px 8px", borderRadius: 10, background: C.blue + "15", color: C.blue, fontWeight: 600 }}>
+                            Re: {getPersonName(r.person_id)}
+                          </span>
+                        )}
+                      </div>
+                      <button
+                        onClick={() => handleDelete(r.id)}
+                        style={{ background: "none", border: "none", fontSize: 14, color: "#C62828", cursor: "pointer", opacity: 0.6 }}
+                        title="Delete"
+                      >✕</button>
+                    </div>
+                    <div style={{ fontSize: 14, color: C.text, lineHeight: 1.6 }}>{r.content}</div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ────── UPLOAD FORM ──────
 function UploadForm({ orgs, selOrgId, selTeamId: parentTeamId, onAdd, onCancel }) {
-  const [step, setStep] = useState("upload");
+  const [step, setStep] = useState("upload"); // "upload" | "entry" | "bulk" | "bulkResults"
   const [fileName, setFileName] = useState("");
   const [extractStatus, setExtractStatus] = useState(null);
   const [filledFields, setFilledFields] = useState(new Set());
@@ -280,12 +896,211 @@ function UploadForm({ orgs, selOrgId, selTeamId: parentTeamId, onAdd, onCancel }
     e_emp: "", e_empB: "=", e_pra: "", e_praB: "=", e_sys: "", e_sysB: "=",
     i_se: "", i_seB: "=", i_ra: "", i_raB: "=", i_sd: "", i_sdB: "="
   });
+
+  // Bulk upload states
+  const [bulkProgress, setBulkProgress] = useState({ current: 0, total: 0, currentFile: "" });
+  const [bulkResults, setBulkResults] = useState({ success: [], partial: [], failed: [] });
+  const [bulkTeamId, setBulkTeamId] = useState(parentTeamId || "");
+
   const fileRef = useRef();
   const org = orgs.find(o => o.id === selOrgId);
 
+  // Extract person data from a single PDF buffer - returns { success, data, name, error }
+  const extractFromPDF = async (arrayBuffer, fileName) => {
+    try {
+      const headerBytes = new Uint8Array(arrayBuffer.slice(0, 4));
+      const isPDF = headerBytes[0] === 0x25 && headerBytes[1] === 0x50 && headerBytes[2] === 0x44 && headerBytes[3] === 0x46;
+
+      if (!isPDF) {
+        return { success: false, error: "Not a PDF file", fileName };
+      }
+
+      let pdfResult;
+      try {
+        pdfResult = await extractTextFromPDF(arrayBuffer);
+      } catch (e) {
+        return { success: false, error: `PDF parsing failed: ${e.message}`, fileName };
+      }
+
+      const page2 = pdfResult.pageTexts[2] || "";
+      const page3 = pdfResult.pageTexts[3] || "";
+      const page4 = pdfResult.pageTexts[4] || "";
+
+      if (!page2 && !page3 && !page4) {
+        return { success: false, error: "No text found on pages 2-4", fileName };
+      }
+
+      const discData = page2 ? parseDISC(page2) : {};
+      const valData = page3 ? parseValues(page3) : {};
+      const attrData = page4 ? parseAttributes(page4) : {};
+
+      // Count extracted fields
+      const extracted = {};
+      let fieldCount = 0;
+
+      if (discData.name && discData.name.length > 1) extracted.name = discData.name;
+
+      const discFields = ["dN_D", "dN_I", "dN_S", "dN_C", "dA_D", "dA_I", "dA_S", "dA_C"];
+      for (const key of discFields) { if (discData[key]) { extracted[key] = discData[key]; fieldCount++; } }
+
+      const valFields = ["v_Aes", "v_Eco", "v_Ind", "v_Pol", "v_Alt", "v_Reg", "v_The"];
+      for (const key of valFields) { if (valData[key]) { extracted[key] = valData[key]; fieldCount++; } }
+
+      const attrScoreFields = ["e_emp", "e_pra", "e_sys", "i_se", "i_ra", "i_sd"];
+      const attrBiasFields = ["e_empB", "e_praB", "e_sysB", "i_seB", "i_raB", "i_sdB"];
+      for (const key of attrScoreFields) { if (attrData[key]) { extracted[key] = attrData[key]; fieldCount++; } }
+      for (const key of attrBiasFields) { if (attrData[key]) extracted[key] = attrData[key]; }
+
+      // Need at least name + 4 DISC natural scores for auto-submit
+      const hasName = !!extracted.name;
+      const hasMinDISC = extracted.dN_D && extracted.dN_I && extracted.dN_S && extracted.dN_C;
+
+      if (hasName && hasMinDISC) {
+        return { success: true, partial: fieldCount < 20, data: extracted, name: extracted.name, fileName, fieldCount };
+      } else {
+        const missing = [];
+        if (!hasName) missing.push("name");
+        if (!hasMinDISC) missing.push("DISC scores");
+        return { success: false, error: `Missing required: ${missing.join(", ")}`, fileName, data: extracted };
+      }
+    } catch (e) {
+      return { success: false, error: `Unexpected error: ${e.message}`, fileName };
+    }
+  };
+
+  // Create person object from extracted data
+  const createPersonFromData = (data, teamId) => ({
+    id: crypto.randomUUID(),
+    name: data.name,
+    orgId: selOrgId,
+    teamId: teamId,
+    disc: {
+      natural: { D: +data.dN_D || 0, I: +data.dN_I || 0, S: +data.dN_S || 0, C: +data.dN_C || 0 },
+      adaptive: { D: +data.dA_D || 0, I: +data.dA_I || 0, S: +data.dA_S || 0, C: +data.dA_C || 0 }
+    },
+    values: {
+      Aesthetic: +data.v_Aes || 0, Economic: +data.v_Eco || 0, Individualistic: +data.v_Ind || 0,
+      Political: +data.v_Pol || 0, Altruistic: +data.v_Alt || 0, Regulatory: +data.v_Reg || 0, Theoretical: +data.v_The || 0
+    },
+    attr: {
+      ext: [
+        { name: "Empathy", label: "Heart", score: +data.e_emp || 0, bias: data.e_empB || "=" },
+        { name: "Practical Thinking", label: "Hand", score: +data.e_pra || 0, bias: data.e_praB || "=" },
+        { name: "Systems Judgment", label: "Head", score: +data.e_sys || 0, bias: data.e_sysB || "=" }
+      ],
+      int: [
+        { name: "Self-Esteem", score: +data.i_se || 0, bias: data.i_seB || "=" },
+        { name: "Role Awareness", score: +data.i_ra || 0, bias: data.i_raB || "=" },
+        { name: "Self-Direction", score: +data.i_sd || 0, bias: data.i_sdB || "=" }
+      ]
+    }
+  });
+
+  // Process bulk files
+  const processBulkFiles = async (pdfFiles, teamId) => {
+    const results = { success: [], partial: [], failed: [] };
+
+    for (let i = 0; i < pdfFiles.length; i++) {
+      const { file, name } = pdfFiles[i];
+      setBulkProgress({ current: i + 1, total: pdfFiles.length, currentFile: name });
+
+      const arrayBuffer = await file.arrayBuffer();
+      const result = await extractFromPDF(arrayBuffer, name);
+
+      if (result.success) {
+        const person = createPersonFromData(result.data, teamId);
+        onAdd(person, { bulk: true });
+        if (result.partial) {
+          results.partial.push({ name: result.name, fileName: name, fieldCount: result.fieldCount });
+        } else {
+          results.success.push({ name: result.name, fileName: name });
+        }
+      } else {
+        results.failed.push({ fileName: name, error: result.error });
+      }
+    }
+
+    setBulkResults(results);
+    setStep("bulkResults");
+  };
+
   const handleFile = async (files) => {
     if (!files?.length) return;
-    const file = files[0];
+
+    // Check if multiple PDFs or a ZIP with PDFs
+    const fileArray = Array.from(files);
+
+    // If multiple files, go to bulk mode
+    if (fileArray.length > 1) {
+      const pdfFiles = fileArray.filter(f => f.name.toLowerCase().endsWith('.pdf'));
+      if (pdfFiles.length > 1) {
+        setBulkTeamId(parentTeamId || "");
+        setStep("bulk");
+        setBulkProgress({ current: 0, total: pdfFiles.length, currentFile: "" });
+        setBulkResults({ success: [], partial: [], failed: [] });
+        // Store files for processing after team selection
+        fileRef.current = pdfFiles.map(f => ({ file: f, name: f.name }));
+        return;
+      }
+    }
+
+    const file = fileArray[0];
+    const arrayBuffer = await file.arrayBuffer();
+    const headerBytes = new Uint8Array(arrayBuffer.slice(0, 4));
+    const isZIP = headerBytes[0] === 0x50 && headerBytes[1] === 0x4B;
+
+    // Check if ZIP contains multiple PDFs
+    if (isZIP) {
+      let JSZip;
+      try { JSZip = await loadJSZip(); } catch (e) {
+        // Fall back to single file mode for text-based ZIP
+        handleSingleFile(file, arrayBuffer);
+        return;
+      }
+
+      let zip;
+      try { zip = await JSZip.loadAsync(arrayBuffer); } catch (e) {
+        setFileName(file.name);
+        setStep("entry");
+        setExtractStatus("failed");
+        setExtractLog(`ZIP extraction failed: ${e.message}. Enter scores manually.`);
+        return;
+      }
+
+      // Check for PDF files in the ZIP
+      const pdfFiles = [];
+      for (const [path, zipEntry] of Object.entries(zip.files)) {
+        if (!zipEntry.dir && path.toLowerCase().endsWith('.pdf')) {
+          const pdfBuffer = await zipEntry.async('arraybuffer');
+          pdfFiles.push({ file: { arrayBuffer: () => Promise.resolve(pdfBuffer) }, name: path.split('/').pop() });
+        }
+      }
+
+      if (pdfFiles.length > 1) {
+        // Multiple PDFs in ZIP - bulk mode
+        setBulkTeamId(parentTeamId || "");
+        setStep("bulk");
+        setBulkProgress({ current: 0, total: pdfFiles.length, currentFile: "" });
+        setBulkResults({ success: [], partial: [], failed: [] });
+        fileRef.current = pdfFiles;
+        return;
+      } else if (pdfFiles.length === 1) {
+        // Single PDF in ZIP - extract and process
+        const pdfBuffer = await pdfFiles[0].file.arrayBuffer();
+        handleSingleFile({ name: pdfFiles[0].name }, pdfBuffer);
+        return;
+      }
+
+      // No PDFs - check for legacy text files (2.txt, 3.txt, 4.txt)
+      handleSingleFile(file, arrayBuffer);
+      return;
+    }
+
+    // Single file - use original logic
+    handleSingleFile(file, arrayBuffer);
+  };
+
+  const handleSingleFile = async (file, arrayBuffer) => {
     setFileName(file.name);
     setStep("entry");
     setExtractStatus("extracting");
@@ -293,13 +1108,6 @@ function UploadForm({ orgs, selOrgId, selTeamId: parentTeamId, onAdd, onCancel }
     setExtractLog("");
 
     try {
-      const arrayBuffer = await new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(reader.result);
-        reader.onerror = () => reject(new Error("Failed to read file"));
-        reader.readAsArrayBuffer(file);
-      });
-
       const headerBytes = new Uint8Array(arrayBuffer.slice(0, 4));
       const isPDF = headerBytes[0] === 0x25 && headerBytes[1] === 0x50 && headerBytes[2] === 0x44 && headerBytes[3] === 0x46;
       const isZIP = headerBytes[0] === 0x50 && headerBytes[1] === 0x4B;
@@ -404,7 +1212,7 @@ function UploadForm({ orgs, selOrgId, selTeamId: parentTeamId, onAdd, onCancel }
 
   const submit = () => {
     const person = {
-      id: "p" + Date.now(), name: form.name, orgId: selOrgId, teamId: form.teamId,
+      id: crypto.randomUUID(), name: form.name, orgId: selOrgId, teamId: form.teamId,
       disc: { natural: { D: +form.dN_D, I: +form.dN_I, S: +form.dN_S, C: +form.dN_C }, adaptive: { D: +form.dA_D || 0, I: +form.dA_I || 0, S: +form.dA_S || 0, C: +form.dA_C || 0 } },
       values: { Aesthetic: +form.v_Aes || 0, Economic: +form.v_Eco || 0, Individualistic: +form.v_Ind || 0, Political: +form.v_Pol || 0, Altruistic: +form.v_Alt || 0, Regulatory: +form.v_Reg || 0, Theoretical: +form.v_The || 0 },
       attr: {
@@ -449,9 +1257,136 @@ function UploadForm({ orgs, selOrgId, selTeamId: parentTeamId, onAdd, onCancel }
     "cdn-blocked": { bg: "#FFEBEE", border: "#EF9A9A", text: "#C62828", icon: "🚫" }
   };
 
+  // Bulk processing progress (check first - takes priority when processing is active)
+  if (step === "bulkProcessing") return (
+    <div style={{ padding: 48, maxWidth: 600, margin: "0 auto", background: C.card, borderRadius: 12, boxShadow: "0 1px 3px rgba(0,0,0,0.1)", textAlign: "center" }}>
+      <div style={{ fontSize: 48, marginBottom: 16 }}>⏳</div>
+      <div style={{ fontSize: 22, fontWeight: 700, color: C.text, marginBottom: 8 }}>Processing Assessments</div>
+      <div style={{ fontSize: 18, color: "#4CAF50", fontWeight: 600, marginBottom: 16 }}>
+        {bulkProgress.current} of {bulkProgress.total}
+      </div>
+      <div style={{ fontSize: 14, color: C.muted, marginBottom: 24 }}>{bulkProgress.currentFile}</div>
+      <div style={{ height: 8, background: "#E0E0E0", borderRadius: 4, overflow: "hidden" }}>
+        <div style={{
+          height: "100%", background: "#4CAF50", borderRadius: 4,
+          width: `${(bulkProgress.current / bulkProgress.total) * 100}%`,
+          transition: "width 0.3s ease"
+        }} />
+      </div>
+    </div>
+  );
+
+  // Bulk mode - team selection before processing
+  if (step === "bulk") return (
+    <div style={{ padding: 48, maxWidth: 600, margin: "0 auto", background: C.card, borderRadius: 12, boxShadow: "0 1px 3px rgba(0,0,0,0.1)" }}>
+      <div style={{ textAlign: "center", marginBottom: 32 }}>
+        <svg width="64" height="64" viewBox="0 0 64 64" fill="none" style={{ marginBottom: 16, display: "block", margin: "0 auto 16px" }}>
+          <circle cx="32" cy="32" r="32" fill="#E8F5E9" />
+          <path d="M22 32h20M32 22v20" stroke="#4CAF50" strokeWidth="3" strokeLinecap="round"/>
+          <path d="M18 24h8M38 24h8M18 40h8M38 40h8" stroke="#4CAF50" strokeWidth="2" strokeLinecap="round" opacity="0.5"/>
+        </svg>
+        <div style={{ fontSize: 22, fontWeight: 700, color: C.text, marginBottom: 8 }}>Bulk Upload</div>
+        <div style={{ fontSize: 16, color: C.muted }}>{fileRef.current?.length || 0} assessment files ready to process</div>
+      </div>
+
+      <div style={{ marginBottom: 24 }}>
+        <label style={{ fontSize: 14, fontWeight: 600, color: C.text, display: "block", marginBottom: 8 }}>Assign all to team *</label>
+        <select value={bulkTeamId} onChange={e => setBulkTeamId(e.target.value)} style={{
+          width: "100%", padding: 14, borderRadius: 8, fontSize: 16, boxSizing: "border-box",
+          border: `1px solid ${C.border}`, background: "#fff"
+        }}>
+          <option value="">Select team...</option>
+          {org?.teams.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+        </select>
+      </div>
+
+      <button
+        onClick={() => {
+          if (!bulkTeamId || !fileRef.current?.length) return;
+          setStep("bulkProcessing");
+          processBulkFiles(fileRef.current, bulkTeamId);
+        }}
+        disabled={!bulkTeamId}
+        style={{
+          width: "100%", padding: "14px 24px", borderRadius: 8, border: "none",
+          background: bulkTeamId ? "#4CAF50" : "#E0E0E0",
+          color: bulkTeamId ? "#fff" : "#9E9E9E",
+          fontSize: 16, fontWeight: 600, cursor: bulkTeamId ? "pointer" : "not-allowed", marginBottom: 16
+        }}
+      >
+        Process {fileRef.current?.length || 0} Files
+      </button>
+
+      <Btn onClick={onCancel} style={{ width: "100%" }}>Cancel</Btn>
+    </div>
+  );
+
+  // Bulk results summary
+  if (step === "bulkResults") return (
+    <div style={{ padding: 32, maxWidth: 700, margin: "0 auto", background: C.card, borderRadius: 12, boxShadow: "0 1px 3px rgba(0,0,0,0.1)" }}>
+      <div style={{ textAlign: "center", marginBottom: 24 }}>
+        <div style={{ fontSize: 48, marginBottom: 16 }}>
+          {bulkResults.failed.length === 0 ? "✅" : bulkResults.success.length > 0 ? "⚠️" : "❌"}
+        </div>
+        <div style={{ fontSize: 22, fontWeight: 700, color: C.text, marginBottom: 8 }}>Upload Complete</div>
+        <div style={{ fontSize: 16, color: C.muted }}>
+          {bulkResults.success.length + bulkResults.partial.length} added successfully
+          {bulkResults.failed.length > 0 && `, ${bulkResults.failed.length} failed`}
+        </div>
+      </div>
+
+      {bulkResults.success.length > 0 && (
+        <div style={{ marginBottom: 16 }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: "#2E7D32", marginBottom: 8, display: "flex", alignItems: "center", gap: 6 }}>
+            <span>✓</span> Fully Extracted ({bulkResults.success.length})
+          </div>
+          <div style={{ background: "#E8F5E9", borderRadius: 8, padding: 12, fontSize: 13 }}>
+            {bulkResults.success.map((r, i) => (
+              <div key={i} style={{ padding: "4px 0", color: "#2E7D32" }}>
+                {r.name} <span style={{ opacity: 0.6 }}>— {r.fileName}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {bulkResults.partial.length > 0 && (
+        <div style={{ marginBottom: 16 }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: "#E65100", marginBottom: 8, display: "flex", alignItems: "center", gap: 6 }}>
+            <span>⚠</span> Partial Extraction ({bulkResults.partial.length})
+          </div>
+          <div style={{ background: "#FFF3E0", borderRadius: 8, padding: 12, fontSize: 13 }}>
+            {bulkResults.partial.map((r, i) => (
+              <div key={i} style={{ padding: "4px 0", color: "#E65100" }}>
+                {r.name} <span style={{ opacity: 0.6 }}>— {r.fieldCount}/22 fields — {r.fileName}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {bulkResults.failed.length > 0 && (
+        <div style={{ marginBottom: 16 }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: "#C62828", marginBottom: 8, display: "flex", alignItems: "center", gap: 6 }}>
+            <span>✕</span> Failed ({bulkResults.failed.length})
+          </div>
+          <div style={{ background: "#FFEBEE", borderRadius: 8, padding: 12, fontSize: 13 }}>
+            {bulkResults.failed.map((r, i) => (
+              <div key={i} style={{ padding: "4px 0", color: "#C62828" }}>
+                {r.fileName} <span style={{ opacity: 0.8 }}>— {r.error}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <Btn primary onClick={onCancel} style={{ width: "100%" }}>Done</Btn>
+    </div>
+  );
+
   if (step === "upload") return (
     <div style={{ padding: 48, maxWidth: 600, margin: "0 auto", background: C.card, borderRadius: 12, boxShadow: "0 1px 3px rgba(0,0,0,0.1)" }}>
-      <div onDragOver={e => e.preventDefault()} onDrop={handleDrop} onClick={() => fileRef.current?.click()}
+      <div onDragOver={e => e.preventDefault()} onDrop={handleDrop} onClick={() => fileRef.current?.click?.() || document.getElementById('bulkFileInput')?.click()}
         style={{ border: "2px dashed #29B6F6", borderRadius: 12, padding: "48px 32px", textAlign: "center", cursor: "pointer", background: "#F9FAFB", transition: "all 0.15s", marginBottom: 24 }}>
         {/* Blue upload arrow SVG */}
         <svg width="64" height="64" viewBox="0 0 64 64" fill="none" style={{ marginBottom: 20, display: "block", margin: "0 auto 20px" }}>
@@ -459,14 +1394,14 @@ function UploadForm({ orgs, selOrgId, selTeamId: parentTeamId, onAdd, onCancel }
           <path d="M32 42V24M32 24L24 32M32 24L40 32" stroke="#29B6F6" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"/>
           <path d="M20 44h24" stroke="#29B6F6" strokeWidth="3" strokeLinecap="round"/>
         </svg>
-        <div style={{ fontSize: 22, fontWeight: 700, color: C.text, marginBottom: 8 }}>Drag &amp; Drop Your Assessment File Here</div>
+        <div style={{ fontSize: 22, fontWeight: 700, color: C.text, marginBottom: 8 }}>Drag &amp; Drop Assessment Files Here</div>
         <div style={{ fontSize: 14, color: C.muted, marginBottom: 4 }}>Or click to browse</div>
-        <div style={{ fontSize: 14, color: C.muted, marginBottom: 4 }}>Supported formats: PDF, DOCX</div>
-        <div style={{ fontSize: 14, color: C.muted }}>Max size: 10MB</div>
-        <input ref={fileRef} type="file" accept=".pdf" style={{ display: "none" }} onChange={e => handleFile(e.target.files)} />
+        <div style={{ fontSize: 14, color: "#4CAF50", fontWeight: 600, marginBottom: 4 }}>Drop multiple PDFs or a ZIP file for bulk upload</div>
+        <div style={{ fontSize: 14, color: C.muted }}>Supported: PDF, ZIP containing PDFs</div>
+        <input id="bulkFileInput" type="file" accept=".pdf,.zip" multiple style={{ display: "none" }} onChange={e => handleFile(e.target.files)} />
       </div>
-      <button onClick={() => fileRef.current?.click()} style={{ width: "100%", padding: "14px 24px", borderRadius: 8, border: "none", background: "#29B6F6", color: "#fff", fontSize: 16, fontWeight: 600, cursor: "pointer", marginBottom: 16 }}>
-        Select File to Upload
+      <button onClick={() => document.getElementById('bulkFileInput')?.click()} style={{ width: "100%", padding: "14px 24px", borderRadius: 8, border: "none", background: "#29B6F6", color: "#fff", fontSize: 16, fontWeight: 600, cursor: "pointer", marginBottom: 16 }}>
+        Select Files to Upload
       </button>
       <div style={{ display: "flex", gap: 8 }}>
         <Btn onClick={() => setStep("entry")} style={{ flex: 1 }}>Skip — Enter Scores Manually</Btn>
@@ -1101,31 +2036,33 @@ function EnvironmentReport({ person, onClose }) {
         <div style={{ padding: 48 }} id="report-content">
 
           {/* Cover */}
-          <div style={{ textAlign: "center", padding: "20px 0 28px", borderBottom: `1px solid ${C.border}`, marginBottom: 28 }}>
-            <div style={{ width: 64, height: 64, borderRadius: "50%", background: "#1A1A18", color: "#C8A96E", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: 22, margin: "0 auto 12px" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 16, padding: "20px 0 28px", borderBottom: `1px solid ${C.border}`, marginBottom: 28 }}>
+            <div style={{ width: 56, height: 56, borderRadius: "50%", background: "#1A1A18", color: "#C8A96E", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: 20, flexShrink: 0 }}>
               {p.name.split(" ").map(n => n[0]).join("").slice(0, 2)}
             </div>
-            <h1 style={{ margin: "0 0 4px", fontSize: 26, fontWeight: 800, letterSpacing: -0.5 }}>{p.name}</h1>
-            <div style={{ fontSize: 13, color: C.muted }}>Love Where You Lead — Environment Report</div>
-            <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>Generated {new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })}</div>
-            <div style={{ display: "inline-flex", gap: 8, marginTop: 14, flexWrap: "wrap", justifyContent: "center" }}>
-              {dims.map(d => <span key={d} style={{ padding: "4px 12px", borderRadius: 20, background: `${C.disc[d]}18`, color: C.disc[d], fontWeight: 800, fontSize: 12, border: `1px solid ${C.disc[d]}44` }}>{discFull[d].slice(0, 1)}: {p.disc.natural[d]}</span>)}
+            <div>
+              <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", marginBottom: 4 }}>
+                <h1 style={{ margin: 0, fontSize: 24, fontWeight: 800, letterSpacing: -0.5 }}>{p.name}</h1>
+                {dims.map(d => <span key={d} style={{ padding: "3px 10px", borderRadius: 4, background: C.disc[d], color: d === "I" ? "#111827" : "#fff", fontWeight: 700, fontSize: 11 }}>{d}:{p.disc.natural[d]}</span>)}
+              </div>
+              <div style={{ fontSize: 13, color: C.muted }}>Love Where You Lead — Environment Report</div>
+              <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>Generated {new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })}</div>
             </div>
           </div>
 
           {/* 1: YOUR PREFERENCE — Natural */}
           <ReportSection num={1} title="YOUR PREFERENCE — Natural Style">
             <p style={{ fontSize: 14, color: C.muted, margin: "0 0 16px", lineHeight: 1.6 }}>Your Natural style reflects how you are hardwired to lead when you are comfortable, off-guard, or under pressure. This is who you are when no one is adjusting for the room.</p>
-            <div style={{ background: "#F9FAFB", borderRadius: 8, padding: 24, marginBottom: 12 }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: 12, marginBottom: 12 }}>
             {discRows.map(({ d, full, nat }) => (
-              <div key={d} style={{ marginBottom: 12, padding: 16, borderRadius: 8, background: C.card, borderLeft: `4px solid ${C.disc[d]}` }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
-                  <div style={{ width: 32, height: 32, borderRadius: "50%", background: C.disc[d], display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, fontSize: 16, color: d === "I" ? "#111827" : "#fff", flexShrink: 0 }}>{d}</div>
-                  <span style={{ padding: "2px 8px", borderRadius: 10, fontSize: 11, fontWeight: 600, background: C.hi, color: C.muted, letterSpacing: "0.05em" }}>DISC</span>
-                  <span style={{ fontSize: 18, fontWeight: 600, color: C.text }}>{full} ({d})</span>
+              <div key={d} style={{ display: "flex", alignItems: "flex-start", gap: 20, padding: "16px 20px", borderRadius: 8, background: C.card, border: `1px solid ${C.border}`, borderLeft: `4px solid ${C.disc[d]}` }}>
+                <div style={{ flexShrink: 0, minWidth: 100 }}>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: C.disc[d], textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 4 }}>{full}</div>
+                  <div style={{ fontSize: 36, fontWeight: 800, color: C.disc[d], lineHeight: 1 }}>{nat}</div>
                 </div>
-                <div style={{ fontSize: 15, color: C.text, lineHeight: 1.6, marginBottom: 8 }}>{discInterp[d][discLevel(nat)]}</div>
-                <div style={{ fontSize: 13, color: C.muted }}>Score: {nat}</div>
+                <div style={{ flex: 1, paddingTop: 2 }}>
+                  <div style={{ fontSize: 13, color: C.text, lineHeight: 1.7 }}>{discInterp[d][discLevel(nat)]}</div>
+                </div>
               </div>
             ))}
             </div>
@@ -1134,24 +2071,25 @@ function EnvironmentReport({ person, onClose }) {
           {/* 2: Adaptive Style */}
           <ReportSection num={2} title="YOUR PREFERENCE — Adaptive Style">
             <p style={{ fontSize: 14, color: C.muted, margin: "0 0 16px", lineHeight: 1.6 }}>Your Adaptive style reflects how you are adjusting to the demands of your current environment. When Natural and Adaptive differ significantly, your environment is asking you to be someone you are not — and that costs energy.</p>
-            <div style={{ background: "#F9FAFB", borderRadius: 8, padding: 24, marginBottom: 12 }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: 12, marginBottom: 12 }}>
             {discRows.map(({ d, full, nat, adp, gap }) => {
               const absgap = Math.abs(gap);
               const costly = absgap >= 20;
               const dir = gap > 0 ? "Environment is demanding more " + full : "Environment is suppressing your " + full;
+              const borderColor = costly ? "#E65100" : C.disc[d];
               return (
-                <div key={d} style={{ marginBottom: 12, padding: 16, borderRadius: 8, background: C.card, borderLeft: costly ? "4px solid #E65100" : `4px solid ${C.disc[d]}` }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
-                    <div style={{ width: 32, height: 32, borderRadius: "50%", background: costly ? "#E65100" : C.disc[d], display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, fontSize: 16, color: d === "I" && !costly ? "#111827" : "#fff", flexShrink: 0 }}>{d}</div>
-                    <span style={{ padding: "2px 8px", borderRadius: 10, fontSize: 11, fontWeight: 600, background: C.hi, color: C.muted, letterSpacing: "0.05em" }}>DISC</span>
-                    <span style={{ fontSize: 18, fontWeight: 600, color: C.text }}>{full} ({d})</span>
-                    {costly && <span style={{ marginLeft: "auto", fontSize: 12, fontWeight: 600, color: "#E65100" }}>+{Math.abs(gap)} gap ⚡</span>}
+                <div key={d} style={{ display: "flex", alignItems: "flex-start", gap: 20, padding: "16px 20px", borderRadius: 8, background: C.card, border: `1px solid ${C.border}`, borderLeft: `4px solid ${borderColor}` }}>
+                  <div style={{ flexShrink: 0, minWidth: 100 }}>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: borderColor, textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 4 }}>{full}</div>
+                    <div style={{ fontSize: 36, fontWeight: 800, color: borderColor, lineHeight: 1 }}>{adp}</div>
+                    {costly && <div style={{ fontSize: 10, fontWeight: 600, color: "#E65100", marginTop: 4 }}>Δ{absgap} from natural</div>}
                   </div>
-                  <div style={{ fontSize: 15, color: C.text, lineHeight: 1.5, marginBottom: 8 }}>
-                    Natural: <strong>{nat}</strong> → Adaptive: <strong>{adp}</strong>
-                    {costly && <div style={{ fontSize: 13, color: "#E65100", marginTop: 4 }}>{dir}</div>}
+                  <div style={{ flex: 1, paddingTop: 2 }}>
+                    <div style={{ fontSize: 13, color: C.text, lineHeight: 1.7, marginBottom: costly ? 8 : 0 }}>
+                      Natural: <strong>{nat}</strong> → Adaptive: <strong>{adp}</strong>
+                    </div>
+                    {costly && <div style={{ fontSize: 13, color: "#E65100", lineHeight: 1.6 }}>{dir}</div>}
                   </div>
-                  <div style={{ fontSize: 13, color: C.muted }}>Score: {adp}</div>
                 </div>
               );
             })}
@@ -1303,65 +2241,118 @@ function EnvironmentReport({ person, onClose }) {
 }
 
 // ────── SPRINT 4B: TEAM SUMMARY ──────
-function TeamSummary({ people, teamId, orgId, leader, onClose, photos = {}, onUploadPhoto }) {
+function TeamSummary({ people, teamId, orgId, leader, onClose, photos = {}, onUploadPhoto, onViewProfile, onCompare, onShowTips }) {
   const members = people.filter(p => p.orgId === orgId && (teamId ? p.teamId === teamId : true) && p.status !== "pending");
+
+  // Generate insight text based on person's profile
+  const generateInsight = (p) => {
+    const dom = getDom(p.disc.natural);
+    const topVals = Object.entries(p.values).filter(([, s]) => s >= 60).sort((a, b) => b[1] - a[1]).map(([k]) => k);
+    const extLead = [...p.attr.ext].sort((a, b) => b.score - a.score)[0];
+    const firstName = p.name.split(" ")[0];
+
+    let insight = `${firstName} `;
+
+    // DISC-based insight
+    if (dom.includes("I") || dom.includes("S")) {
+      insight += "tends to focus on the people and process aspects of decisions, requiring collaboration and structure, ";
+    } else if (dom.includes("D")) {
+      insight += "drives toward results and quick decisions, preferring autonomy and direct communication, ";
+    } else {
+      insight += "approaches decisions with analytical precision and attention to detail, ";
+    }
+
+    // Attribute-based insight
+    if (extLead.label === "Heart") {
+      insight += "while prioritizing emotional considerations.";
+    } else if (extLead.label === "Hand") {
+      insight += "while prioritizing practical outcomes.";
+    } else {
+      insight += "while undervaluing emotional considerations.";
+    }
+
+    return insight;
+  };
 
   const summaryCard = (p) => {
     const dom = getDom(p.disc.natural);
+    const domStyles = dom.split("/").map(d => discFull[d]);
     const topVals = Object.entries(p.values).filter(([, s]) => s >= 60).sort((a, b) => b[1] - a[1]).map(([k]) => k);
     const extSorted = [...p.attr.ext].sort((a, b) => b.score - a.score);
-    const leaderTopVals = leader ? Object.entries(leader.values).filter(([, s]) => s >= 60).map(([k]) => k) : [];
-    const leaderDom = leader ? getDom(leader.disc.natural) : null;
 
     return (
-      <div key={p.id} style={{ background: C.card, borderRadius: 12, border: `1px solid ${C.border}`, pageBreakInside: "avoid", overflow: "hidden", boxShadow: "0 1px 3px rgba(0,0,0,0.1)" }}>
+      <div key={p.id} style={{ background: C.card, borderRadius: 12, border: `1px solid ${C.border}`, pageBreakInside: "avoid", overflow: "hidden", boxShadow: "0 1px 3px rgba(0,0,0,0.1)", marginBottom: 16 }}>
         {/* Card header */}
-        <div style={{ background: "#1F2937", padding: "16px", display: "flex", alignItems: "center", gap: 12 }}>
-          <PhotoAvatar personId={p.id} name={p.name} bgColor="rgba(255,255,255,0.2)" photo={photos[p.id]} onUpload={onUploadPhoto} size={44} square={true} />
+        <div style={{ background: "#1F2937", padding: "14px 20px", display: "flex", alignItems: "center", gap: 12 }}>
+          <PhotoAvatar personId={p.id} name={p.name} bgColor="rgba(255,255,255,0.2)" photo={photos[p.id]} onUpload={onUploadPhoto} size={40} square={false} />
           <div>
-            <div style={{ fontWeight: 700, fontSize: 15, color: "#fff" }}>{p.name}</div>
-            <div style={{ fontSize: 11, color: "rgba(255,255,255,0.6)", marginTop: 2 }}>Love Where You Lead</div>
+            <div style={{ fontWeight: 700, fontSize: 16, color: "#fff" }}>{p.name}</div>
+            <div style={{ fontSize: 11, color: "rgba(255,255,255,0.6)", marginTop: 1 }}>Love Where You Lead — Member Summary</div>
           </div>
         </div>
-        <div style={{ padding: 24 }}>
-          {/* DISC Badges Row */}
-          <div style={{ fontSize: 12, fontWeight: 600, color: C.muted, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 10 }}>DISC Profile</div>
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 20 }}>
-            {["D","I","S","C"].map(d => (
-              <span key={d} style={{ padding: "5px 14px", borderRadius: 20, fontSize: 14, fontWeight: 700, background: C.disc[d], color: d === "I" ? "#111827" : "#fff", letterSpacing: 0.2 }}>
-                {d} ({p.disc.natural[d]})
-              </span>
-            ))}
-          </div>
-          {/* Values List */}
-          <div style={{ fontSize: 12, fontWeight: 600, color: C.muted, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8 }}>Core Values</div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 12, marginBottom: 20 }}>
-            {topVals.length > 0 ? topVals.slice(0, 3).map(v => (
-              <div key={v} style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                <span style={{ width: 8, height: 8, borderRadius: "50%", background: C.values[v], flexShrink: 0 }} />
-                <span style={{ fontSize: 14, fontWeight: 500, color: C.text, flex: 1 }}>{v}</span>
-                <span style={{ fontSize: 14, fontWeight: 600, color: C.values[v] }}>{p.values[v]}</span>
-              </div>
-            )) : <div style={{ fontSize: 14, color: C.muted }}>No strong drivers (≥60)</div>}
-          </div>
-          {/* Attributes */}
-          <div style={{ fontSize: 12, fontWeight: 600, color: C.muted, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8 }}>Attributes</div>
-          <div style={{ display: "flex", gap: 8 }}>
-            <div style={{ flex: 1, padding: "10px 12px", borderRadius: 8, background: C.hi, borderLeft: `3px solid ${C.attr.ext}` }}>
-              <div style={{ fontSize: 11, fontWeight: 600, color: C.attr.ext, marginBottom: 6 }}>External</div>
-              {extSorted.map((a, i) => (
-                <div key={a.name} style={{ display: "flex", justifyContent: "space-between", fontSize: 13, color: i === 0 ? C.text : C.muted, fontWeight: i === 0 ? 600 : 400, marginBottom: 3 }}>
-                  <span>{i + 1}. {a.label}</span><span style={{ color: C.attr.ext, fontWeight: 600 }}>{a.score}</span>
-                </div>
+
+        {/* Three-column content */}
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1.2fr", gap: 0 }}>
+
+          {/* LEFT: Leadership Style + DISC + Top Drivers */}
+          <div style={{ padding: "16px 20px", borderRight: `1px solid ${C.border}` }}>
+            <div style={{ fontSize: 10, fontWeight: 700, color: C.muted, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8 }}>LEADERSHIP STYLE</div>
+            <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 14 }}>
+              {domStyles.map(style => (
+                <span key={style} style={{ padding: "4px 10px", borderRadius: 4, fontSize: 11, fontWeight: 700, background: "#FFC107", color: "#1F2937" }}>{style}</span>
               ))}
             </div>
-            <div style={{ flex: 1, padding: "10px 12px", borderRadius: 8, background: C.hi, borderLeft: `3px solid ${C.attr.int}` }}>
-              <div style={{ fontSize: 11, fontWeight: 600, color: C.attr.int, marginBottom: 6 }}>Internal</div>
-              {p.attr.int.map((a, i) => (
-                <div key={a.name} style={{ display: "flex", justifyContent: "space-between", fontSize: 13, color: i === 0 ? C.text : C.muted, fontWeight: i === 0 ? 600 : 400, marginBottom: 3 }}>
-                  <span>{a.name.split(" ")[0]}</span><span style={{ color: C.attr.int, fontWeight: 600 }}>{a.score}</span>
-                </div>
+
+            <div style={{ fontSize: 10, color: C.muted, marginBottom: 6 }}>Natural DISC scores</div>
+            <div style={{ fontSize: 12, color: C.text, marginBottom: 14 }}>
+              {["D","I","S","C"].map(d => (
+                <span key={d} style={{ marginRight: 8 }}>
+                  <span style={{ color: C.disc[d], fontWeight: 600 }}>{d}:</span>{p.disc.natural[d]}
+                </span>
               ))}
+            </div>
+
+            <div style={{ fontSize: 10, fontWeight: 700, color: C.muted, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8 }}>TOP DRIVERS</div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+              {topVals.length > 0 ? topVals.slice(0, 4).map(v => (
+                <div key={v} style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                  <span style={{ width: 6, height: 6, borderRadius: "50%", background: C.values[v], flexShrink: 0 }} />
+                  <span style={{ fontSize: 12, color: C.text }}>{v}</span>
+                </div>
+              )) : <div style={{ fontSize: 12, color: C.muted }}>No strong drivers</div>}
+            </div>
+          </div>
+
+          {/* MIDDLE: Decision Style (Attributes) */}
+          <div style={{ padding: "16px 20px", borderRight: `1px solid ${C.border}` }}>
+            <div style={{ fontSize: 10, fontWeight: 700, color: C.muted, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 10 }}>DECISION STYLE</div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {extSorted.map(a => {
+                const biasColor = a.bias === "+" ? "#2E7D32" : a.bias === "−" ? "#E65100" : C.muted;
+                const biasText = a.bias === "+" ? "Requires" : a.bias === "−" ? "Undervalues" : "Balanced";
+                return (
+                  <div key={a.name} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 10px", borderRadius: 6, background: a.bias === "+" ? "#F0FAF0" : a.bias === "−" ? "#FFF8F5" : C.hi, borderLeft: `3px solid ${biasColor}` }}>
+                    <span style={{ fontSize: 12, fontWeight: 700, color: C.text, minWidth: 40 }}>{a.label}</span>
+                    <span style={{ fontSize: 14, fontWeight: 800, color: biasColor }}>{a.score}</span>
+                    <span style={{ fontSize: 10, color: biasColor, fontWeight: 600 }}>{biasText}</span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* RIGHT: What Your Leader Learned + Go Deeper */}
+          <div style={{ padding: "16px 20px", background: "#FFFDE7" }}>
+            <div style={{ fontSize: 10, fontWeight: 700, color: "#9A7A42", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8 }}>WHAT YOUR LEADER LEARNED</div>
+            <div style={{ fontSize: 12, color: C.text, lineHeight: 1.6, marginBottom: 16 }}>
+              {leader ? generateInsight(p) : "Designate a leader to see personalized insights"}
+            </div>
+
+            <div style={{ fontSize: 10, fontWeight: 700, color: "#9A7A42", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8 }}>GO DEEPER</div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              <button onClick={() => { onClose(); onViewProfile?.(p.id); }} style={{ background: "none", border: "none", padding: 0, fontSize: 12, color: C.blue, cursor: "pointer", textAlign: "left", textDecoration: "underline" }}>View full profile</button>
+              <button onClick={() => { onClose(); onCompare?.(p.id); }} style={{ background: "none", border: "none", padding: 0, fontSize: 12, color: C.blue, cursor: "pointer", textAlign: "left", textDecoration: "underline" }}>Compare with others</button>
+              <button onClick={() => { onClose(); onShowTips?.(p.id); }} style={{ background: "none", border: "none", padding: 0, fontSize: 12, color: C.blue, cursor: "pointer", textAlign: "left", textDecoration: "underline" }}>See leadership tips</button>
             </div>
           </div>
         </div>
@@ -1382,11 +2373,11 @@ function TeamSummary({ people, teamId, orgId, leader, onClose, photos = {}, onUp
             <button onClick={onClose} style={{ width: 32, height: 32, borderRadius: "50%", background: "rgba(255,255,255,0.1)", border: "none", cursor: "pointer", fontSize: 18, color: "rgba(255,255,255,0.7)", lineHeight: 1, display: "flex", alignItems: "center", justifyContent: "center" }}>✕</button>
           </div>
         </div>
-        <div style={{ padding: 48 }}>
+        <div style={{ padding: "32px 48px" }}>
           {members.length === 0 ? (
             <div style={{ textAlign: "center", padding: 40, color: C.muted }}>No complete assessments to summarize.</div>
           ) : (
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 24 }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
               {members.map(p => summaryCard(p))}
             </div>
           )}
@@ -1396,12 +2387,627 @@ function TeamSummary({ people, teamId, orgId, leader, onClose, photos = {}, onUp
   );
 }
 
+// ────── LEADERSHIP TIPS MODAL ──────
+function LeadershipTips({ person, onClose }) {
+  const p = person;
+  const dom = getDom(p.disc.natural);
+  const topVals = Object.entries(p.values).filter(([, s]) => s >= 60).sort((a, b) => b[1] - a[1]).map(([k]) => k);
+  const extLead = [...p.attr.ext].sort((a, b) => b.score - a.score)[0];
+  const firstName = p.name.split(" ")[0];
+
+  // Generate DISC-based tips
+  const discTips = [];
+  if (p.disc.natural.D >= 60) {
+    discTips.push({ title: "Leverage their drive", tip: `${firstName} thrives when given challenges and autonomy. Assign them problems to solve, not tasks to complete. Avoid micromanaging.` });
+  }
+  if (p.disc.natural.I >= 60) {
+    discTips.push({ title: "Feed their need for connection", tip: `${firstName} needs verbal recognition and social energy. Schedule regular check-ins and celebrate wins publicly.` });
+  }
+  if (p.disc.natural.S >= 60) {
+    discTips.push({ title: "Provide stability", tip: `${firstName} values consistency and clear expectations. Avoid sudden changes without explanation. Give them time to process before expecting buy-in.` });
+  }
+  if (p.disc.natural.C >= 60) {
+    discTips.push({ title: "Respect their precision", tip: `${firstName} needs data and time to analyze. Don't rush decisions. Provide written details and allow questions.` });
+  }
+
+  // Generate Values-based tips
+  const valuesTips = topVals.slice(0, 2).map(v => {
+    const tips = {
+      Aesthetic: { title: "Honor their need for harmony", tip: `${firstName} is energized by balance and creative expression. Involve them in decisions about team culture and environment.` },
+      Economic: { title: "Show the ROI", tip: `${firstName} wants to know the return on their investment of time and energy. Frame requests in terms of practical outcomes.` },
+      Individualistic: { title: "Give them autonomy", tip: `${firstName} craves independence. Avoid micromanagement. Let them forge their own path to results.` },
+      Political: { title: "Acknowledge their influence", tip: `${firstName} is motivated by leadership and impact. Give them visibility and ownership over important initiatives.` },
+      Altruistic: { title: "Connect work to purpose", tip: `${firstName} needs to know their work helps others. Frame projects in terms of who benefits.` },
+      Regulatory: { title: "Provide structure", tip: `${firstName} thrives with clear rules and processes. Ambiguity drains them. Document expectations clearly.` },
+      Theoretical: { title: "Feed their curiosity", tip: `${firstName} is energized by learning. Give them opportunities to research, analyze, and understand deeply.` }
+    };
+    return tips[v];
+  }).filter(Boolean);
+
+  // Generate Attribute-based tips
+  const attrTips = [];
+  if (extLead.label === "Heart") {
+    attrTips.push({ title: "Lead with people impact", tip: `When presenting decisions to ${firstName}, start with how it affects relationships and team dynamics before covering strategy or numbers.` });
+  } else if (extLead.label === "Hand") {
+    attrTips.push({ title: "Lead with practical outcomes", tip: `When presenting decisions to ${firstName}, start with what works and the tangible results before theory or people considerations.` });
+  } else {
+    attrTips.push({ title: "Lead with logic and systems", tip: `When presenting decisions to ${firstName}, start with the framework, data, and structure before the human story.` });
+  }
+
+  // Bias-based tips
+  p.attr.ext.forEach(a => {
+    if (a.bias === "−") {
+      attrTips.push({ title: `Reactivate their ${a.label}`, tip: `${firstName}'s ${a.label} lens has been undervalued. Create safe opportunities for them to use this capacity again.` });
+    }
+  });
+
+  const allTips = [...discTips, ...valuesTips, ...attrTips];
+
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.55)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 300, padding: "24px 16px" }}>
+      <div style={{ background: C.card, borderRadius: 12, width: "min(600px, 100%)", maxHeight: "85vh", display: "flex", flexDirection: "column", boxShadow: "0 20px 25px rgba(0,0,0,0.15)" }}>
+        <div style={{ background: "#1F2937", color: "#fff", borderRadius: "12px 12px 0 0", padding: "20px 24px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <div>
+            <div style={{ fontWeight: 700, fontSize: 20, color: "#fff" }}>Leadership Tips for {p.name}</div>
+            <div style={{ fontSize: 12, color: "rgba(255,255,255,0.65)", marginTop: 2 }}>How to lead this person effectively</div>
+          </div>
+          <button onClick={onClose} style={{ width: 32, height: 32, borderRadius: "50%", background: "rgba(255,255,255,0.1)", border: "none", cursor: "pointer", fontSize: 18, color: "rgba(255,255,255,0.7)" }}>✕</button>
+        </div>
+        <div style={{ padding: 24, overflowY: "auto" }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            {allTips.map((t, i) => (
+              <div key={i} style={{ padding: "14px 16px", borderRadius: 8, background: C.card, border: `1px solid ${C.border}`, borderLeft: "4px solid #C8A96E" }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: "#9A7A42", marginBottom: 6 }}>{t.title}</div>
+                <div style={{ fontSize: 13, color: C.text, lineHeight: 1.6 }}>{t.tip}</div>
+              </div>
+            ))}
+          </div>
+          <div style={{ marginTop: 20, padding: "14px 16px", borderRadius: 8, background: "#FFFDE7", border: "1px solid #FFF59D" }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: "#9A7A42", marginBottom: 4 }}>REMEMBER</div>
+            <div style={{ fontSize: 12, color: C.text, lineHeight: 1.6 }}>
+              These tips are based on {firstName}'s assessment data. The best leadership comes from ongoing conversation — use these as starting points, not rules.
+            </div>
+          </div>
+        </div>
+        <div style={{ padding: "16px 24px", borderTop: `1px solid ${C.border}`, display: "flex", justifyContent: "flex-end" }}>
+          <Btn primary onClick={onClose}>Done</Btn>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ────── COMPARE WITH OTHERS MODAL ──────
+function CompareWithOthers({ person, team, onClose, photos = {} }) {
+  const [selectedMemberId, setSelectedMemberId] = useState(null);
+  const p = person;
+  const otherMembers = team.filter(m => m.id !== p.id && m.status !== "pending");
+  const selectedMember = otherMembers.find(m => m.id === selectedMemberId);
+
+  // Calculate team averages
+  const teamAvgs = {
+    disc: { D: 0, I: 0, S: 0, C: 0 },
+    values: {},
+    attr: { Heart: 0, Hand: 0, Head: 0 }
+  };
+
+  if (otherMembers.length > 0) {
+    otherMembers.forEach(m => {
+      ["D", "I", "S", "C"].forEach(d => { teamAvgs.disc[d] += m.disc.natural[d]; });
+      Object.keys(m.values).forEach(v => { teamAvgs.values[v] = (teamAvgs.values[v] || 0) + m.values[v]; });
+      m.attr.ext.forEach(a => { teamAvgs.attr[a.label] += a.score; });
+    });
+    ["D", "I", "S", "C"].forEach(d => { teamAvgs.disc[d] = Math.round(teamAvgs.disc[d] / otherMembers.length); });
+    Object.keys(teamAvgs.values).forEach(v => { teamAvgs.values[v] = Math.round(teamAvgs.values[v] / otherMembers.length); });
+    Object.keys(teamAvgs.attr).forEach(a => { teamAvgs.attr[a] = +(teamAvgs.attr[a] / otherMembers.length).toFixed(1); });
+  }
+
+  // Calculate differences from team average
+  const discDiffs = ["D", "I", "S", "C"].map(d => ({
+    dim: d,
+    person: p.disc.natural[d],
+    avg: teamAvgs.disc[d],
+    diff: p.disc.natural[d] - teamAvgs.disc[d]
+  })).sort((a, b) => Math.abs(b.diff) - Math.abs(a.diff));
+
+  const valuesDiffs = Object.entries(p.values).map(([name, score]) => ({
+    name,
+    person: score,
+    avg: teamAvgs.values[name] || 50,
+    diff: score - (teamAvgs.values[name] || 50)
+  })).sort((a, b) => Math.abs(b.diff) - Math.abs(a.diff));
+
+  const attrDiffs = p.attr.ext.map(a => ({
+    label: a.label,
+    person: a.score,
+    avg: teamAvgs.attr[a.label] || 5,
+    diff: a.score - (teamAvgs.attr[a.label] || 5)
+  })).sort((a, b) => Math.abs(b.diff) - Math.abs(a.diff));
+
+  // Side-by-side comparison helper
+  const SideBySide = ({ member }) => {
+    if (!member) return null;
+    return (
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+        {/* Person */}
+        <div style={{ background: C.card, borderRadius: 8, border: `1px solid ${C.border}`, overflow: "hidden" }}>
+          <div style={{ background: "#1F2937", padding: "10px 14px", color: "#fff", fontWeight: 600, fontSize: 13 }}>{p.name}</div>
+          <div style={{ padding: 14 }}>
+            <div style={{ fontSize: 10, fontWeight: 700, color: C.muted, marginBottom: 6 }}>DISC</div>
+            <div style={{ display: "flex", gap: 6, marginBottom: 12 }}>
+              {["D","I","S","C"].map(d => (
+                <span key={d} style={{ padding: "4px 8px", borderRadius: 4, fontSize: 11, fontWeight: 700, background: C.disc[d], color: d === "I" ? "#111" : "#fff" }}>{d}:{p.disc.natural[d]}</span>
+              ))}
+            </div>
+            <div style={{ fontSize: 10, fontWeight: 700, color: C.muted, marginBottom: 6 }}>TOP VALUES</div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 4, marginBottom: 12 }}>
+              {Object.entries(p.values).filter(([,s]) => s >= 60).sort((a,b) => b[1]-a[1]).slice(0,3).map(([v, score]) => (
+                <div key={v} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11 }}>
+                  <span style={{ width: 6, height: 6, borderRadius: "50%", background: C.values[v] }} />
+                  <span>{v}</span>
+                  <span style={{ marginLeft: "auto", fontWeight: 600 }}>{score}</span>
+                </div>
+              ))}
+            </div>
+            <div style={{ fontSize: 10, fontWeight: 700, color: C.muted, marginBottom: 6 }}>DECISION STYLE</div>
+            {[...p.attr.ext].sort((a,b) => b.score - a.score).map((a, i) => (
+              <div key={a.label} style={{ fontSize: 11, marginBottom: 2 }}>{i+1}. {a.label} ({a.score})</div>
+            ))}
+          </div>
+        </div>
+        {/* Selected member */}
+        <div style={{ background: C.card, borderRadius: 8, border: `1px solid ${C.border}`, overflow: "hidden" }}>
+          <div style={{ background: C.blue, padding: "10px 14px", color: "#fff", fontWeight: 600, fontSize: 13 }}>{member.name}</div>
+          <div style={{ padding: 14 }}>
+            <div style={{ fontSize: 10, fontWeight: 700, color: C.muted, marginBottom: 6 }}>DISC</div>
+            <div style={{ display: "flex", gap: 6, marginBottom: 12 }}>
+              {["D","I","S","C"].map(d => (
+                <span key={d} style={{ padding: "4px 8px", borderRadius: 4, fontSize: 11, fontWeight: 700, background: C.disc[d], color: d === "I" ? "#111" : "#fff" }}>{d}:{member.disc.natural[d]}</span>
+              ))}
+            </div>
+            <div style={{ fontSize: 10, fontWeight: 700, color: C.muted, marginBottom: 6 }}>TOP VALUES</div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 4, marginBottom: 12 }}>
+              {Object.entries(member.values).filter(([,s]) => s >= 60).sort((a,b) => b[1]-a[1]).slice(0,3).map(([v, score]) => (
+                <div key={v} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11 }}>
+                  <span style={{ width: 6, height: 6, borderRadius: "50%", background: C.values[v] }} />
+                  <span>{v}</span>
+                  <span style={{ marginLeft: "auto", fontWeight: 600 }}>{score}</span>
+                </div>
+              ))}
+            </div>
+            <div style={{ fontSize: 10, fontWeight: 700, color: C.muted, marginBottom: 6 }}>DECISION STYLE</div>
+            {[...member.attr.ext].sort((a,b) => b.score - a.score).map((a, i) => (
+              <div key={a.label} style={{ fontSize: 11, marginBottom: 2 }}>{i+1}. {a.label} ({a.score})</div>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.55)", display: "flex", alignItems: "flex-start", justifyContent: "center", zIndex: 300, overflowY: "auto", padding: "24px 16px" }}>
+      <div style={{ background: C.card, borderRadius: 12, width: "min(900px, 100%)", boxShadow: "0 20px 25px rgba(0,0,0,0.15)" }}>
+        {/* Header */}
+        <div style={{ background: "#1F2937", color: "#fff", borderRadius: "12px 12px 0 0", padding: "20px 24px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <div>
+            <div style={{ fontWeight: 700, fontSize: 20, color: "#fff" }}>Compare {p.name} with Others</div>
+            <div style={{ fontSize: 12, color: "rgba(255,255,255,0.65)", marginTop: 2 }}>{otherMembers.length} team members available for comparison</div>
+          </div>
+          <button onClick={onClose} style={{ width: 32, height: 32, borderRadius: "50%", background: "rgba(255,255,255,0.1)", border: "none", cursor: "pointer", fontSize: 18, color: "rgba(255,255,255,0.7)" }}>✕</button>
+        </div>
+
+        <div style={{ padding: 24, maxHeight: "70vh", overflowY: "auto" }}>
+
+          {/* Member Selector - Always visible */}
+          <div style={{ marginBottom: 20 }}>
+            <label style={{ fontSize: 12, color: C.text, marginBottom: 6, display: "block" }}>Select a team member to compare with {p.name.split(" ")[0]}:</label>
+            <select
+              value={selectedMemberId || ""}
+              onChange={e => setSelectedMemberId(e.target.value || null)}
+              style={{ padding: "10px 14px", borderRadius: 8, border: `1px solid ${C.border}`, fontSize: 14, minWidth: 250 }}
+            >
+              <option value="">Choose a person...</option>
+              {otherMembers.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
+            </select>
+            {selectedMember && (
+              <button onClick={() => setSelectedMemberId(null)} style={{ marginLeft: 12, padding: "10px 16px", borderRadius: 8, border: `1px solid ${C.border}`, background: C.card, fontSize: 13, cursor: "pointer" }}>
+                ← Back to Team View
+              </button>
+            )}
+          </div>
+
+          {selectedMember ? (
+            /* ===== INDIVIDUAL COMPARISON VIEW (Conflict Report) ===== */
+            (() => {
+              const m = selectedMember;
+              const dims = ["D", "I", "S", "C"];
+
+              // Calculate overall friction using shared function
+              const friction = calculateFriction(p, m);
+
+              // DISC gap analysis
+              const discGaps = dims.map(d => {
+                const pScore = p.disc.natural[d];
+                const mScore = m.disc.natural[d];
+                const gap = Math.abs(pScore - mScore);
+                const pHigher = pScore > mScore;
+                const tier = gap >= 40 ? "high" : gap >= 20 ? "moderate" : "low";
+                let text = "";
+                if (tier === "low") {
+                  text = `Both around ${Math.round((pScore + mScore) / 2)} — natural compatibility here.`;
+                } else if (pHigher) {
+                  if (d === "D") text = `${p.name.split(" ")[0]}'s D is ${pScore}, ${m.name.split(" ")[0]}'s is ${mScore}. ${p.name.split(" ")[0]} pushes for decisions and speed; ${m.name.split(" ")[0]} needs time to evaluate.`;
+                  if (d === "I") text = `${p.name.split(" ")[0]}'s I is ${pScore}, ${m.name.split(" ")[0]}'s is ${mScore}. ${p.name.split(" ")[0]} communicates with energy; ${m.name.split(" ")[0]} prefers data over enthusiasm.`;
+                  if (d === "S") text = `${p.name.split(" ")[0]}'s S is ${pScore}, ${m.name.split(" ")[0]}'s is ${mScore}. ${p.name.split(" ")[0]} values stability; ${m.name.split(" ")[0]} is comfortable with change.`;
+                  if (d === "C") text = `${p.name.split(" ")[0]}'s C is ${pScore}, ${m.name.split(" ")[0]}'s is ${mScore}. ${p.name.split(" ")[0]} wants precision; ${m.name.split(" ")[0]} wants to move forward quickly.`;
+                } else {
+                  if (d === "D") text = `${m.name.split(" ")[0]}'s D is ${mScore}, ${p.name.split(" ")[0]}'s is ${pScore}. ${m.name.split(" ")[0]} moves faster and pushes harder.`;
+                  if (d === "I") text = `${m.name.split(" ")[0]}'s I is ${mScore}, ${p.name.split(" ")[0]}'s is ${pScore}. ${m.name.split(" ")[0]} needs verbal processing and social energy.`;
+                  if (d === "S") text = `${m.name.split(" ")[0]}'s S is ${mScore}, ${p.name.split(" ")[0]}'s is ${pScore}. ${m.name.split(" ")[0]} needs more consistency and predictability.`;
+                  if (d === "C") text = `${m.name.split(" ")[0]}'s C is ${mScore}, ${p.name.split(" ")[0]}'s is ${pScore}. ${m.name.split(" ")[0]} needs more specifics and structured expectations.`;
+                }
+                return { d, pScore, mScore, gap, tier, text };
+              });
+
+              const tierStyle = {
+                high: { borderColor: "#B71C1C", label: "HIGH", labelColor: "#B71C1C" },
+                moderate: { borderColor: "#E65100", label: "MODERATE", labelColor: "#E65100" },
+                low: { borderColor: "#2E7D32", label: "LOW", labelColor: "#2E7D32" },
+              };
+
+              const tierColors = {
+                high: { bg: "#FFEBEE", border: "#EF9A9A", text: "#B71C1C" },
+                moderate: { bg: "#FFF3E0", border: "#FFCC80", text: "#E65100" },
+                low: { bg: "#E8F5E9", border: "#A5D6A7", text: "#2E7D32" }
+              };
+              const frictionTier = tierColors[friction.tier];
+
+              // Values comparison
+              const pTopVals = Object.entries(p.values).filter(([, s]) => s >= 60).map(([k]) => k);
+              const mTopVals = Object.entries(m.values).filter(([, s]) => s >= 60).map(([k]) => k);
+              const sharedVals = pTopVals.filter(v => mTopVals.includes(v));
+              const pOnly = pTopVals.filter(v => !mTopVals.includes(v));
+              const mOnly = mTopVals.filter(v => !pTopVals.includes(v));
+
+              // Process bias comparison
+              const processBiasResult = (pBias, mBias) => {
+                if ((pBias === "+" && mBias === "−") || (pBias === "−" && mBias === "+")) return { label: "CONFLICT", color: "#B71C1C" };
+                if (pBias === mBias) return { label: "ALIGNED", color: "#2E7D32" };
+                return { label: "TENSION", color: "#E65100" };
+              };
+
+              return (
+                <div className="conflict-report">
+                  {/* Print-friendly header with overall friction score */}
+                  <div style={{ marginBottom: 16, padding: "16px 20px", background: frictionTier.bg, borderRadius: 10, border: `1px solid ${frictionTier.border}`, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                    <div>
+                      <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: frictionTier.text, marginBottom: 4 }}>CONFLICT REPORT</div>
+                      <div style={{ fontSize: 16, fontWeight: 700, color: C.text }}>{p.name} & {m.name}</div>
+                      <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>Friction analysis across Preference, Passion, and Process</div>
+                    </div>
+                    <div style={{ textAlign: "center", minWidth: 100 }}>
+                      <div style={{ fontSize: 36, fontWeight: 800, color: frictionTier.text, lineHeight: 1 }}>{friction.totalScore}</div>
+                      <div style={{ fontSize: 10, fontWeight: 700, color: frictionTier.text, marginTop: 4 }}>{friction.tier.toUpperCase()} FRICTION</div>
+                    </div>
+                  </div>
+
+                  {/* Three pillars breakdown */}
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10, marginBottom: 16 }}>
+                    {[
+                      { label: "Preference", sub: "DISC Style", score: friction.preferenceScore, max: 12, color: C.disc.D },
+                      { label: "Passion", sub: "Values", score: friction.passionScore, max: 14, color: C.values.Altruistic },
+                      { label: "Process", sub: "Attributes", score: friction.processScore, max: 9, color: C.attr.ext }
+                    ].map(pillar => (
+                      <div key={pillar.label} style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: 12, textAlign: "center" }}>
+                        <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: C.muted }}>{pillar.label}</div>
+                        <div style={{ fontSize: 24, fontWeight: 800, color: pillar.score >= pillar.max * 0.5 ? "#C62828" : pillar.score >= pillar.max * 0.25 ? "#E65100" : "#2E7D32", lineHeight: 1.2 }}>{pillar.score}</div>
+                        <div style={{ fontSize: 9, color: C.muted }}>{pillar.sub}</div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Print Report button */}
+                  <div style={{ marginBottom: 16, textAlign: "right" }} className="no-print">
+                    <button
+                      onClick={() => window.print()}
+                      style={{ padding: "8px 16px", borderRadius: 6, border: `1px solid ${C.border}`, background: C.card, fontSize: 12, fontWeight: 600, cursor: "pointer", color: C.text }}
+                    >
+                      🖨️ Print Report
+                    </button>
+                  </div>
+
+                  {/* PREFERENCE GAP - DISC */}
+                  <div style={{ background: C.card, borderRadius: 12, padding: "20px 24px", border: `1px solid ${C.border}`, marginBottom: 14, boxShadow: "0 1px 3px rgba(0,0,0,0.04)" }}>
+                    <div style={{ marginBottom: 14 }}>
+                      <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.07em", textTransform: "uppercase", color: C.muted, marginBottom: 4 }}>PREFERENCE GAP</div>
+                      <div style={{ fontSize: 13, color: C.muted }}>How behavioral styles differ across D, I, S, C</div>
+                    </div>
+                    {/* Score comparison panel */}
+                    <div style={{ display: "flex", borderRadius: 10, overflow: "hidden", border: `1px solid ${C.border}`, marginBottom: 14 }}>
+                      <div style={{ flex: 1, padding: "12px 16px", background: C.card, borderLeft: "3px solid #C8A96E" }}>
+                        <div style={{ fontSize: 9, fontWeight: 700, color: "#9A7A42", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 6 }}>{p.name}</div>
+                        <div style={{ display: "flex", gap: 8 }}>
+                          {dims.map(d => <span key={d} style={{ fontSize: 13, fontWeight: 800, color: C.disc[d] }}>{d}:{p.disc.natural[d]}</span>)}
+                        </div>
+                      </div>
+                      <div style={{ width: 1, background: C.border, flexShrink: 0 }} />
+                      <div style={{ flex: 1, padding: "12px 16px", background: C.card }}>
+                        <div style={{ fontSize: 9, fontWeight: 700, color: C.muted, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 6 }}>{m.name}</div>
+                        <div style={{ display: "flex", gap: 8 }}>
+                          {dims.map(d => <span key={d} style={{ fontSize: 13, fontWeight: 800, color: C.disc[d] }}>{d}:{m.disc.natural[d]}</span>)}
+                        </div>
+                      </div>
+                    </div>
+                    {/* Per-dimension gap cards */}
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                      {discGaps.map(({ d, pScore, mScore, gap, tier, text }) => {
+                        const ts = tierStyle[tier];
+                        return (
+                          <div key={d} style={{ padding: "12px 14px", borderRadius: 8, background: C.card, border: `1px solid ${C.border}`, borderLeft: `3px solid ${ts.borderColor}` }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }}>
+                              <div style={{ width: 8, height: 8, borderRadius: "50%", background: C.disc[d], flexShrink: 0 }} />
+                              <span style={{ fontSize: 11, fontWeight: 800, color: C.disc[d] }}>{discFull[d]}</span>
+                              <span style={{ marginLeft: "auto", fontSize: 9, fontWeight: 700, color: ts.labelColor, background: ts.labelColor + "10", border: `1px solid ${ts.labelColor}25`, borderRadius: 8, padding: "2px 8px" }}>{ts.label}</span>
+                            </div>
+                            <div style={{ display: "flex", gap: 6, alignItems: "center", marginBottom: 8 }}>
+                              <div style={{ flex: 1, textAlign: "center", padding: "6px 0", borderRadius: 6, background: C.hi, border: `1px solid ${C.border}` }}>
+                                <div style={{ fontSize: 9, color: "#9A7A42", fontWeight: 700, marginBottom: 2 }}>{p.name.split(" ")[0]}</div>
+                                <div style={{ fontSize: 18, fontWeight: 800, color: C.text, lineHeight: 1 }}>{pScore}</div>
+                              </div>
+                              <div style={{ fontSize: 11, color: tier === "high" ? ts.labelColor : C.muted, fontWeight: 800 }}>Δ{gap}</div>
+                              <div style={{ flex: 1, textAlign: "center", padding: "6px 0", borderRadius: 6, background: C.hi, border: `1px solid ${C.border}` }}>
+                                <div style={{ fontSize: 9, color: C.muted, fontWeight: 700, marginBottom: 2 }}>{m.name.split(" ")[0]}</div>
+                                <div style={{ fontSize: 18, fontWeight: 800, color: C.text, lineHeight: 1 }}>{mScore}</div>
+                              </div>
+                            </div>
+                            {tier !== "low" && <div style={{ fontSize: 10, color: C.text, lineHeight: 1.55 }}>{text}</div>}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* PASSION GAP - Values */}
+                  <div style={{ background: C.card, borderRadius: 12, padding: "20px 24px", border: `1px solid ${C.border}`, marginBottom: 14, boxShadow: "0 1px 3px rgba(0,0,0,0.04)" }}>
+                    <div style={{ marginBottom: 14 }}>
+                      <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.07em", textTransform: "uppercase", color: C.muted, marginBottom: 4 }}>PASSION GAP</div>
+                      <div style={{ fontSize: 13, color: C.muted }}>Motivational driver differences — what energizes each person</div>
+                    </div>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                      <div style={{ padding: "10px 16px", borderRadius: 8, background: C.card, border: `1px solid ${C.border}`, borderLeft: "3px solid #C8A96E" }}>
+                        <div style={{ fontSize: 9, fontWeight: 700, color: "#9A7A42", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 6 }}>Shared Drivers</div>
+                        <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+                          {sharedVals.length > 0 ? sharedVals.map(v => <span key={v} style={{ fontSize: 10, padding: "2px 10px", borderRadius: 10, background: C.values[v] + "15", color: C.values[v], fontWeight: 600, border: `1px solid ${C.values[v]}30` }}>{v}</span>) : <span style={{ fontSize: 10, color: C.muted }}>No shared top drivers</span>}
+                        </div>
+                      </div>
+                      <div style={{ padding: "10px 16px", borderRadius: 8, background: C.card, border: `1px solid ${C.border}`, borderLeft: "3px solid #E65100" }}>
+                        <div style={{ fontSize: 9, fontWeight: 700, color: "#A83A00", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 2 }}>{p.name.split(" ")[0]}&apos;s Unique Drivers</div>
+                        <div style={{ fontSize: 9, color: C.muted, marginBottom: 6 }}>{p.name.split(" ")[0]} cares about these — {m.name.split(" ")[0]} may not share them</div>
+                        <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+                          {pOnly.length > 0 ? pOnly.map(v => <span key={v} style={{ fontSize: 10, padding: "2px 10px", borderRadius: 10, background: C.values[v] + "15", color: C.values[v], fontWeight: 600, border: `1px solid ${C.values[v]}30` }}>{v}</span>) : <span style={{ fontSize: 10, color: C.muted }}>No unique drivers</span>}
+                        </div>
+                      </div>
+                      <div style={{ padding: "10px 16px", borderRadius: 8, background: C.card, border: `1px solid ${C.border}`, borderLeft: "3px solid #1565C0" }}>
+                        <div style={{ fontSize: 9, fontWeight: 700, color: "#0D4880", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 2 }}>{m.name.split(" ")[0]}&apos;s Unique Drivers</div>
+                        <div style={{ fontSize: 9, color: C.muted, marginBottom: 6 }}>{m.name.split(" ")[0]} cares about these — {p.name.split(" ")[0]} may not share them</div>
+                        <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+                          {mOnly.length > 0 ? mOnly.map(v => <span key={v} style={{ fontSize: 10, padding: "2px 10px", borderRadius: 10, background: C.values[v] + "15", color: C.values[v], fontWeight: 600, border: `1px solid ${C.values[v]}30` }}>{v}</span>) : <span style={{ fontSize: 10, color: C.muted }}>No unique drivers</span>}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* PROCESS GAP - Attributes */}
+                  <div style={{ background: C.card, borderRadius: 12, padding: "20px 24px", border: `1px solid ${C.border}`, marginBottom: 14, boxShadow: "0 1px 3px rgba(0,0,0,0.04)" }}>
+                    <div style={{ marginBottom: 14 }}>
+                      <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.07em", textTransform: "uppercase", color: C.muted, marginBottom: 4 }}>PROCESS GAP</div>
+                      <div style={{ fontSize: 13, color: C.muted }}>Decision-making style — bias comparison per Heart · Hand · Head</div>
+                    </div>
+                    {/* Side-by-side attribute profiles */}
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 12 }}>
+                      {[{ label: p.name, data: p.attr.ext, isPrimary: true }, { label: m.name, data: m.attr.ext, isPrimary: false }].map(({ label, data, isPrimary }) => {
+                        const sorted = [...data].sort((a, b) => b.score - a.score);
+                        return (
+                          <div key={label} style={{ padding: "12px 14px", borderRadius: 8, background: C.card, border: `1px solid ${C.border}`, borderLeft: isPrimary ? "3px solid #C8A96E" : `1px solid ${C.border}` }}>
+                            <div style={{ fontSize: 10, fontWeight: 700, color: isPrimary ? "#9A7A42" : C.muted, marginBottom: 8 }}>{label}</div>
+                            {sorted.map((a, i) => (
+                              <div key={a.name} style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 5 }}>
+                                <span style={{ width: 16, height: 16, borderRadius: "50%", background: i === 0 ? C.attr.ext : C.hi, color: i === 0 ? "#fff" : C.muted, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 9, fontWeight: 800, flexShrink: 0, border: `1px solid ${i === 0 ? "transparent" : C.border}` }}>{i + 1}</span>
+                                <span style={{ fontSize: 11, fontWeight: i === 0 ? 700 : 400, color: i === 0 ? C.text : C.muted }}>{a.label}</span>
+                                <span style={{ fontSize: 10, color: C.muted, marginLeft: "auto" }}>{a.score}</span>
+                                <Bias bias={a.bias} />
+                              </div>
+                            ))}
+                          </div>
+                        );
+                      })}
+                    </div>
+                    {/* Bias-based friction analysis */}
+                    <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                      {["Heart", "Hand", "Head"].map(label => {
+                        const pAttr = p.attr.ext.find(a => a.label === label);
+                        const mAttr = m.attr.ext.find(a => a.label === label);
+                        if (!pAttr || !mAttr) return null;
+                        const result = processBiasResult(pAttr.bias, mAttr.bias);
+                        const borderColors = { CONFLICT: "#B71C1C", TENSION: "#E65100", ALIGNED: "#2E7D32" };
+                        return (
+                          <div key={label} style={{ padding: "10px 14px", borderRadius: 8, background: C.card, border: `1px solid ${C.border}`, borderLeft: `3px solid ${borderColors[result.label]}`, display: "flex", alignItems: "center", gap: 12 }}>
+                            <div style={{ flex: 1 }}>
+                              <span style={{ fontSize: 12, fontWeight: 700, color: C.text }}>{label}</span>
+                              <span style={{ fontSize: 10, color: C.muted, marginLeft: 8 }}>{pAttr.bias} vs. {mAttr.bias}</span>
+                            </div>
+                            <span style={{ fontSize: 9, fontWeight: 700, color: result.color, background: result.color + "10", border: `1px solid ${result.color}25`, borderRadius: 8, padding: "2px 10px" }}>{result.label}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+              );
+            })()
+          ) : (
+            /* ===== TEAM OVERVIEW (when no member selected) ===== */
+            <div>
+              {/* Team Comparison Matrix */}
+              <div style={{ marginBottom: 28 }}>
+                <div style={{ fontSize: 12, fontWeight: 700, color: C.muted, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 12 }}>TEAM COMPARISON MATRIX</div>
+                <div style={{ overflowX: "auto" }}>
+                  <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+                    <thead>
+                      <tr style={{ background: C.hi }}>
+                        <th style={{ padding: "10px 12px", textAlign: "left", borderBottom: `1px solid ${C.border}`, fontWeight: 600 }}>Team Member</th>
+                        <th style={{ padding: "10px 8px", textAlign: "center", borderBottom: `1px solid ${C.border}`, fontWeight: 600, color: C.disc.D }}>D</th>
+                        <th style={{ padding: "10px 8px", textAlign: "center", borderBottom: `1px solid ${C.border}`, fontWeight: 600, color: C.disc.I }}>I</th>
+                        <th style={{ padding: "10px 8px", textAlign: "center", borderBottom: `1px solid ${C.border}`, fontWeight: 600, color: C.disc.S }}>S</th>
+                        <th style={{ padding: "10px 8px", textAlign: "center", borderBottom: `1px solid ${C.border}`, fontWeight: 600, color: C.disc.C }}>C</th>
+                        <th style={{ padding: "10px 8px", textAlign: "center", borderBottom: `1px solid ${C.border}`, fontWeight: 600 }}>Style</th>
+                        <th style={{ padding: "10px 8px", textAlign: "center", borderBottom: `1px solid ${C.border}`, fontWeight: 600 }}>Top Value</th>
+                        <th style={{ padding: "10px 8px", textAlign: "center", borderBottom: `1px solid ${C.border}`, fontWeight: 600 }}>Leads With</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr style={{ background: "#FFFDE7" }}>
+                        <td style={{ padding: "10px 12px", borderBottom: `1px solid ${C.border}`, fontWeight: 700 }}>★ {p.name}</td>
+                        {["D","I","S","C"].map(d => (
+                          <td key={d} style={{ padding: "10px 8px", textAlign: "center", borderBottom: `1px solid ${C.border}`, fontWeight: 600 }}>{p.disc.natural[d]}</td>
+                        ))}
+                        <td style={{ padding: "10px 8px", textAlign: "center", borderBottom: `1px solid ${C.border}` }}>{getDom(p.disc.natural)}</td>
+                        <td style={{ padding: "10px 8px", textAlign: "center", borderBottom: `1px solid ${C.border}` }}>{Object.entries(p.values).sort((a,b) => b[1]-a[1])[0]?.[0] || "—"}</td>
+                        <td style={{ padding: "10px 8px", textAlign: "center", borderBottom: `1px solid ${C.border}` }}>{[...p.attr.ext].sort((a,b) => b.score - a.score)[0]?.label || "—"}</td>
+                      </tr>
+                      {otherMembers.map(m => (
+                        <tr key={m.id} style={{ background: C.card, cursor: "pointer" }} onClick={() => setSelectedMemberId(m.id)}>
+                          <td style={{ padding: "10px 12px", borderBottom: `1px solid ${C.border}`, color: C.blue }}>{m.name}</td>
+                          {["D","I","S","C"].map(d => {
+                            const diff = m.disc.natural[d] - p.disc.natural[d];
+                            const highlight = Math.abs(diff) >= 20;
+                            return (
+                              <td key={d} style={{ padding: "10px 8px", textAlign: "center", borderBottom: `1px solid ${C.border}`, background: highlight ? (diff > 0 ? "#E3F7E3" : "#FFE8E8") : "transparent", fontWeight: highlight ? 600 : 400 }}>
+                                {m.disc.natural[d]}
+                              </td>
+                            );
+                          })}
+                          <td style={{ padding: "10px 8px", textAlign: "center", borderBottom: `1px solid ${C.border}` }}>{getDom(m.disc.natural)}</td>
+                          <td style={{ padding: "10px 8px", textAlign: "center", borderBottom: `1px solid ${C.border}` }}>{Object.entries(m.values).sort((a,b) => b[1]-a[1])[0]?.[0] || "—"}</td>
+                          <td style={{ padding: "10px 8px", textAlign: "center", borderBottom: `1px solid ${C.border}` }}>{[...m.attr.ext].sort((a,b) => b.score - a.score)[0]?.label || "—"}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                <div style={{ fontSize: 10, color: C.muted, marginTop: 8 }}>
+                  Click any row to compare directly ·
+                  <span style={{ display: "inline-block", width: 12, height: 12, background: "#E3F7E3", marginLeft: 8, marginRight: 4, verticalAlign: "middle", borderRadius: 2 }}></span> Higher by 20+
+                  <span style={{ display: "inline-block", width: 12, height: 12, background: "#FFE8E8", marginLeft: 8, marginRight: 4, verticalAlign: "middle", borderRadius: 2 }}></span> Lower by 20+
+                </div>
+              </div>
+
+              {/* Difference from Team Averages */}
+              <div style={{ marginBottom: 16 }}>
+                <div style={{ fontSize: 12, fontWeight: 700, color: C.muted, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 12 }}>{p.name.split(" ")[0]} vs TEAM AVERAGES</div>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 16 }}>
+                  <div style={{ background: C.card, borderRadius: 8, border: `1px solid ${C.border}`, padding: 14 }}>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: C.muted, marginBottom: 10 }}>DISC vs Team Avg</div>
+                    {discDiffs.map(({ dim, person: pScore, avg, diff }) => {
+                      const significant = Math.abs(diff) >= 15;
+                      return (
+                        <div key={dim} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8, padding: "6px 8px", borderRadius: 6, background: significant ? (diff > 0 ? "#E3F7E3" : "#FFE8E8") : C.hi }}>
+                          <span style={{ fontWeight: 700, color: C.disc[dim], width: 16 }}>{dim}</span>
+                          <span style={{ fontSize: 12 }}>{pScore}</span>
+                          <span style={{ fontSize: 10, color: C.muted }}>vs</span>
+                          <span style={{ fontSize: 12, color: C.muted }}>{avg}</span>
+                          <span style={{ marginLeft: "auto", fontSize: 11, fontWeight: 600, color: diff > 0 ? "#2E7D32" : diff < 0 ? "#C62828" : C.muted }}>
+                            {diff > 0 ? "+" : ""}{diff}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <div style={{ background: C.card, borderRadius: 8, border: `1px solid ${C.border}`, padding: 14 }}>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: C.muted, marginBottom: 10 }}>Values vs Team Avg</div>
+                    {valuesDiffs.slice(0, 4).map(({ name, person: pScore, avg, diff }) => {
+                      const significant = Math.abs(diff) >= 10;
+                      return (
+                        <div key={name} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8, padding: "6px 8px", borderRadius: 6, background: significant ? (diff > 0 ? "#E3F7E3" : "#FFE8E8") : C.hi }}>
+                          <span style={{ width: 6, height: 6, borderRadius: "50%", background: C.values[name] }} />
+                          <span style={{ fontSize: 11, flex: 1 }}>{name}</span>
+                          <span style={{ fontSize: 11, fontWeight: 600, color: diff > 0 ? "#2E7D32" : diff < 0 ? "#C62828" : C.muted }}>
+                            {diff > 0 ? "+" : ""}{diff}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <div style={{ background: C.card, borderRadius: 8, border: `1px solid ${C.border}`, padding: 14 }}>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: C.muted, marginBottom: 10 }}>Decision Style vs Team Avg</div>
+                    {attrDiffs.map(({ label, person: pScore, avg, diff }) => {
+                      const significant = Math.abs(diff) >= 1;
+                      return (
+                        <div key={label} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8, padding: "6px 8px", borderRadius: 6, background: significant ? (diff > 0 ? "#E3F7E3" : "#FFE8E8") : C.hi }}>
+                          <span style={{ fontSize: 11, flex: 1 }}>{label}</span>
+                          <span style={{ fontSize: 12 }}>{pScore}</span>
+                          <span style={{ fontSize: 10, color: C.muted }}>vs</span>
+                          <span style={{ fontSize: 12, color: C.muted }}>{avg}</span>
+                          <span style={{ marginLeft: "auto", fontSize: 11, fontWeight: 600, color: diff > 0 ? "#2E7D32" : diff < 0 ? "#C62828" : C.muted }}>
+                            {diff > 0 ? "+" : ""}{diff.toFixed(1)}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+                <div style={{ marginTop: 12, padding: "12px 14px", borderRadius: 8, background: "#FFFDE7", border: "1px solid #FFF59D" }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: "#9A7A42", marginBottom: 4 }}>KEY INSIGHT</div>
+                  <div style={{ fontSize: 12, color: C.text, lineHeight: 1.6 }}>
+                    {discDiffs[0] && Math.abs(discDiffs[0].diff) >= 15
+                      ? `${p.name.split(" ")[0]}'s ${discFull[discDiffs[0].dim]} (${discDiffs[0].person}) is ${Math.abs(discDiffs[0].diff)} points ${discDiffs[0].diff > 0 ? "higher" : "lower"} than the team average (${discDiffs[0].avg}). This is the biggest behavioral difference from the team.`
+                      : `${p.name.split(" ")[0]}'s DISC profile is relatively aligned with team averages. Look to Values and Decision Style for differentiation.`
+                    }
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div style={{ padding: "16px 24px", borderTop: `1px solid ${C.border}`, display: "flex", justifyContent: "flex-end" }}>
+          <Btn primary onClick={onClose}>Done</Btn>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ────── VIEWER ──────
-function Viewer({ person, leader, agreements, setAgreements, photos = {}, onUploadPhoto }) {
+function Viewer({ person, leader, agreements, setAgreements, photos = {}, onUploadPhoto, initialTab = "profile", initialShowTips = false, initialShowCompare = false, onClearShowTips, onClearShowCompare, team = [] }) {
   const [dv, setDv] = useState("both");
-  const [tab, setTab] = useState("profile");
+  const [tab, setTab] = useState(initialTab);
   const [showWizard, setShowWizard] = useState(false);
   const [showReport, setShowReport] = useState(false);
+  const [showTips, setShowTips] = useState(initialShowTips);
+  const [showCompare, setShowCompare] = useState(initialShowCompare);
+
+  // Handle external triggers for showing tips
+  useEffect(() => {
+    if (initialShowTips) {
+      setShowTips(true);
+      onClearShowTips?.();
+    }
+  }, [initialShowTips, onClearShowTips]);
+
+  // Handle external triggers for showing compare
+  useEffect(() => {
+    if (initialShowCompare) {
+      setShowCompare(true);
+      onClearShowCompare?.();
+    }
+  }, [initialShowCompare, onClearShowCompare]);
+
+  // Sync tab when initialTab changes
+  useEffect(() => {
+    setTab(initialTab);
+  }, [initialTab]);
   const sel = person;
   const canCompare = leader && leader.id !== person.id && leader.disc;
   const discD = ["D", "I", "S", "C"].map(d => ({ dim: d, full: discFull[d], Natural: sel.disc.natural[d], Adaptive: sel.disc.adaptive[d], gap: sel.disc.adaptive[d] - sel.disc.natural[d] }));
@@ -1414,6 +3020,12 @@ function Viewer({ person, leader, agreements, setAgreements, photos = {}, onUplo
       )}
       {showReport && (
         <EnvironmentReport person={sel} onClose={() => setShowReport(false)} />
+      )}
+      {showTips && (
+        <LeadershipTips person={sel} onClose={() => setShowTips(false)} />
+      )}
+      {showCompare && team.length > 0 && (
+        <CompareWithOthers person={sel} team={team} onClose={() => setShowCompare(false)} photos={photos} />
       )}
 
       <div style={{ marginBottom: 20, display: "flex", alignItems: "flex-start", justifyContent: "space-between" }}>
@@ -1676,8 +3288,10 @@ function LeaderComparison({ leader, team }) {
 }
 
 // ────── TEAM INSIGHTS ──────
-function TeamInsights({ people, teamId, orgId, leaderId, photos = {}, onUploadPhoto }) {
+function TeamInsights({ people, teamId, orgId, leaderId, userId, photos = {}, onUploadPhoto, onViewProfile, onCompare, onShowTips }) {
   const [showSummary, setShowSummary] = useState(false);
+  const [showFrictionMap, setShowFrictionMap] = useState(false);
+  const [showJournal, setShowJournal] = useState(false);
   const complete = people.filter(p => p.orgId === orgId && (teamId ? p.teamId === teamId : true) && p.status !== "pending");
   const pending = people.filter(p => p.orgId === orgId && (teamId ? p.teamId === teamId : true) && p.status === "pending");
   const total = people.filter(p => p.orgId === orgId && (teamId ? p.teamId === teamId : true)).length;
@@ -1760,14 +3374,28 @@ function TeamInsights({ people, teamId, orgId, leaderId, photos = {}, onUploadPh
   return (
     <div>
       {showSummary && (
-        <TeamSummary people={people} teamId={teamId} orgId={orgId} leader={leader} onClose={() => setShowSummary(false)} photos={photos} onUploadPhoto={onUploadPhoto} />
+        <TeamSummary people={people} teamId={teamId} orgId={orgId} leader={leader} onClose={() => setShowSummary(false)} photos={photos} onUploadPhoto={onUploadPhoto} onViewProfile={onViewProfile} onCompare={onCompare} onShowTips={onShowTips} />
+      )}
+      {showFrictionMap && (
+        <FrictionMap people={people} teamId={teamId} orgId={orgId} onClose={() => setShowFrictionMap(false)} />
+      )}
+      {showJournal && (
+        <VoiceJournal userId={userId} people={people} teamId={teamId} orgId={orgId} onClose={() => setShowJournal(false)} />
       )}
       <div style={{ marginBottom: 20, display: "flex", alignItems: "flex-start", justifyContent: "space-between" }}>
         <div>
           <h1 style={{ margin: 0, fontSize: 24, fontWeight: 800, letterSpacing: -0.5 }}>Team Insights</h1>
           <div style={{ fontSize: 12, color: C.muted, marginTop: 2 }}>{complete.length} of {total} members with complete assessments</div>
         </div>
-        {complete.length > 0 && <Btn onClick={() => setShowSummary(true)} style={{ fontSize: 11 }}>📋 Team Summary</Btn>}
+        <div style={{ display: "flex", gap: 8 }}>
+          <Btn onClick={() => setShowJournal(true)} style={{ fontSize: 11 }}>🎙️ Journal</Btn>
+          {complete.length > 0 && (
+            <>
+              <Btn onClick={() => setShowFrictionMap(true)} style={{ fontSize: 11 }}>🔥 Friction Map</Btn>
+              <Btn onClick={() => setShowSummary(true)} style={{ fontSize: 11 }}>📋 Team Summary</Btn>
+            </>
+          )}
+        </div>
       </div>
 
       {/* 2B: Completion Tracker */}
@@ -2220,10 +3848,16 @@ function AuditDashboard({ person }) {
 
 // ────── LOGIN PAGE ──────
 function LoginPage({ onLogin }) {
+  const [mode, setMode] = useState("signin"); // "signin" | "signup" | "forgot" | "reset-sent"
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [fullName, setFullName] = useState("");
   const [remember, setRemember] = useState(false);
   const [focused, setFocused] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [success, setSuccess] = useState(null);
 
   const inputStyle = (field) => ({
     width: "100%", height: 48, padding: "0 16px", borderRadius: 8, fontSize: 16,
@@ -2232,6 +3866,66 @@ function LoginPage({ onLogin }) {
     outline: "none", boxSizing: "border-box", transition: "border 0.15s, box-shadow 0.15s",
     background: "#fff", color: C.text,
   });
+
+  const handleSignIn = async (e) => {
+    e.preventDefault();
+    setError(null);
+    setLoading(true);
+    try {
+      await signIn(email, password);
+      onLogin();
+    } catch (err) {
+      setError(err.message || "Invalid email or password");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSignUp = async (e) => {
+    e.preventDefault();
+    setError(null);
+    if (password !== confirmPassword) {
+      setError("Passwords do not match");
+      return;
+    }
+    if (password.length < 6) {
+      setError("Password must be at least 6 characters");
+      return;
+    }
+    setLoading(true);
+    try {
+      await signUp(email, password, fullName);
+      setSuccess("Account created! Check your email to confirm your account.");
+      setMode("signin");
+    } catch (err) {
+      setError(err.message || "Failed to create account");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleForgotPassword = async (e) => {
+    e.preventDefault();
+    setError(null);
+    setLoading(true);
+    try {
+      await resetPassword(email);
+      setMode("reset-sent");
+    } catch (err) {
+      setError(err.message || "Failed to send reset email");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const resetForm = () => {
+    setEmail("");
+    setPassword("");
+    setConfirmPassword("");
+    setFullName("");
+    setError(null);
+    setSuccess(null);
+  };
 
   return (
     <div style={{ minHeight: "100vh", background: "#F9FAFB", display: "flex", alignItems: "center", justifyContent: "center", padding: "24px 16px", fontFamily: "Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" }}>
@@ -2285,46 +3979,150 @@ function LoginPage({ onLogin }) {
 
         {/* RIGHT — Form */}
         <div style={{ padding: 48, display: "flex", flexDirection: "column", justifyContent: "center" }}>
-          <div style={{ fontSize: 28, fontWeight: 700, color: C.text, marginBottom: 8 }}>Welcome back</div>
-          <div style={{ fontSize: 15, color: C.muted, marginBottom: 36 }}>Sign in to your Love Where You Lead account</div>
 
-          <form onSubmit={e => { e.preventDefault(); onLogin(); }} aria-label="Sign in form">
-            {/* Email */}
-            <div style={{ marginBottom: 20 }}>
-              <label style={{ display: "block", fontSize: 14, fontWeight: 500, color: "#374151", marginBottom: 6 }}>Email</label>
-              <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="Enter your email"
-                onFocus={() => setFocused("email")} onBlur={() => setFocused(null)}
-                style={inputStyle("email")} autoComplete="email" />
-            </div>
+          {/* SIGN IN MODE */}
+          {mode === "signin" && (
+            <>
+              <div style={{ fontSize: 28, fontWeight: 700, color: C.text, marginBottom: 8 }}>Welcome back</div>
+              <div style={{ fontSize: 15, color: C.muted, marginBottom: 36 }}>Sign in to your Love Where You Lead account</div>
 
-            {/* Password */}
-            <div style={{ marginBottom: 20 }}>
-              <label style={{ display: "block", fontSize: 14, fontWeight: 500, color: "#374151", marginBottom: 6 }}>Password</label>
-              <input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="Enter your password"
-                onFocus={() => setFocused("password")} onBlur={() => setFocused(null)}
-                style={inputStyle("password")} autoComplete="current-password" />
-            </div>
+              {error && <div style={{ padding: "12px 16px", borderRadius: 8, background: "#FEE2E2", color: "#DC2626", fontSize: 14, marginBottom: 20 }}>{error}</div>}
+              {success && <div style={{ padding: "12px 16px", borderRadius: 8, background: "#D1FAE5", color: "#059669", fontSize: 14, marginBottom: 20 }}>{success}</div>}
 
-            {/* Remember me + Forgot password */}
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 28 }}>
-              <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 14, color: C.muted, cursor: "pointer" }}>
-                <input type="checkbox" checked={remember} onChange={e => setRemember(e.target.checked)} style={{ width: 16, height: 16, accentColor: C.blue }} />
-                Remember me
-              </label>
-              <button type="button" style={{ background: "none", border: "none", fontSize: 14, color: C.blue, cursor: "pointer", padding: 0, fontWeight: 500 }}
-                onMouseEnter={e => e.target.style.textDecoration = "underline"}
-                onMouseLeave={e => e.target.style.textDecoration = "none"}>
-                Forgot password?
-              </button>
-            </div>
+              <form onSubmit={handleSignIn} aria-label="Sign in form">
+                <div style={{ marginBottom: 20 }}>
+                  <label style={{ display: "block", fontSize: 14, fontWeight: 500, color: "#374151", marginBottom: 6 }}>Email</label>
+                  <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="Enter your email"
+                    onFocus={() => setFocused("email")} onBlur={() => setFocused(null)}
+                    style={inputStyle("email")} autoComplete="email" required />
+                </div>
 
-            {/* Sign In Button */}
-            <button type="submit" style={{ width: "100%", padding: "14px 24px", borderRadius: 8, border: "none", background: C.blue, color: "#fff", fontSize: 16, fontWeight: 600, cursor: "pointer", transition: "background 0.15s", letterSpacing: "0.1px" }}
-              onMouseEnter={e => e.currentTarget.style.background = "#1E88E5"}
-              onMouseLeave={e => e.currentTarget.style.background = C.blue}>
-              Sign In to Your Dashboard
-            </button>
-          </form>
+                <div style={{ marginBottom: 20 }}>
+                  <label style={{ display: "block", fontSize: 14, fontWeight: 500, color: "#374151", marginBottom: 6 }}>Password</label>
+                  <input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="Enter your password"
+                    onFocus={() => setFocused("password")} onBlur={() => setFocused(null)}
+                    style={inputStyle("password")} autoComplete="current-password" required />
+                </div>
+
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 28 }}>
+                  <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 14, color: C.muted, cursor: "pointer" }}>
+                    <input type="checkbox" checked={remember} onChange={e => setRemember(e.target.checked)} style={{ width: 16, height: 16, accentColor: C.blue }} />
+                    Remember me
+                  </label>
+                  <button type="button" onClick={() => { resetForm(); setMode("forgot"); }} style={{ background: "none", border: "none", fontSize: 14, color: C.blue, cursor: "pointer", padding: 0, fontWeight: 500 }}>
+                    Forgot password?
+                  </button>
+                </div>
+
+                <button type="submit" disabled={loading} style={{ width: "100%", padding: "14px 24px", borderRadius: 8, border: "none", background: loading ? "#9CA3AF" : C.blue, color: "#fff", fontSize: 16, fontWeight: 600, cursor: loading ? "default" : "pointer", transition: "background 0.15s" }}>
+                  {loading ? "Signing in..." : "Sign In to Your Dashboard"}
+                </button>
+              </form>
+
+              <div style={{ marginTop: 24, textAlign: "center", fontSize: 14, color: C.muted }}>
+                Don't have an account?{" "}
+                <button onClick={() => { resetForm(); setMode("signup"); }} style={{ background: "none", border: "none", color: C.blue, cursor: "pointer", padding: 0, fontWeight: 600, fontSize: 14 }}>
+                  Create one
+                </button>
+              </div>
+            </>
+          )}
+
+          {/* SIGN UP MODE */}
+          {mode === "signup" && (
+            <>
+              <div style={{ fontSize: 28, fontWeight: 700, color: C.text, marginBottom: 8 }}>Create your account</div>
+              <div style={{ fontSize: 15, color: C.muted, marginBottom: 36 }}>Start your leadership transformation journey</div>
+
+              {error && <div style={{ padding: "12px 16px", borderRadius: 8, background: "#FEE2E2", color: "#DC2626", fontSize: 14, marginBottom: 20 }}>{error}</div>}
+
+              <form onSubmit={handleSignUp} aria-label="Sign up form">
+                <div style={{ marginBottom: 20 }}>
+                  <label style={{ display: "block", fontSize: 14, fontWeight: 500, color: "#374151", marginBottom: 6 }}>Full Name</label>
+                  <input type="text" value={fullName} onChange={e => setFullName(e.target.value)} placeholder="Enter your full name"
+                    onFocus={() => setFocused("name")} onBlur={() => setFocused(null)}
+                    style={inputStyle("name")} autoComplete="name" required />
+                </div>
+
+                <div style={{ marginBottom: 20 }}>
+                  <label style={{ display: "block", fontSize: 14, fontWeight: 500, color: "#374151", marginBottom: 6 }}>Email</label>
+                  <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="Enter your email"
+                    onFocus={() => setFocused("email")} onBlur={() => setFocused(null)}
+                    style={inputStyle("email")} autoComplete="email" required />
+                </div>
+
+                <div style={{ marginBottom: 20 }}>
+                  <label style={{ display: "block", fontSize: 14, fontWeight: 500, color: "#374151", marginBottom: 6 }}>Password</label>
+                  <input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="Create a password (min 6 characters)"
+                    onFocus={() => setFocused("password")} onBlur={() => setFocused(null)}
+                    style={inputStyle("password")} autoComplete="new-password" required />
+                </div>
+
+                <div style={{ marginBottom: 28 }}>
+                  <label style={{ display: "block", fontSize: 14, fontWeight: 500, color: "#374151", marginBottom: 6 }}>Confirm Password</label>
+                  <input type="password" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} placeholder="Confirm your password"
+                    onFocus={() => setFocused("confirm")} onBlur={() => setFocused(null)}
+                    style={inputStyle("confirm")} autoComplete="new-password" required />
+                </div>
+
+                <button type="submit" disabled={loading} style={{ width: "100%", padding: "14px 24px", borderRadius: 8, border: "none", background: loading ? "#9CA3AF" : C.blue, color: "#fff", fontSize: 16, fontWeight: 600, cursor: loading ? "default" : "pointer", transition: "background 0.15s" }}>
+                  {loading ? "Creating account..." : "Create Account"}
+                </button>
+              </form>
+
+              <div style={{ marginTop: 24, textAlign: "center", fontSize: 14, color: C.muted }}>
+                Already have an account?{" "}
+                <button onClick={() => { resetForm(); setMode("signin"); }} style={{ background: "none", border: "none", color: C.blue, cursor: "pointer", padding: 0, fontWeight: 600, fontSize: 14 }}>
+                  Sign in
+                </button>
+              </div>
+            </>
+          )}
+
+          {/* FORGOT PASSWORD MODE */}
+          {mode === "forgot" && (
+            <>
+              <div style={{ fontSize: 28, fontWeight: 700, color: C.text, marginBottom: 8 }}>Reset your password</div>
+              <div style={{ fontSize: 15, color: C.muted, marginBottom: 36 }}>Enter your email and we'll send you a reset link</div>
+
+              {error && <div style={{ padding: "12px 16px", borderRadius: 8, background: "#FEE2E2", color: "#DC2626", fontSize: 14, marginBottom: 20 }}>{error}</div>}
+
+              <form onSubmit={handleForgotPassword} aria-label="Reset password form">
+                <div style={{ marginBottom: 28 }}>
+                  <label style={{ display: "block", fontSize: 14, fontWeight: 500, color: "#374151", marginBottom: 6 }}>Email</label>
+                  <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="Enter your email"
+                    onFocus={() => setFocused("email")} onBlur={() => setFocused(null)}
+                    style={inputStyle("email")} autoComplete="email" required />
+                </div>
+
+                <button type="submit" disabled={loading} style={{ width: "100%", padding: "14px 24px", borderRadius: 8, border: "none", background: loading ? "#9CA3AF" : C.blue, color: "#fff", fontSize: 16, fontWeight: 600, cursor: loading ? "default" : "pointer", transition: "background 0.15s" }}>
+                  {loading ? "Sending..." : "Send Reset Link"}
+                </button>
+              </form>
+
+              <div style={{ marginTop: 24, textAlign: "center", fontSize: 14, color: C.muted }}>
+                <button onClick={() => { resetForm(); setMode("signin"); }} style={{ background: "none", border: "none", color: C.blue, cursor: "pointer", padding: 0, fontWeight: 600, fontSize: 14 }}>
+                  Back to sign in
+                </button>
+              </div>
+            </>
+          )}
+
+          {/* RESET SENT MODE */}
+          {mode === "reset-sent" && (
+            <>
+              <div style={{ textAlign: "center" }}>
+                <div style={{ fontSize: 48, marginBottom: 16 }}>📧</div>
+                <div style={{ fontSize: 28, fontWeight: 700, color: C.text, marginBottom: 8 }}>Check your email</div>
+                <div style={{ fontSize: 15, color: C.muted, marginBottom: 36, lineHeight: 1.6 }}>
+                  We've sent a password reset link to<br /><strong>{email}</strong>
+                </div>
+                <button onClick={() => { resetForm(); setMode("signin"); }} style={{ padding: "14px 32px", borderRadius: 8, border: "none", background: C.blue, color: "#fff", fontSize: 16, fontWeight: 600, cursor: "pointer" }}>
+                  Back to Sign In
+                </button>
+              </div>
+            </>
+          )}
 
           <div style={{ marginTop: 20, textAlign: "center", fontSize: 12, color: C.muted }}>
             🔒 Secure Login
@@ -2337,7 +4135,9 @@ function LoginPage({ onLogin }) {
 
 // ────── MAIN SYSTEM ──────
 export default function BTCGSystem() {
-  const [loggedIn, setLoggedIn] = useState(false);
+  // Auth states
+  const [authChecking, setAuthChecking] = useState(true);
+  const [user, setUser] = useState(null);
   const [orgs, setOrgs] = useState(initOrgs);
   const [people, setPeople] = useState(initPeople);
   const [selOrgId, setSelOrgId] = useState("org1");
@@ -2356,6 +4156,209 @@ export default function BTCGSystem() {
   const [pendingName, setPendingName] = useState("");
   const [agreements, setAgreements] = useState([]);
   const [mode, setMode] = useState("team"); // "team" | "individual"
+  const [viewerInitialTab, setViewerInitialTab] = useState("profile");
+  const [viewerShowTips, setViewerShowTips] = useState(false);
+  const [viewerShowCompare, setViewerShowCompare] = useState(false);
+
+  // Data persistence states
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+  const [dataLoaded, setDataLoaded] = useState(false);
+
+  // CRUD modal states
+  const [showEditTeam, setShowEditTeam] = useState(false);
+  const [editingTeam, setEditingTeam] = useState(null);
+  const [editTeamName, setEditTeamName] = useState("");
+  const [showDeleteTeam, setShowDeleteTeam] = useState(false);
+  const [deletingTeam, setDeletingTeam] = useState(null);
+  const [showDeletePerson, setShowDeletePerson] = useState(false);
+  const [deletingPerson, setDeletingPerson] = useState(null);
+  const [hoveredTeamId, setHoveredTeamId] = useState(null);
+
+  // Check for existing session on mount
+  useEffect(() => {
+    async function checkAuth() {
+      try {
+        const session = await getSession();
+        if (session?.user) {
+          setUser(session.user);
+        }
+      } catch (err) {
+        console.error('Auth check failed:', err);
+      } finally {
+        setAuthChecking(false);
+      }
+    }
+    checkAuth();
+
+    // Listen for auth state changes
+    const { data: { subscription } } = onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_IN' && session?.user) {
+        setUser(session.user);
+      } else if (event === 'SIGNED_OUT') {
+        setUser(null);
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  // Handle logout
+  const handleLogout = async () => {
+    try {
+      await signOut();
+      setUser(null);
+    } catch (err) {
+      console.error('Logout failed:', err);
+    }
+  };
+
+  // Load data from Supabase when user is authenticated
+  useEffect(() => {
+    if (!user) {
+      setIsLoading(false);
+      return;
+    }
+    async function loadData() {
+      try {
+        const { data: dbOrgs, error: orgsError } = await supabase
+          .from('organizations')
+          .select('*')
+          .order('created_at');
+
+        const { data: dbTeams, error: teamsError } = await supabase
+          .from('teams')
+          .select('*')
+          .order('created_at');
+
+        const { data: dbPeople, error: peopleError } = await supabase
+          .from('people')
+          .select('*')
+          .order('created_at');
+
+        if (orgsError || teamsError || peopleError) {
+          console.error('Error loading data:', orgsError || teamsError || peopleError);
+          setIsLoading(false);
+          return;
+        }
+
+        // If we have data in the database, use it
+        if (dbOrgs && dbOrgs.length > 0) {
+          // Transform database format to app format
+          const transformedOrgs = dbOrgs.map(org => ({
+            id: org.id,
+            name: org.name,
+            teams: dbTeams
+              .filter(t => t.org_id === org.id)
+              .map(t => ({ id: t.id, name: t.name }))
+          }));
+
+          const transformedPeople = dbPeople.map(p => ({
+            id: p.id,
+            name: p.name,
+            orgId: dbTeams.find(t => t.id === p.team_id)?.org_id || null,
+            teamId: p.team_id,
+            role: p.role,
+            isLeader: p.is_leader,
+            status: p.disc_natural ? undefined : "pending",
+            disc: p.disc_natural ? { natural: p.disc_natural, adaptive: p.disc_adapted } : null,
+            values: p.values_data,
+            attr: p.attributes,
+            photoUrl: p.photo_url
+          }));
+
+          setOrgs(transformedOrgs);
+          setPeople(transformedPeople);
+          if (transformedOrgs.length > 0) setSelOrgId(transformedOrgs[0].id);
+          if (transformedPeople.length > 0) setSelPersonId(transformedPeople[0].id);
+        } else {
+          // Seed initial data to database
+          await seedDataToSupabase();
+        }
+        setDataLoaded(true);
+      } catch (err) {
+        console.error('Failed to load data:', err);
+      } finally {
+        setIsLoading(false);
+      }
+    }
+    loadData();
+  }, [user]);
+
+  // Seed initial mock data to Supabase
+  async function seedDataToSupabase() {
+    try {
+      // Create ID mappings (old string IDs to new UUIDs)
+      const orgIdMap = {};
+      const teamIdMap = {};
+      const personIdMap = {};
+
+      // Generate new UUIDs for all entities
+      for (const org of initOrgs) {
+        orgIdMap[org.id] = crypto.randomUUID();
+        for (const team of org.teams) {
+          teamIdMap[team.id] = crypto.randomUUID();
+        }
+      }
+      for (const p of initPeople) {
+        personIdMap[p.id] = crypto.randomUUID();
+      }
+
+      // Insert organizations with new UUIDs
+      for (const org of initOrgs) {
+        const newOrgId = orgIdMap[org.id];
+        const { error: orgError } = await supabase.from('organizations').insert({ id: newOrgId, name: org.name });
+        if (orgError) console.error('Org insert error:', orgError);
+
+        // Insert teams with new UUIDs
+        for (const team of org.teams) {
+          const newTeamId = teamIdMap[team.id];
+          const { error: teamError } = await supabase.from('teams').insert({ id: newTeamId, org_id: newOrgId, name: team.name });
+          if (teamError) console.error('Team insert error:', teamError);
+        }
+      }
+
+      // Insert people with new UUIDs
+      for (const p of initPeople) {
+        const newPersonId = personIdMap[p.id];
+        const newTeamId = teamIdMap[p.teamId];
+        const { error: personError } = await supabase.from('people').insert({
+          id: newPersonId,
+          team_id: newTeamId,
+          name: p.name,
+          role: p.role || null,
+          is_leader: false,
+          disc_natural: p.disc?.natural || null,
+          disc_adapted: p.disc?.adaptive || null,
+          values_data: p.values || null,
+          attributes: p.attr || null,
+        });
+        if (personError) console.error('Person insert error:', personError);
+      }
+
+      // Update local state with new UUIDs
+      const newOrgs = initOrgs.map(org => ({
+        id: orgIdMap[org.id],
+        name: org.name,
+        teams: org.teams.map(t => ({ id: teamIdMap[t.id], name: t.name }))
+      }));
+
+      const newPeople = initPeople.map(p => ({
+        ...p,
+        id: personIdMap[p.id],
+        orgId: orgIdMap[p.orgId],
+        teamId: teamIdMap[p.teamId]
+      }));
+
+      setOrgs(newOrgs);
+      setPeople(newPeople);
+      if (newOrgs.length > 0) setSelOrgId(newOrgs[0].id);
+      if (newPeople.length > 0) setSelPersonId(newPeople[0].id);
+
+    } catch (err) {
+      console.error('Failed to seed data:', err);
+    }
+  }
 
   const org = orgs.find(o => o.id === selOrgId);
   const orgPeople = people.filter(p => p.orgId === selOrgId);
@@ -2363,40 +4366,166 @@ export default function BTCGSystem() {
   const filtered = teamPeople.filter(p => p.name.toLowerCase().includes(search.toLowerCase()));
   const selPerson = people.find(p => p.id === selPersonId);
 
-  const addOrg = () => {
+  const addOrg = async () => {
     if (!newName.trim()) return;
-    const id = "org" + Date.now();
-    setOrgs([...orgs, { id, name: newName.trim(), teams: [{ id: "t" + Date.now(), name: "Unassigned" }] }]);
+    const id = crypto.randomUUID();
+    const newOrg = { id, name: newName.trim(), teams: [] };
+    setOrgs([...orgs, newOrg]);
     setSelOrgId(id); setNewName(""); setShowNewOrg(false);
+    // Persist to Supabase
+    await supabase.from('organizations').insert({ id, name: newName.trim() });
   };
 
-  const addTeam = () => {
+  const addTeam = async () => {
     if (!newName.trim()) return;
-    setOrgs(orgs.map(o => o.id === selOrgId ? { ...o, teams: [...o.teams, { id: "t" + Date.now(), name: newName.trim() }] } : o));
+    const teamId = crypto.randomUUID();
+    setOrgs(orgs.map(o => o.id === selOrgId ? { ...o, teams: [...o.teams, { id: teamId, name: newName.trim() }] } : o));
     setNewName(""); setShowNewTeam(false);
+    // Persist to Supabase
+    await supabase.from('teams').insert({ id: teamId, org_id: selOrgId, name: newName.trim() });
   };
 
-  const addPerson = (p) => { setPeople([...people, p]); setSelPersonId(p.id); setView("viewer"); };
+  const addPerson = async (p, { bulk = false } = {}) => {
+    setPeople(prev => [...prev, p]);
+    if (!bulk) {
+      setSelPersonId(p.id);
+      setView("viewer");
+    }
+    // Persist to Supabase
+    await supabase.from('people').insert({
+      id: p.id,
+      team_id: p.teamId,
+      name: p.name,
+      role: p.role || null,
+      is_leader: false,
+      disc_natural: p.disc?.natural || null,
+      disc_adapted: p.disc?.adaptive || null,
+      values_data: p.values || null,
+      attributes: p.attr || null,
+    });
+  };
 
-  const addPendingPerson = () => {
+  const addPendingPerson = async () => {
     if (!pendingName.trim()) return;
     const teamId = selTeamId || (org?.teams[0]?.id || "t1");
     const nm = pendingName.trim();
-    // eslint-disable-next-line react-hooks/purity
-    setPeople([...people, { id: "p" + Date.now(), name: nm, orgId: selOrgId, teamId, status: "pending", disc: null, values: null, attr: null }]);
+    const personId = crypto.randomUUID();
+    const newPerson = { id: personId, name: nm, orgId: selOrgId, teamId, status: "pending", disc: null, values: null, attr: null };
+    setPeople([...people, newPerson]);
     setPendingName(""); setShowAddPending(false);
+    // Persist to Supabase
+    await supabase.from('people').insert({
+      id: personId,
+      team_id: teamId,
+      name: nm,
+      is_leader: false,
+    });
+  };
+
+  // Edit Team Name
+  const handleEditTeam = (team) => {
+    setEditingTeam(team);
+    setEditTeamName(team.name);
+    setShowEditTeam(true);
+  };
+
+  const saveEditTeam = async () => {
+    if (!editTeamName.trim() || !editingTeam) return;
+    setOrgs(orgs.map(o => o.id === selOrgId ? {
+      ...o,
+      teams: o.teams.map(t => t.id === editingTeam.id ? { ...t, name: editTeamName.trim() } : t)
+    } : o));
+    setShowEditTeam(false);
+    setEditingTeam(null);
+    setEditTeamName("");
+    // Persist to Supabase
+    await supabase.from('teams').update({ name: editTeamName.trim() }).eq('id', editingTeam.id);
+  };
+
+  // Delete Team
+  const handleDeleteTeam = (team) => {
+    setDeletingTeam(team);
+    setShowDeleteTeam(true);
+  };
+
+  const confirmDeleteTeam = async () => {
+    if (!deletingTeam) return;
+    // Remove team from orgs
+    setOrgs(orgs.map(o => o.id === selOrgId ? {
+      ...o,
+      teams: o.teams.filter(t => t.id !== deletingTeam.id)
+    } : o));
+    // Remove people in that team
+    setPeople(people.filter(p => p.teamId !== deletingTeam.id));
+    if (selTeamId === deletingTeam.id) setSelTeamId(null);
+    setShowDeleteTeam(false);
+    setDeletingTeam(null);
+    // Persist to Supabase (cascade will handle people)
+    await supabase.from('teams').delete().eq('id', deletingTeam.id);
+  };
+
+  // Delete Person
+  const handleDeletePerson = (person) => {
+    setDeletingPerson(person);
+    setShowDeletePerson(true);
+  };
+
+  const confirmDeletePerson = async () => {
+    if (!deletingPerson) return;
+    setPeople(people.filter(p => p.id !== deletingPerson.id));
+    if (selPersonId === deletingPerson.id) {
+      const remaining = people.filter(p => p.id !== deletingPerson.id);
+      setSelPersonId(remaining.length > 0 ? remaining[0].id : null);
+    }
+    setShowDeletePerson(false);
+    setDeletingPerson(null);
+    // Persist to Supabase
+    await supabase.from('people').delete().eq('id', deletingPerson.id);
   };
 
   const domColor = (p) => { if (!p.disc) return C.border; const dom = getDom(p.disc.natural); return dom.includes("D") ? C.disc.D : dom.includes("I") ? C.disc.I : dom.includes("S") ? C.disc.S : C.disc.C; };
 
-  if (!loggedIn) return <LoginPage onLogin={() => setLoggedIn(true)} />;
+  // Show loading state
+  if (isLoading) {
+    return (
+      <div style={{ fontFamily: "Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif", background: C.bg, minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <div style={{ textAlign: "center" }}>
+          <div style={{ fontSize: 24, fontWeight: 600, color: C.text, marginBottom: 8 }}>Loading...</div>
+          <div style={{ fontSize: 14, color: C.muted }}>Connecting to database</div>
+        </div>
+      </div>
+    );
+  }
+
+  // Show auth checking state
+  if (authChecking) {
+    return (
+      <div style={{ fontFamily: "Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif", background: C.bg, minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <div style={{ textAlign: "center" }}>
+          <div style={{ fontSize: 24, fontWeight: 600, color: C.text, marginBottom: 8 }}>Loading...</div>
+          <div style={{ fontSize: 14, color: C.muted }}>Checking authentication</div>
+        </div>
+      </div>
+    );
+  }
+
+  // Show login page if not authenticated
+  if (!user) return <LoginPage onLogin={() => {}} />;
 
   return (
     <div style={{ fontFamily: "Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif", background: C.bg, minHeight: "100vh", color: C.text }}>
 
       {/* TOP BAR */}
-      <nav style={{ background: "#1A1A18", color: "#fff", height: "48px", padding: "0 24px", display: "flex", alignItems: "center", flexShrink: 0 }}>
+      <nav style={{ background: "#1A1A18", color: "#fff", height: "48px", padding: "0 24px", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
         <div style={{ fontWeight: 700, fontSize: 13, color: "#C8A96E", letterSpacing: "0.5px", textTransform: "uppercase" }}>BTCG · Bridging the Connection Gap</div>
+        <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+          <span style={{ fontSize: 13, color: "#9CA3AF" }}>{user?.user_metadata?.full_name || user?.email}</span>
+          <button onClick={handleLogout} style={{ padding: "6px 12px", borderRadius: 6, border: "1px solid #4B5563", background: "transparent", color: "#9CA3AF", fontSize: 12, cursor: "pointer", transition: "all 0.15s" }}
+            onMouseEnter={e => { e.currentTarget.style.borderColor = "#9CA3AF"; e.currentTarget.style.color = "#fff"; }}
+            onMouseLeave={e => { e.currentTarget.style.borderColor = "#4B5563"; e.currentTarget.style.color = "#9CA3AF"; }}>
+            Sign Out
+          </button>
+        </div>
       </nav>
 
       {/* New Org Modal */}
@@ -2417,6 +4546,46 @@ export default function BTCGSystem() {
             <h3 style={{ margin: "0 0 12px", fontSize: 16, fontWeight: 700 }}>New Team in {org?.name}</h3>
             <input value={newName} onChange={e => setNewName(e.target.value)} placeholder="Team name..." style={{ width: "100%", padding: 12, borderRadius: 8, border: "1px solid #D1D5DB", fontSize: 16, background: "#FFFFFF", boxSizing: "border-box", marginBottom: 16 }} autoFocus />
             <div style={{ display: "flex", gap: 8 }}><Btn primary onClick={addTeam}>Create</Btn><Btn onClick={() => { setShowNewTeam(false); setNewName(""); }}>Cancel</Btn></div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Team Modal */}
+      {showEditTeam && editingTeam && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 100 }}>
+          <div style={{ background: C.card, borderRadius: 12, padding: 24, width: 360, boxShadow: "0 8px 32px rgba(0,0,0,0.15)" }}>
+            <h3 style={{ margin: "0 0 12px", fontSize: 16, fontWeight: 700 }}>Edit Team Name</h3>
+            <input value={editTeamName} onChange={e => setEditTeamName(e.target.value)} placeholder="Team name..." style={{ width: "100%", padding: 12, borderRadius: 8, border: "1px solid #D1D5DB", fontSize: 16, background: "#FFFFFF", boxSizing: "border-box", marginBottom: 16 }} autoFocus onKeyDown={e => { if (e.key === "Enter") saveEditTeam(); }} />
+            <div style={{ display: "flex", gap: 8 }}><Btn primary onClick={saveEditTeam}>Save</Btn><Btn onClick={() => { setShowEditTeam(false); setEditingTeam(null); setEditTeamName(""); }}>Cancel</Btn></div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Team Modal */}
+      {showDeleteTeam && deletingTeam && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 100 }}>
+          <div style={{ background: C.card, borderRadius: 12, padding: 24, width: 400, boxShadow: "0 8px 32px rgba(0,0,0,0.15)" }}>
+            <h3 style={{ margin: "0 0 12px", fontSize: 16, fontWeight: 700, color: "#C62828" }}>Delete Team</h3>
+            <p style={{ margin: "0 0 8px", fontSize: 14, color: C.text }}>Are you sure you want to delete <strong>{deletingTeam.name}</strong>?</p>
+            <p style={{ margin: "0 0 16px", fontSize: 13, color: C.muted }}>This will also remove all {people.filter(p => p.teamId === deletingTeam.id).length} team members. This action cannot be undone.</p>
+            <div style={{ display: "flex", gap: 8 }}>
+              <Btn style={{ background: "#C62828", border: "none" }} primary onClick={confirmDeleteTeam}>Delete Team</Btn>
+              <Btn onClick={() => { setShowDeleteTeam(false); setDeletingTeam(null); }}>Cancel</Btn>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Person Modal */}
+      {showDeletePerson && deletingPerson && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 100 }}>
+          <div style={{ background: C.card, borderRadius: 12, padding: 24, width: 400, boxShadow: "0 8px 32px rgba(0,0,0,0.15)" }}>
+            <h3 style={{ margin: "0 0 12px", fontSize: 16, fontWeight: 700, color: "#C62828" }}>Remove Team Member</h3>
+            <p style={{ margin: "0 0 16px", fontSize: 14, color: C.text }}>Are you sure you want to remove <strong>{deletingPerson.name}</strong> from the team? This action cannot be undone.</p>
+            <div style={{ display: "flex", gap: 8 }}>
+              <Btn style={{ background: "#C62828", border: "none" }} primary onClick={confirmDeletePerson}>Remove</Btn>
+              <Btn onClick={() => { setShowDeletePerson(false); setDeletingPerson(null); }}>Cancel</Btn>
+            </div>
           </div>
         </div>
       )}
@@ -2447,20 +4616,33 @@ export default function BTCGSystem() {
                 <button onClick={() => setShowNewTeam(true)} style={{ padding: "8px 12px", borderRadius: 8, border: `1.5px solid ${C.blue}`, background: "#fff", color: C.blue, fontSize: 13, fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap" }}>+ Add Team</button>
               </div>
 
-              {/* Team Filter Pills */}
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 16 }}>
-                <button onClick={() => { setSelTeamId(null); setSelPersonId(null); setView("teamInsights"); }} style={{ padding: "6px 14px", borderRadius: 20, border: `1.5px solid ${view === "teamInsights" && !selTeamId ? C.blue : C.border}`, background: view === "teamInsights" && !selTeamId ? C.blue : "#fff", color: view === "teamInsights" && !selTeamId ? "#fff" : C.text, fontSize: 13, fontWeight: 600, cursor: "pointer", transition: "all 0.15s" }}>
-                  All ({orgPeople.length})
-                </button>
-                {org?.teams.map(t => {
-                  const count = orgPeople.filter(p => p.teamId === t.id).length;
-                  const active = view === "teamInsights" && selTeamId === t.id;
-                  return (
-                    <button key={t.id} onClick={() => { setSelTeamId(t.id); setSelPersonId(null); setView("teamInsights"); }} style={{ padding: "6px 14px", borderRadius: 20, border: `1.5px solid ${active ? C.blue : C.border}`, background: active ? C.blue : "#fff", color: active ? "#fff" : C.text, fontSize: 13, fontWeight: 600, cursor: "pointer", transition: "all 0.15s" }}>
-                      {t.name} ({count})
-                    </button>
-                  );
-                })}
+              {/* Team Filter Pills - scrollable container */}
+              <div style={{ maxHeight: 140, overflowY: "auto", marginBottom: 16, padding: "2px 0" }}>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                  <button onClick={() => { setSelTeamId(null); setSelPersonId(null); setView("teamInsights"); }} style={{ padding: "6px 14px", borderRadius: 20, border: `1.5px solid ${view === "teamInsights" && !selTeamId ? C.blue : C.border}`, background: view === "teamInsights" && !selTeamId ? C.blue : "#fff", color: view === "teamInsights" && !selTeamId ? "#fff" : C.text, fontSize: 13, fontWeight: 600, cursor: "pointer", transition: "all 0.15s" }}>
+                    All ({orgPeople.length})
+                  </button>
+                  {org?.teams.map(t => {
+                    const count = orgPeople.filter(p => p.teamId === t.id).length;
+                    const active = view === "teamInsights" && selTeamId === t.id;
+                    const isHovered = hoveredTeamId === t.id;
+                    return (
+                      <div key={t.id} style={{ position: "relative", display: "inline-flex" }}
+                        onMouseEnter={() => setHoveredTeamId(t.id)}
+                        onMouseLeave={() => setHoveredTeamId(null)}>
+                        <button onClick={() => { setSelTeamId(t.id); setSelPersonId(null); setView("teamInsights"); }} style={{ padding: "6px 14px", paddingRight: isHovered ? 50 : 14, borderRadius: 20, border: `1.5px solid ${active ? C.blue : C.border}`, background: active ? C.blue : "#fff", color: active ? "#fff" : C.text, fontSize: 13, fontWeight: 600, cursor: "pointer", transition: "all 0.15s" }}>
+                          {t.name} ({count})
+                        </button>
+                        {isHovered && (
+                          <div style={{ position: "absolute", right: 4, top: "50%", transform: "translateY(-50%)", display: "flex", gap: 2 }}>
+                            <button onClick={(e) => { e.stopPropagation(); handleEditTeam(t); }} title="Edit team name" style={{ width: 18, height: 18, borderRadius: 4, border: "none", background: "rgba(0,0,0,0.1)", color: C.text, fontSize: 10, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>✏️</button>
+                            <button onClick={(e) => { e.stopPropagation(); handleDeleteTeam(t); }} title="Delete team" style={{ width: 18, height: 18, borderRadius: 4, border: "none", background: "rgba(198,40,40,0.15)", color: "#C62828", fontSize: 10, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>🗑️</button>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
             </>)}
 
@@ -2514,13 +4696,24 @@ export default function BTCGSystem() {
                       </div>
                     </div>
                   </button>
-                  {/* Star button — only show for complete profiles */}
-                  {!isPending && (isHovered || isLeader) && (
-                    <button onClick={(e) => { e.stopPropagation(); setLeaderId(isLeader ? null : p.id); }}
-                      title={isLeader ? "Remove as leader" : "Set as leader"}
-                      style={{ position: "absolute", top: 8, right: 8, background: "none", border: "none", cursor: "pointer", fontSize: 14, lineHeight: 1, padding: 2, color: isLeader ? "#FFC107" : "#ccc", transition: "color 0.15s" }}>
-                      {isLeader ? "★" : "☆"}
-                    </button>
+                  {/* Star and Delete buttons */}
+                  {(isHovered || isLeader) && (
+                    <div style={{ position: "absolute", top: 6, right: 6, display: "flex", gap: 4, alignItems: "center" }}>
+                      {!isPending && (
+                        <button onClick={(e) => { e.stopPropagation(); setLeaderId(isLeader ? null : p.id); }}
+                          title={isLeader ? "Remove as leader" : "Set as leader"}
+                          style={{ background: "none", border: "none", cursor: "pointer", fontSize: 14, lineHeight: 1, padding: 2, color: isLeader ? "#FFC107" : "#ccc", transition: "color 0.15s" }}>
+                          {isLeader ? "★" : "☆"}
+                        </button>
+                      )}
+                      {isHovered && (
+                        <button onClick={(e) => { e.stopPropagation(); handleDeletePerson(p); }}
+                          title="Remove team member"
+                          style={{ background: "rgba(198,40,40,0.1)", border: "none", borderRadius: 4, cursor: "pointer", fontSize: 11, lineHeight: 1, padding: 4, color: "#C62828", transition: "all 0.15s" }}>
+                          🗑️
+                        </button>
+                      )}
+                    </div>
                   )}
                 </div>
               );
@@ -2553,9 +4746,20 @@ export default function BTCGSystem() {
           ) : view === "upload" ? (
             <UploadForm orgs={orgs} selOrgId={selOrgId} selTeamId={selTeamId} onAdd={addPerson} onCancel={() => setView(selPerson ? "viewer" : "teamInsights")} />
           ) : view === "teamInsights" ? (
-            <TeamInsights people={people} teamId={selTeamId} orgId={selOrgId} leaderId={leaderId} photos={photos} onUploadPhoto={onUploadPhoto} />
+            <TeamInsights
+              people={people}
+              teamId={selTeamId}
+              orgId={selOrgId}
+              leaderId={leaderId}
+              userId={user?.id}
+              photos={photos}
+              onUploadPhoto={onUploadPhoto}
+              onViewProfile={(personId) => { setSelPersonId(personId); setViewerInitialTab("profile"); setViewerShowTips(false); setViewerShowCompare(false); setView("viewer"); }}
+              onCompare={(personId) => { setSelPersonId(personId); setViewerInitialTab("profile"); setViewerShowTips(false); setViewerShowCompare(true); setView("viewer"); }}
+              onShowTips={(personId) => { setSelPersonId(personId); setViewerInitialTab("profile"); setViewerShowTips(true); setViewerShowCompare(false); setView("viewer"); }}
+            />
           ) : selPerson ? (
-            <Viewer person={selPerson} leader={people.find(p => p.id === leaderId) || null} agreements={agreements} setAgreements={setAgreements} photos={photos} onUploadPhoto={onUploadPhoto} />
+            <Viewer person={selPerson} leader={people.find(p => p.id === leaderId) || null} agreements={agreements} setAgreements={setAgreements} photos={photos} onUploadPhoto={onUploadPhoto} initialTab={viewerInitialTab} initialShowTips={viewerShowTips} initialShowCompare={viewerShowCompare} onClearShowTips={() => setViewerShowTips(false)} onClearShowCompare={() => setViewerShowCompare(false)} team={teamPeople.filter(p => p.status !== "pending")} />
           ) : (
             <div style={{ textAlign: "center", padding: 60, color: C.muted }}>
               <div style={{ fontSize: 36, marginBottom: 12 }}>📋</div>

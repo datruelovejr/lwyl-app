@@ -56,3 +56,48 @@ body {
 * {
   box-sizing: border-box;
 }
+
+/* Print styles for Conflict Report */
+@media print {
+  /* Hide navigation and non-essential elements */
+  nav,
+  .no-print,
+  button:not(.print-keep),
+  select,
+  input {
+    display: none !important;
+  }
+
+  /* Reset modal to full page */
+  [style*="position: fixed"] {
+    position: relative !important;
+    inset: unset !important;
+    background: white !important;
+    padding: 0 !important;
+    overflow: visible !important;
+    height: auto !important;
+  }
+
+  /* Clean print layout */
+  body {
+    background: white !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* Ensure colors print */
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* Page breaks */
+  .conflict-report {
+    page-break-inside: avoid;
+  }
+
+  /* Remove shadows for cleaner print */
+  [style*="box-shadow"] {
+    box-shadow: none !important;
+  }
+}
