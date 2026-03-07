@@ -322,8 +322,10 @@ function calculateFriction(personA, personB) {
     const aAttr = personA.attr.ext.find(a => a.label === attrLabel);
     const bAttr = personB.attr.ext.find(a => a.label === attrLabel);
     if (!aAttr || !bAttr) return { label: attrLabel, resultType: "aligned", score: 0, aBias: "=", bBias: "=" };
-    const result = processBiasScore(aAttr.bias, bAttr.bias);
-    return { label: attrLabel, ...result, aBias: aAttr.bias, bBias: bAttr.bias };
+    const aBias = normBias(aAttr.bias);
+    const bBias = normBias(bAttr.bias);
+    const result = processBiasScore(aBias, bBias);
+    return { label: attrLabel, ...result, aBias, bBias };
   });
 
   const processScore = processResults.reduce((sum, r) => sum + r.score, 0);
@@ -1552,7 +1554,7 @@ function IndividualComparison({ leader, person, agreements, setAgreements, onSta
     const tier = gap >= 40 ? "high" : gap >= 20 ? "moderate" : "low";
     let text = "";
     if (tier === "low") {
-      text = `Both around ${Math.round((lScore + pScore) / 2)} — natural compatibility here. Minor differences won't typically create tension.`;
+      text = `Both around ${Math.round((lScore + pScore) / 2)}. Natural compatibility here. Minor differences won't typically create tension.`;
     } else if (leaderHigher) {
       if (d === "D") text = `Your D is ${lScore}, theirs is ${pScore}. You push for decisions and speed. They need time to evaluate risk before committing.`;
       if (d === "I") text = `Your I is ${lScore}, theirs is ${pScore}. You communicate with energy and optimism. They prefer data and facts over enthusiasm.`;
@@ -1931,19 +1933,19 @@ function BridgeWizard({ leader, person, agreements, setAgreements, onClose }) {
 // ────── SPRINT 4A: ENVIRONMENT REPORT ──────
 const discInterp = {
   D: {
-    high:  "You drive toward results, challenge the status quo, and push through obstacles. You are decisive, direct, and determined. Your team experiences you as bold and fast-moving.",
+    high:  "You drive toward results, challenge the status quo, and push through obstacles. You're decisive, direct, and determined. Your team experiences you as bold and fast-moving.",
     mod:   "You balance assertiveness with cooperation. You push when needed but know when to step back. You can lead decisively or follow strategically.",
     low:   "You prefer to work collaboratively and avoid confrontation. You may defer to others more than your situation warrants. Your team may underestimate your opinions."
   },
   I: {
-    high:  "You lead with enthusiasm, optimism, and social energy. People are drawn to your communication style and warmth. You are at your best when connecting and inspiring.",
+    high:  "You lead with enthusiasm, optimism, and social energy. People are drawn to your communication style and warmth. You're at your best when connecting and inspiring.",
     mod:   "You can connect with people when needed but don't rely solely on charm. You balance influence with substance and can work alone or with groups.",
     low:   "You prefer facts over feelings and work over socializing. You may come across as reserved or intensely task-focused. Relationship-building takes intentional effort."
   },
   S: {
-    high:  "You create stability, consistency, and a steady environment for others. You are dependable, patient, and team-oriented. People trust you because you show up the same way every time.",
+    high:  "You create stability, consistency, and a steady environment for others. You're dependable, patient, and team-oriented. People trust you because you show up the same way every time.",
     mod:   "You adapt to both stable and changing environments. You're comfortable with routine but can handle disruption when it's necessary.",
-    low:   "You thrive on variety, change, and movement. Routine feels like a cage to you. You are comfortable initiating change others find threatening."
+    low:   "You thrive on variety, change, and movement. Routine feels like a cage to you. You're comfortable initiating change others find threatening.",
   },
   C: {
     high:  "You lead with precision, quality, and analytical depth. You hold yourself and others to a high standard. Getting it right matters more to you than getting it done fast.",
@@ -2762,7 +2764,7 @@ function CompareWithOthers({ person, team, onClose, photos = {} }) {
                 const tier = gap >= 40 ? "high" : gap >= 20 ? "moderate" : "low";
                 let text = "";
                 if (tier === "low") {
-                  text = `Both around ${Math.round((pScore + mScore) / 2)} — natural compatibility here.`;
+                  text = `Both around ${Math.round((pScore + mScore) / 2)}. Natural compatibility here.`;
                 } else if (pHigher) {
                   if (d === "D") text = `${p.name.split(" ")[0]}'s D is ${pScore}, ${m.name.split(" ")[0]}'s is ${mScore}. ${p.name.split(" ")[0]} pushes for decisions and speed; ${m.name.split(" ")[0]} needs time to evaluate.`;
                   if (d === "I") text = `${p.name.split(" ")[0]}'s I is ${pScore}, ${m.name.split(" ")[0]}'s is ${mScore}. ${p.name.split(" ")[0]} communicates with energy; ${m.name.split(" ")[0]} prefers data over enthusiasm.`;
@@ -3637,7 +3639,7 @@ const weekData = [
     theme: "DISC",
     color: C.disc.D,
     intro: "Your DISC profile shows how you're built to lead. When your environment asks you to operate differently, you pay a daily energy tax. Whether you feel it or not.",
-    reflection: "When do you feel most like yourself at work? When do you feel like you are performing a version of yourself you didn't choose?",
+    reflection: "When do you feel most like yourself at work? When do you feel like you're performing a version of yourself you didn't choose?",
     challenge: "This week, notice one moment where you shifted out of your Natural style to meet the room's expectations. Write down what triggered it and how it felt."
   },
   {
