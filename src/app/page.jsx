@@ -996,14 +996,14 @@ function UploadForm({ orgs, selOrgId, selTeamId: parentTeamId, onAdd, onCancel }
     },
     attr: {
       ext: [
-        { name: "Empathy", label: "Heart", score: +data.e_emp || 0, bias: data.e_empB || "=" },
-        { name: "Practical Thinking", label: "Hand", score: +data.e_pra || 0, bias: data.e_praB || "=" },
-        { name: "Systems Judgment", label: "Head", score: +data.e_sys || 0, bias: data.e_sysB || "=" }
+        { name: "Empathy", label: "Heart", score: +data.e_emp || 0, bias: normBias(data.e_empB || "=") },
+        { name: "Practical Thinking", label: "Hand", score: +data.e_pra || 0, bias: normBias(data.e_praB || "=") },
+        { name: "Systems Judgment", label: "Head", score: +data.e_sys || 0, bias: normBias(data.e_sysB || "=") }
       ],
       int: [
-        { name: "Self-Esteem", score: +data.i_se || 0, bias: data.i_seB || "=" },
-        { name: "Role Awareness", score: +data.i_ra || 0, bias: data.i_raB || "=" },
-        { name: "Self-Direction", score: +data.i_sd || 0, bias: data.i_sdB || "=" }
+        { name: "Self-Esteem", score: +data.i_se || 0, bias: normBias(data.i_seB || "=") },
+        { name: "Role Awareness", score: +data.i_ra || 0, bias: normBias(data.i_raB || "=") },
+        { name: "Self-Direction", score: +data.i_sd || 0, bias: normBias(data.i_sdB || "=") }
       ]
     }
   });
@@ -1228,8 +1228,8 @@ function UploadForm({ orgs, selOrgId, selTeamId: parentTeamId, onAdd, onCancel }
       disc: { natural: { D: +form.dN_D, I: +form.dN_I, S: +form.dN_S, C: +form.dN_C }, adaptive: { D: +form.dA_D || 0, I: +form.dA_I || 0, S: +form.dA_S || 0, C: +form.dA_C || 0 } },
       values: { Aesthetic: +form.v_Aes || 0, Economic: +form.v_Eco || 0, Individualistic: +form.v_Ind || 0, Political: +form.v_Pol || 0, Altruistic: +form.v_Alt || 0, Regulatory: +form.v_Reg || 0, Theoretical: +form.v_The || 0 },
       attr: {
-        ext: [{ name: "Empathy", label: "Heart", score: +form.e_emp || 0, bias: form.e_empB }, { name: "Practical Thinking", label: "Hand", score: +form.e_pra || 0, bias: form.e_praB }, { name: "Systems Judgment", label: "Head", score: +form.e_sys || 0, bias: form.e_sysB }],
-        int: [{ name: "Self-Esteem", score: +form.i_se || 0, bias: form.i_seB }, { name: "Role Awareness", score: +form.i_ra || 0, bias: form.i_raB }, { name: "Self-Direction", score: +form.i_sd || 0, bias: form.i_sdB }]
+        ext: [{ name: "Empathy", label: "Heart", score: +form.e_emp || 0, bias: normBias(form.e_empB) }, { name: "Practical Thinking", label: "Hand", score: +form.e_pra || 0, bias: normBias(form.e_praB) }, { name: "Systems Judgment", label: "Head", score: +form.e_sys || 0, bias: normBias(form.e_sysB) }],
+        int: [{ name: "Self-Esteem", score: +form.i_se || 0, bias: normBias(form.i_seB) }, { name: "Role Awareness", score: +form.i_ra || 0, bias: normBias(form.i_raB) }, { name: "Self-Direction", score: +form.i_sd || 0, bias: normBias(form.i_sdB) }]
       }
     };
     onAdd(person);
@@ -1965,6 +1965,7 @@ const valInterp = {
 };
 
 const getAttrBand = (score) => score >= 8.0 ? "strong" : score >= 6.0 ? "moderate" : "mild";
+const normBias = (b) => b === "-" ? "−" : b;
 const attrExtInterp = {
   Heart: {
     high: {
