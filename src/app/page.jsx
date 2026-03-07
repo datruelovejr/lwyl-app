@@ -310,22 +310,32 @@ function calculateFriction(personA, personB) {
   const aOnlyVals = aTopVals.filter(v => !bTopVals.includes(v));
   const bOnlyVals = bTopVals.filter(v => !aTopVals.includes(v));
 
-  // PROCESS friction (Attributes bias comparison)
-  // CONFLICT = + vs − (3 pts) | TENSION = + vs = or − vs = (1 pt) | ALIGNED = same (0 pts)
+  // PROCESS friction (Two-factor: bias comparison + score gap, take higher per dimension)
+  // Bias:      CONFLICT = + vs − (3 pts) | TENSION = + vs = or − vs = (1 pt) | ALIGNED = same (0 pts)
+  // Score gap: HIGH >= 4.0 (3 pts) | MODERATE >= 2.0 (1 pt) | LOW < 2.0 (0 pts)
   const processBiasScore = (aBias, bBias) => {
     if ((aBias === "+" && bBias === "−") || (aBias === "−" && bBias === "+")) return { resultType: "conflict", score: 3 };
     if (aBias === bBias) return { resultType: "aligned", score: 0 };
     return { resultType: "tension", score: 1 };
   };
+  const processGapScore = (gap) => {
+    if (gap >= 4.0) return { resultType: "conflict", score: 3 };
+    if (gap >= 2.0) return { resultType: "tension", score: 1 };
+    return { resultType: "aligned", score: 0 };
+  };
 
   const processResults = ["Heart", "Hand", "Head"].map(attrLabel => {
     const aAttr = personA.attr.ext.find(a => a.label === attrLabel);
     const bAttr = personB.attr.ext.find(a => a.label === attrLabel);
-    if (!aAttr || !bAttr) return { label: attrLabel, resultType: "aligned", score: 0, aBias: "=", bBias: "=" };
+    if (!aAttr || !bAttr) return { label: attrLabel, resultType: "aligned", score: 0, aBias: "=", bBias: "=", aScore: 0, bScore: 0, scoreGap: 0, driver: "bias" };
     const aBias = normBias(aAttr.bias);
     const bBias = normBias(bAttr.bias);
-    const result = processBiasScore(aBias, bBias);
-    return { label: attrLabel, ...result, aBias, bBias };
+    const biasResult = processBiasScore(aBias, bBias);
+    const scoreGap = Math.abs(aAttr.score - bAttr.score);
+    const gapResult = processGapScore(scoreGap);
+    const useGap = gapResult.score > biasResult.score;
+    const final = useGap ? gapResult : biasResult;
+    return { label: attrLabel, ...final, aBias, bBias, aScore: aAttr.score, bScore: bAttr.score, scoreGap, driver: useGap ? "gap" : "bias" };
   });
 
   const processScore = processResults.reduce((sum, r) => sum + r.score, 0);
@@ -496,12 +506,17 @@ function FrictionMap({ people, teamId, orgId, onClose, onViewComparison }) {
                   const colors = { conflict: { bg: "#FFEBEE", border: "#B71C1C", text: "#B71C1C" }, tension: { bg: "#FFF3E0", border: "#E65100", text: "#E65100" }, aligned: { bg: "#E8F5E9", border: "#2E7D32", text: "#2E7D32" } };
                   const c = colors[r.resultType];
                   return (
-                    <div key={r.label} style={{ padding: "10px 14px", borderRadius: 6, background: c.bg, borderLeft: `3px solid ${c.border}`, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                      <div>
-                        <span style={{ fontSize: 13, fontWeight: 700, color: C.text }}>{r.label}</span>
-                        <span style={{ fontSize: 11, color: C.muted, marginLeft: 12 }}>{personA.name.split(" ")[0]}: {r.aBias} · {personB.name.split(" ")[0]}: {r.bBias}</span>
+                    <div key={r.label} style={{ padding: "10px 14px", borderRadius: 6, background: c.bg, borderLeft: `3px solid ${c.border}` }}>
+                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
+                        <div>
+                          <span style={{ fontSize: 13, fontWeight: 700, color: C.text }}>{r.label}</span>
+                          <span style={{ fontSize: 11, color: C.muted, marginLeft: 12 }}>{personA.name.split(" ")[0]}: {r.aScore} ({r.aBias}) · {personB.name.split(" ")[0]}: {r.bScore} ({r.bBias})</span>
+                        </div>
+                        <span style={{ fontSize: 10, fontWeight: 700, color: c.text, padding: "2px 10px", borderRadius: 8, background: "#fff" }}>{r.resultType.toUpperCase()}</span>
                       </div>
-                      <span style={{ fontSize: 10, fontWeight: 700, color: c.text, padding: "2px 10px", borderRadius: 8, background: "#fff" }}>{r.resultType.toUpperCase()}</span>
+                      <div style={{ fontSize: 10, color: C.muted }}>
+                        Gap: {r.scoreGap.toFixed(1)} pts · Driven by: {r.driver === "gap" ? "score gap" : "bias conflict"}
+                      </div>
                     </div>
                   );
                 })}
