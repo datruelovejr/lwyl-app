@@ -422,7 +422,7 @@ function FrictionMap({ people, teamId, orgId, onClose, onViewComparison }) {
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12, marginBottom: 20 }}>
               {[
                 { label: "Preference", sub: "DISC Style Gaps", score: friction.preferenceScore, max: 12, color: C.disc.D },
-                { label: "Passion", sub: "Values Misalignment", score: friction.passionScore, max: 14, color: C.values.Altruistic },
+                { label: "Passion", sub: "Values Gap", score: friction.passionScore, max: 14, color: C.values.Altruistic },
                 { label: "Process", sub: "Bias Conflicts", score: friction.processScore, max: 9, color: C.attr.ext }
               ].map(p => (
                 <div key={p.label} style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: 16, textAlign: "center" }}>
@@ -1416,7 +1416,7 @@ function UploadForm({ orgs, selOrgId, selTeamId: parentTeamId, onAdd, onCancel }
         Select Files to Upload
       </button>
       <div style={{ display: "flex", gap: 8 }}>
-        <Btn onClick={() => setStep("entry")} style={{ flex: 1 }}>Skip — Enter Scores Manually</Btn>
+        <Btn onClick={() => setStep("entry")} style={{ flex: 1 }}>Skip - Enter Scores Manually</Btn>
         <Btn onClick={onCancel}>Cancel</Btn>
       </div>
     </div>
@@ -1440,9 +1440,9 @@ function UploadForm({ orgs, selOrgId, selTeamId: parentTeamId, onAdd, onCancel }
             <div style={{ fontSize: 12, fontWeight: 700, color: sc.text }}>
               {extractStatus === "extracting" && "Extracting scores from file..."}
               {extractStatus === "success" && "Extraction successful"}
-              {extractStatus === "partial" && "Partial extraction — review highlighted fields"}
-              {extractStatus === "failed" && "Extraction failed — enter scores manually"}
-              {extractStatus === "cdn-blocked" && "Library unavailable — enter scores manually"}
+              {extractStatus === "partial" && "Partial extraction. Review highlighted fields."}
+              {extractStatus === "failed" && "Extraction failed. Enter scores manually."}
+              {extractStatus === "cdn-blocked" && "Library unavailable. Enter scores manually."}
             </div>
             {extractLog && <div style={{ fontSize: 11, color: sc.text, marginTop: 2, opacity: 0.85 }}>{extractLog}</div>}
             {filledFields.size > 0 && (
@@ -1958,8 +1958,8 @@ const valInterp = {
   Aesthetic:       "driven by harmony, beauty, balance, and creative expression. Environments that lack aesthetic order slowly drain your energy.",
   Economic:        "highly practical, efficiency-driven, and focused on ROI. You want to know the return on every investment of time and energy.",
   Individualistic: "someone who craves independence, uniqueness, and the freedom to forge your own path. Being micromanaged costs you deeply.",
-  Political:       "driven by influence, control, and leadership position. You want to lead — not follow — and you track power dynamics instinctively.",
-  Altruistic:      "someone who leads from purpose and service. Helping others is not a job — it is a calling. When your work lacks meaning, it costs you.",
+  Political:       "driven by influence, control, and leadership position. You want to lead, not follow, and you track power dynamics instinctively.",
+  Altruistic:      "someone who leads from purpose and service. Helping others isn't a job. It's a calling. When your work lacks meaning, it costs you.",
   Regulatory:      "someone who needs structure, order, rules, and tradition. Chaos and ambiguity are your kryptonite. Clear systems make you effective.",
   Theoretical:     "a knowledge-seeker at heart. Learning, analyzing, and understanding for its own sake energizes you. Shallow work bores you."
 };
@@ -1972,7 +1972,7 @@ const attrExtInterp = {
 const attrIntInterp = {
   "Self-Esteem":    { "+": "You have a strong sense of your own value. You are self-assured and confident in your abilities. Criticism rarely shakes your self-image, but it may also mean feedback doesn't land the way others intend it to.", "−": "You undervalue your own worth. You may dismiss your contributions, defer too quickly, or need external validation to feel confident. Your environment's messages about 'enough' affect you deeply.", "=": "You have a somewhat settled view of your own worth. You can receive feedback without it destabilizing your identity, but you may not be strongly motivated to grow in this area." },
   "Role Awareness": { "+": "You require clarity about your role and purpose to function at your best. Ambiguity about expectations costs you energy.", "−": "You undervalue role clarity. You may take on tasks outside your lane or lack boundaries about what is yours to carry.", "=": "You have a balanced relationship with your role. You know what's yours and what isn't, most of the time." },
-  "Self-Direction": { "+": "You are locked onto your direction. You have solidified confidence about your path and future. Detours feel like defeat, not flexibility. Your environment can slow you but not easily redirect you.", "−": "You are open to influence and direction from others. Strong voices around you can redirect your path. You may need external guidance to feel confident about your direction.", "=": "You balance autonomy and collaboration effectively. You can lead yourself while remaining coachable." }
+  "Self-Direction": { "+": "You know where you're going. That's not stubbornness. That's clarity. You've built a strong sense of your future, and that clarity holds when everything around you gets noisy. Your environment can throw obstacles at you. It can create delays. But it can't pull you off your path. That's a strength. Not everyone has it.", "−": "You're open to influence and direction from others. Strong voices around you can shape your path. You may look to others to feel confident about your direction, and that openness makes you coachable and adaptable.", "=": "You balance leading yourself with staying open to others. You can own your direction while remaining coachable when the right input comes along." }
 };
 
 function ReportSection({ num, title, children }) {
@@ -2001,8 +2001,8 @@ function EnvironmentReport({ person, onClose }) {
 
   // Preference Tax
   const prefTax = discRows.reduce((sum, r) => sum + Math.abs(r.gap), 0);
-  const prefTaxLabel = prefTax >= 40 ? "Heavy" : prefTax >= 20 ? "Moderate" : "Light";
-  const prefTaxColor = prefTax >= 40 ? "#C62828" : prefTax >= 20 ? "#E65100" : C.green;
+  const prefTaxLabel = prefTax >= 160 ? "Critical" : prefTax >= 120 ? "Heavy" : prefTax >= 80 ? "Significant" : prefTax >= 40 ? "Moderate" : "Aligned";
+  const prefTaxColor = prefTax >= 160 ? "#7F1D1D" : prefTax >= 120 ? "#C62828" : prefTax >= 80 ? "#E65100" : prefTax >= 40 ? "#F59E0B" : C.green;
 
   // Values
   const valRows = Object.entries(p.values).sort((a, b) => b[1] - a[1]);
@@ -2064,8 +2064,8 @@ function EnvironmentReport({ person, onClose }) {
           </div>
 
           {/* 1: YOUR PREFERENCE — Natural */}
-          <ReportSection num={1} title="YOUR PREFERENCE — Natural Style">
-            <p style={{ fontSize: 14, color: C.muted, margin: "0 0 16px", lineHeight: 1.6 }}>Your Natural style reflects how you are hardwired to lead when you are comfortable, off-guard, or under pressure. This is who you are when no one is adjusting for the room.</p>
+          <ReportSection num={1} title="YOUR PREFERENCE: Natural Style">
+            <p style={{ fontSize: 14, color: C.muted, margin: "0 0 16px", lineHeight: 1.6 }}>Your Natural style is how you're built to lead when you're comfortable, off-guard, or under pressure. This is who you are when no one's adjusting for the room.</p>
             <div style={{ display: "flex", flexDirection: "column", gap: 12, marginBottom: 12 }}>
             {discRows.map(({ d, full, nat }) => (
               <div key={d} style={{ display: "flex", alignItems: "flex-start", gap: 20, padding: "16px 20px", borderRadius: 8, background: C.card, border: `1px solid ${C.border}`, borderLeft: `4px solid ${C.disc[d]}` }}>
@@ -2082,8 +2082,8 @@ function EnvironmentReport({ person, onClose }) {
           </ReportSection>
 
           {/* 2: Adaptive Style */}
-          <ReportSection num={2} title="YOUR PREFERENCE — Adaptive Style">
-            <p style={{ fontSize: 14, color: C.muted, margin: "0 0 16px", lineHeight: 1.6 }}>Your Adaptive style reflects how you are adjusting to the demands of your current environment. When Natural and Adaptive differ significantly, your environment is asking you to be someone you are not — and that costs energy.</p>
+          <ReportSection num={2} title="YOUR PREFERENCE: Adaptive Style">
+            <p style={{ fontSize: 14, color: C.muted, margin: "0 0 16px", lineHeight: 1.6 }}>Your Adaptive style is how you're adjusting to your current environment. When Natural and Adaptive differ significantly, your environment's asking you to be someone you're not. That costs energy every single day.</p>
             <div style={{ display: "flex", flexDirection: "column", gap: 12, marginBottom: 12 }}>
             {discRows.map(({ d, full, nat, adp, gap }) => {
               const absgap = Math.abs(gap);
@@ -2110,22 +2110,24 @@ function EnvironmentReport({ person, onClose }) {
           </ReportSection>
 
           {/* 3: Preference Tax */}
-          <ReportSection num={3} title="PREFERENCE TAX — The Cost of Adapting">
-            <p style={{ fontSize: 12, color: C.muted, margin: "0 0 12px", lineHeight: 1.6 }}>The Preference Tax measures the total energy you spend each day adapting your natural behavioral style to meet the demands of your environment. The higher the number, the more exhausted you are at the end of each day — even if you cannot explain why.</p>
+          <ReportSection num={3} title="PREFERENCE TAX: The Cost of Adapting">
+            <p style={{ fontSize: 12, color: C.muted, margin: "0 0 12px", lineHeight: 1.6 }}>Your Preference Tax is the total energy you spend each day adapting your natural behavioral style to fit your environment. The higher the number, the more drained you feel at the end of the day. Not because you worked hard. Because you spent the day being someone you're not.</p>
             <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 12 }}>
               {taxCard("Total Gap Points", prefTax, prefTaxColor, `Across all 4 DISC dimensions`)}
-              {taxCard("Tax Level", prefTaxLabel, prefTaxColor, prefTax >= 40 ? "You are paying a heavy daily tax." : prefTax >= 20 ? "Moderate daily energy drain." : "Your environment generally fits your style.")}
+              {taxCard("Tax Level", prefTaxLabel, prefTaxColor, prefTax >= 160 ? "Critical daily adaptation cost." : prefTax >= 120 ? "Heavy daily adaptation cost." : prefTax >= 80 ? "Significant daily adaptation cost." : prefTax >= 40 ? "Moderate daily adaptation cost." : "Your environment fits your natural style.")}
             </div>
             <div style={{ fontSize: 11, color: C.text, lineHeight: 1.7, padding: "10px 14px", background: C.card, borderRadius: 8, border: `1px solid ${C.border}` }}>
-              {prefTaxLabel === "Heavy" && "A Heavy Preference Tax means your environment is significantly misaligned with your natural operating style. You are likely experiencing chronic fatigue, frustration, or the sense that you have to perform a version of yourself that doesn't feel authentic. This is not a character flaw — it is an environment problem."}
-              {prefTaxLabel === "Moderate" && "A Moderate Preference Tax means your environment asks you to adapt in some meaningful ways. You have days where you feel in your element and days where you feel like you're swimming upstream. Identifying which dimensions carry the most cost can help you negotiate better conditions."}
-              {prefTaxLabel === "Light" && "A Light Preference Tax means your environment generally allows you to operate in alignment with your natural style. This is a rare and valuable gift. The gap you do have is worth monitoring — environments change, and so do their demands."}
+              {prefTaxLabel === "Critical" && "Your environment is demanding near-maximum behavioral adaptation from you right now. This isn't a motivation problem. It's a design problem at a critical level. The gap between who you are and how your environment needs you to show up is unsustainable without intervention."}
+              {prefTaxLabel === "Heavy" && "Your environment doesn't fit your natural operating style. You're paying a heavy price for it every day. The fatigue, the frustration, the sense that you're performing a version of yourself you didn't choose. That's not a character flaw. That's a design problem that has a design solution."}
+              {prefTaxLabel === "Significant" && "Two to three of your DISC dimensions are under sustained pressure right now. Adaptation isn't occasional. It's constant. You likely feel it most at the end of the day, when you've been managing your style for hours. The Environment Alignment shows you exactly where the cost is highest."}
+              {prefTaxLabel === "Moderate" && "Your environment asks you to adapt in meaningful ways. Some days feel natural. Others feel like you're swimming upstream. Knowing which dimensions carry the most cost is how you start negotiating better conditions."}
+              {prefTaxLabel === "Aligned" && "Your environment largely fits your natural style. That's rare. Protect it. Environments shift, and what fits today can drift over time. Knowing your baseline now is what lets you catch it early if it changes."}
             </div>
           </ReportSection>
 
           {/* 4: YOUR PASSION — Values */}
-          <ReportSection num={4} title="YOUR PASSION — What Drives You">
-            <p style={{ fontSize: 12, color: C.muted, margin: "0 0 12px", lineHeight: 1.6 }}>Your Values reveal what you are fundamentally motivated by — what gets you out of bed, what gives your work meaning, and what drains you when it is absent. These are not preferences. They are the fuel your leadership runs on.</p>
+          <ReportSection num={4} title="YOUR PASSION: What Drives You">
+            <p style={{ fontSize: 12, color: C.muted, margin: "0 0 12px", lineHeight: 1.6 }}>Your Values reveal what you're fundamentally motivated by. What gets you out of bed. What gives your work meaning. What drains you when it's absent. These aren't preferences. They're the fuel your leadership runs on.</p>
             {topVals.length > 0 && (
               <div style={{ marginBottom: 12 }}>
                 <div style={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5, color: C.muted, marginBottom: 6 }}>Top Drivers (Score 60+)</div>
@@ -2164,10 +2166,10 @@ function EnvironmentReport({ person, onClose }) {
           </ReportSection>
 
           {/* 5: YOUR PROCESS — External */}
-          <ReportSection num={5} title="YOUR PROCESS — External (Heart, Hand, Head)">
+          <ReportSection num={5} title="YOUR PROCESS: External (Heart, Hand, Head)">
             {isEqualExtProfile(p.attr.ext) ? (
               <>
-                <p style={{ fontSize: 12, color: C.muted, margin: "0 0 12px", lineHeight: 1.6 }}>Your External Attributes show equal capacity across all three decision-making dimensions. You see People, Results, and Structure with the same clarity. There is no processing sequence — versatility IS your strength. Your bias indicators reveal your relationship to each lens, not the order you use them.</p>
+                <p style={{ fontSize: 12, color: C.muted, margin: "0 0 12px", lineHeight: 1.6 }}>Your External Attributes show equal capacity across all three decision-making dimensions. You see People, Results, and Structure with the same clarity. There's no fixed processing sequence. Versatility IS your strength. Your bias indicators reveal your relationship to each lens, not the order you use them.</p>
                 {p.attr.ext.map(a => {
                   const interp = attrExtInterp[a.label]?.high || "";
                   return (
@@ -2180,7 +2182,7 @@ function EnvironmentReport({ person, onClose }) {
                       <div style={{ flex: 1 }}>
                         <div style={{ fontSize: 12, fontWeight: 700, color: C.attr.ext, marginBottom: 3 }}>{a.label} — {a.name}</div>
                         <div style={{ fontSize: 11, color: C.text, lineHeight: 1.5 }}>{interp}</div>
-                        {a.bias === "−" && <div style={{ fontSize: 10, color: "#E65100", marginTop: 3, fontWeight: 600 }}>⚠ Pattern detected — your data shows reduced reliance on this lens despite having the capacity. The Environment Alignment can help determine whether this is environment-driven or a natural preference.</div>}
+                        {a.bias === "−" && <div style={{ fontSize: 10, color: "#E65100", marginTop: 3, fontWeight: 600 }}>⚠ Pattern detected. Your data shows reduced reliance on this lens despite having the capacity. The Environment Alignment can help determine whether this is environment-driven or a natural preference.</div>}
                         {a.bias === "+" && <div style={{ fontSize: 10, color: "#2E7D32", marginTop: 3, fontWeight: 600 }}>↑ You require this sense to function well. When it is absent, decisions feel incomplete.</div>}
                       </div>
                     </div>
@@ -2189,7 +2191,7 @@ function EnvironmentReport({ person, onClose }) {
               </>
             ) : (
               <>
-                <p style={{ fontSize: 12, color: C.muted, margin: "0 0 12px", lineHeight: 1.6 }}>Your External Attributes determine what you see first when you look at any situation. This is your decision-making order — the lens through which all information is filtered before you act.</p>
+                <p style={{ fontSize: 12, color: C.muted, margin: "0 0 12px", lineHeight: 1.6 }}>Your External Attributes determine what you see first when you look at any situation. This is your decision-making order. The lens through which all information is filtered before you act.</p>
                 {extSorted.map((a, i) => {
                   const key = i === 0 ? "high" : "low";
                   const interp = attrExtInterp[a.label]?.[key] || "";
@@ -2203,7 +2205,7 @@ function EnvironmentReport({ person, onClose }) {
                       <div style={{ flex: 1 }}>
                         <div style={{ fontSize: 12, fontWeight: 700, color: i === 0 ? C.attr.ext : C.text, marginBottom: 3 }}>{a.label} — {a.name}</div>
                         <div style={{ fontSize: 11, color: C.text, lineHeight: 1.5 }}>{interp}</div>
-                        {a.bias === "−" && <div style={{ fontSize: 10, color: "#E65100", marginTop: 3, fontWeight: 600 }}>⚠ Pattern detected — your data shows reduced reliance on this lens despite having the capacity. The Environment Alignment can help determine whether this is environment-driven or a natural preference.</div>}
+                        {a.bias === "−" && <div style={{ fontSize: 10, color: "#E65100", marginTop: 3, fontWeight: 600 }}>⚠ Pattern detected. Your data shows reduced reliance on this lens despite having the capacity. The Environment Alignment can help determine whether this is environment-driven or a natural preference.</div>}
                         {a.bias === "+" && <div style={{ fontSize: 10, color: "#2E7D32", marginTop: 3, fontWeight: 600 }}>↑ You require this sense to function well. When it is absent, decisions feel incomplete.</div>}
                       </div>
                     </div>
@@ -2214,8 +2216,8 @@ function EnvironmentReport({ person, onClose }) {
           </ReportSection>
 
           {/* 6: Internal Attributes */}
-          <ReportSection num={6} title="YOUR PROCESS — Internal (Leadership Foundation)">
-            <p style={{ fontSize: 12, color: C.muted, margin: "0 0 12px", lineHeight: 1.6 }}>Your Internal Attributes reflect how you see yourself — your own worth, your purpose, and your capacity to lead yourself. These are the foundation beneath everything else you do.</p>
+          <ReportSection num={6} title="YOUR PROCESS: Internal (Leadership Foundation)">
+            <p style={{ fontSize: 12, color: C.muted, margin: "0 0 12px", lineHeight: 1.6 }}>Your Internal Attributes reflect how you see yourself. Your own worth, your purpose, and your capacity to lead yourself. These are the foundation beneath everything else you do.</p>
             {intRows.map(a => (
               <div key={a.name} style={{ marginBottom: 8, padding: "10px 12px", borderRadius: 8, background: C.card, border: `1px solid ${C.border}` }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
@@ -2231,8 +2233,8 @@ function EnvironmentReport({ person, onClose }) {
           </ReportSection>
 
           {/* 7: Process Tax */}
-          <ReportSection num={7} title="PROCESS SIGNALS — Patterns Worth Examining">
-            <p style={{ fontSize: 12, color: C.muted, margin: "0 0 12px", lineHeight: 1.6 }}>Your bias indicators reveal patterns in how you utilize your decision-making capacity. A minus (−) bias means you have a lens you are not fully leveraging — this could be environment-driven, experience-driven, or a natural preference. The Environment Alignment can help determine the source.</p>
+          <ReportSection num={7} title="PROCESS SIGNALS: Patterns Worth Examining">
+            <p style={{ fontSize: 12, color: C.muted, margin: "0 0 12px", lineHeight: 1.6 }}>Your External Attributes show patterns worth paying attention to. A minus bias doesn't mean something's broken. It means there's a lens you're not fully using right now. It could be something your environment shaped over time. It could be a natural preference. The Environment Alignment is what helps you figure out which one it is. Right now, you're seeing the pattern. That's step one.</p>
             <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 12 }}>
               {taxCard("External Patterns", extMinusBiases === 0 ? "Clear" : `${extMinusBiases} detected`, processTaxColor, extMinusBiases === 0 ? "All external capacities active" : `${extMinusBiases} lens${extMinusBiases > 1 ? "es" : ""} showing bias pattern`)}
               {taxCard("Internal Impact", intMinusBiases === 0 ? "Clear" : `${intMinusBiases} detected`, intMinusBiases === 0 ? C.green : "#E65100", intMinusBiases === 0 ? "Internal foundation stable" : `${intMinusBiases} dimension${intMinusBiases > 1 ? "s" : ""} showing environment sensitivity`)}
@@ -2240,26 +2242,30 @@ function EnvironmentReport({ person, onClose }) {
             </div>
             {extMinusBiases > 0 && (
               <div style={{ fontSize: 11, color: C.text, lineHeight: 1.7, padding: "12px 16px", background: C.card, borderRadius: 8, border: `1px solid ${C.border}`, borderLeft: "4px solid #E65100" }}>
-                Your data shows decision-making capacity that you are not fully utilizing. This shows up as second-guessing yourself, ignoring data you know matters, or defaulting to one lens even when the situation calls for another. Whether this pattern is environment-driven or experience-driven is something the Environment Alignment is designed to clarify.
+                Your data shows decision-making capacity you're not fully using right now. It shows up as second-guessing yourself, ignoring data you know matters, or defaulting to one lens when the situation calls for another. Whether this pattern is environment-driven or experience-driven is exactly what the Environment Alignment is built to clarify.
               </div>
             )}
           </ReportSection>
 
           {/* 8: Compound Bill */}
-          <ReportSection num={8} title="THE COMPOUND BILL — Your Environment Picture">
-            <p style={{ fontSize: 12, color: C.muted, margin: "0 0 16px", lineHeight: 1.6 }}>Your Preference Tax is confirmed from your data — it measures the behavioral energy cost your environment charges you daily. Your Process Signals identify patterns in your decision-making that are worth examining further. Together, they begin to reveal the gap between who you are and how you show up.</p>
+          <ReportSection num={8} title="THE COMPOUND BILL: Your Environment Picture">
+            <p style={{ fontSize: 12, color: C.muted, margin: "0 0 16px", lineHeight: 1.6 }}>Your Preference Tax is confirmed from your data. It's the behavioral energy cost your environment charges you every day. Your Process Signals identify patterns in your decision-making that are worth digging into. Together, they start to reveal the gap between who you are and how you're showing up.</p>
             <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 20 }}>
-              {taxCard("Preference Tax", prefTaxLabel, prefTaxColor, `${prefTax} gap points — confirmed`)}
+              {taxCard("Preference Tax", prefTaxLabel, prefTaxColor, `${prefTax} gap points confirmed`)}
               {taxCard("Process Signals", extMinusBiases === 0 ? "Clear" : `${extMinusBiases} pattern${extMinusBiases > 1 ? "s" : ""}`, processTaxColor, extMinusBiases === 0 ? "No patterns detected" : `${extMinusBiases} bias pattern${extMinusBiases > 1 ? "s" : ""} to examine`)}
             </div>
             {/* Peak-End Rule: Compound Bill Verdict — the session's peak moment */}
             {(() => {
-              const overallColor = prefTaxLabel === "Heavy" ? "#C62828" : prefTaxLabel === "Moderate" ? "#E65100" : C.green;
-              const verdictCopy = prefTaxLabel === "Heavy"
-                ? `The exhaustion you feel is not a motivation problem. It is a design problem. Your environment is costing you more than it should — and you deserve to know that. Your Process Signals suggest additional patterns worth exploring through the Environment Alignment.`
+              const overallColor = prefTaxLabel === "Critical" ? "#7F1D1D" : prefTaxLabel === "Heavy" ? "#C62828" : prefTaxLabel === "Significant" ? "#E65100" : prefTaxLabel === "Moderate" ? "#F59E0B" : C.green;
+              const verdictCopy = prefTaxLabel === "Critical"
+                ? `The exhaustion you feel isn't a motivation problem. It's a design problem at a critical level. Your environment is demanding near-maximum adaptation from you right now. That's unsustainable. You deserve to know that, and you deserve a path out of it.`
+                : prefTaxLabel === "Heavy"
+                ? `The fatigue you feel isn't weakness. It's the cost of showing up as someone you're not, day after day. Your environment is charging you more than it should. That's a design problem. And design problems have design solutions.`
+                : prefTaxLabel === "Significant"
+                ? `You're carrying a real daily cost right now. Multiple dimensions of who you are are under sustained pressure. You feel it most when you're supposed to be off the clock, but you can't switch off. Your Process Signals show additional patterns worth digging into through the Environment Alignment.`
                 : prefTaxLabel === "Moderate"
-                ? `You have days where you feel in your element and days where you feel like you're performing. The gap between those days is solvable. It starts here.`
-                : `Your behavioral environment is a rare and valuable fit. The work now is to protect it — and to examine whether your Passion and Process dimensions tell a different story.`;
+                ? `Some days feel natural. Others feel like a performance. Knowing which dimensions carry the most cost is how you start negotiating better conditions. Your Process Signals show additional patterns worth exploring.`
+                : `Your behavioral environment largely fits who you are. That's rare. Protect it. Your Process Signals are still worth examining to make sure the full picture holds.`;
               return (
                 <div style={{ padding: "24px 28px", borderRadius: 12, background: C.card, border: `1px solid ${C.border}`, borderLeft: `5px solid ${overallColor}` }}>
                   <div style={{ fontSize: 10, fontWeight: 700, color: C.muted, textTransform: "uppercase", letterSpacing: 1, marginBottom: 8 }}>Your Compound Bill</div>
@@ -2325,7 +2331,7 @@ function TeamSummary({ people, teamId, orgId, leader, onClose, photos = {}, onUp
           <PhotoAvatar personId={p.id} name={p.name} bgColor="rgba(255,255,255,0.2)" photo={photos[p.id]} onUpload={onUploadPhoto} size={40} square={false} />
           <div>
             <div style={{ fontWeight: 700, fontSize: 16, color: "#fff" }}>{p.name}</div>
-            <div style={{ fontSize: 11, color: "rgba(255,255,255,0.6)", marginTop: 1 }}>Love Where You Lead — Member Summary</div>
+            <div style={{ fontSize: 11, color: "rgba(255,255,255,0.6)", marginTop: 1 }}>Love Where You Lead - Member Summary</div>
           </div>
         </div>
 
@@ -2436,7 +2442,7 @@ function LeadershipTips({ person, onClose }) {
   // Generate DISC-based tips
   const discTips = [];
   if (p.disc.natural.D >= 60) {
-    discTips.push({ title: "Leverage their drive", tip: `${firstName} thrives when given challenges and autonomy. Assign them problems to solve, not tasks to complete. Avoid micromanaging.` });
+    discTips.push({ title: "Use their drive", tip: `${firstName} thrives when given challenges and autonomy. Assign them problems to solve, not tasks to complete. Avoid micromanaging.` });
   }
   if (p.disc.natural.I >= 60) {
     discTips.push({ title: "Feed their need for connection", tip: `${firstName} needs verbal recognition and social energy. Schedule regular check-ins and celebrate wins publicly.` });
@@ -2821,14 +2827,14 @@ function CompareWithOthers({ person, team, onClose, photos = {} }) {
                       </div>
                       <div style={{ padding: "10px 16px", borderRadius: 8, background: C.card, border: `1px solid ${C.border}`, borderLeft: "3px solid #E65100" }}>
                         <div style={{ fontSize: 9, fontWeight: 700, color: "#A83A00", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 2 }}>{p.name.split(" ")[0]}&apos;s Unique Drivers</div>
-                        <div style={{ fontSize: 9, color: C.muted, marginBottom: 6 }}>{p.name.split(" ")[0]} cares about these — {m.name.split(" ")[0]} may not share them</div>
+                        <div style={{ fontSize: 9, color: C.muted, marginBottom: 6 }}>{p.name.split(" ")[0]} cares about these. {m.name.split(" ")[0]} may not share them</div>
                         <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
                           {pOnly.length > 0 ? pOnly.map(v => <span key={v} style={{ fontSize: 10, padding: "2px 10px", borderRadius: 10, background: C.values[v] + "15", color: C.values[v], fontWeight: 600, border: `1px solid ${C.values[v]}30` }}>{v}</span>) : <span style={{ fontSize: 10, color: C.muted }}>No unique drivers</span>}
                         </div>
                       </div>
                       <div style={{ padding: "10px 16px", borderRadius: 8, background: C.card, border: `1px solid ${C.border}`, borderLeft: "3px solid #1565C0" }}>
                         <div style={{ fontSize: 9, fontWeight: 700, color: "#0D4880", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 2 }}>{m.name.split(" ")[0]}&apos;s Unique Drivers</div>
-                        <div style={{ fontSize: 9, color: C.muted, marginBottom: 6 }}>{m.name.split(" ")[0]} cares about these — {p.name.split(" ")[0]} may not share them</div>
+                        <div style={{ fontSize: 9, color: C.muted, marginBottom: 6 }}>{m.name.split(" ")[0]} cares about these. {p.name.split(" ")[0]} may not share them</div>
                         <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
                           {mOnly.length > 0 ? mOnly.map(v => <span key={v} style={{ fontSize: 10, padding: "2px 10px", borderRadius: 10, background: C.values[v] + "15", color: C.values[v], fontWeight: 600, border: `1px solid ${C.values[v]}30` }}>{v}</span>) : <span style={{ fontSize: 10, color: C.muted }}>No unique drivers</span>}
                         </div>
@@ -3282,7 +3288,7 @@ function LeaderComparison({ leader, team }) {
           )}
           {blindSpots.length > 0 && (
             <div style={{ padding: "10px 16px", borderRadius: 8, background: C.card, border: `1px solid ${C.border}`, borderLeft: "3px solid #E65100" }}>
-              <div style={{ fontSize: 9, fontWeight: 700, color: "#A83A00", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 6 }}>Your Blind Spot — Team cares about this, you may not</div>
+              <div style={{ fontSize: 9, fontWeight: 700, color: "#A83A00", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 6 }}>Your Blind Spot: Team cares about this, you may not</div>
               <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
                 {blindSpots.map(v => <span key={v} style={{ fontSize: 10, padding: "2px 10px", borderRadius: 10, background: C.values[v] + "15", color: C.values[v], fontWeight: 600, border: `1px solid ${C.values[v]}30` }}>{v}</span>)}
               </div>
@@ -3290,7 +3296,7 @@ function LeaderComparison({ leader, team }) {
           )}
           {unmetNeeds.length > 0 && (
             <div style={{ padding: "10px 16px", borderRadius: 8, background: C.card, border: `1px solid ${C.border}`, borderLeft: "3px solid #1565C0" }}>
-              <div style={{ fontSize: 9, fontWeight: 700, color: "#0D4880", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 6 }}>Unmet Need — You care about this, they may not feel it</div>
+              <div style={{ fontSize: 9, fontWeight: 700, color: "#0D4880", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 6 }}>Unmet Need: You care about this, they may not feel it</div>
               <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
                 {unmetNeeds.map(v => <span key={v} style={{ fontSize: 10, padding: "2px 10px", borderRadius: 10, background: C.values[v] + "15", color: C.values[v], fontWeight: 600, border: `1px solid ${C.values[v]}30` }}>{v}</span>)}
               </div>
@@ -3547,7 +3553,7 @@ const weekData = [
     subtitle: "Why You're Exhausted",
     theme: "DISC",
     color: C.disc.D,
-    intro: "Your DISC profile reveals how you are hardwired to lead. When your environment asks you to operate differently, you pay a daily energy tax — whether you feel it or not.",
+    intro: "Your DISC profile shows how you're built to lead. When your environment asks you to operate differently, you pay a daily energy tax. Whether you feel it or not.",
     reflection: "When do you feel most like yourself at work? When do you feel like you are performing a version of yourself you didn't choose?",
     challenge: "This week, notice one moment where you shifted out of your Natural style to meet the room's expectations. Write down what triggered it and how it felt."
   },
@@ -3557,7 +3563,7 @@ const weekData = [
     subtitle: "The Quiet Quitting Myth",
     theme: "Values",
     color: C.values.Altruistic,
-    intro: "People don't go quiet because they stop caring. They go quiet because what they care about stopped mattering at work. Your Values profile reveals the fuel your leadership runs on — and whether your environment is filling the tank or draining it.",
+    intro: "People don't go quiet because they stop caring. They go quiet because what they care about stopped mattering at work. Your Values profile reveals the fuel your leadership runs on, and whether your environment is filling the tank or draining it.",
     reflection: "Which of your top drivers do you get to live out at work right now? Which feel invisible or unsupported?",
     challenge: "This week, find one small way to activate your highest-scoring value in a current project or interaction."
   },
@@ -3567,8 +3573,8 @@ const weekData = [
     subtitle: "The Lie Your Environment Told You",
     theme: "Attributes",
     color: C.attr.ext,
-    intro: "Your Attributes reveal how you naturally process the world and yourself. The bias indicators show where you may not be fully leveraging the capacity you were built with. Whether that's environment-driven, experience-driven, or simply a natural preference — the pattern is worth understanding.",
-    reflection: "When you make decisions, which lens do you trust most — Heart, Hand, or Head? Which do you skip, rush, or ignore? Has that always been true?",
+    intro: "Your Attributes reveal how you naturally process the world and yourself. The bias indicators show where you may not be fully using the capacity you were built with. Whether that's environment-driven, experience-driven, or simply a natural preference, the pattern is worth understanding.",
+    reflection: "When you make decisions, which lens do you trust most. Heart, Hand, or Head? Which do you skip, rush, or ignore? Has that always been true?",
     challenge: "This week, before making one decision, deliberately use your lowest-scoring External attribute before moving forward. Notice what changes."
   },
   {
@@ -3577,8 +3583,8 @@ const weekData = [
     subtitle: "You Don't Have to Move to Build a House",
     theme: "Compound",
     color: C.accent,
-    intro: "You now have your Compound Bill — the full picture of what your environment costs you. This week is not about escaping. It's about designing. You cannot always change your environment overnight, but you can change how you negotiate with it.",
-    reflection: "What does your ideal work environment look like — the one where you would stop paying the tax? What is one specific thing in that environment that you could ask for, or create, this week?",
+    intro: "You now have your Compound Bill. The full picture of what your environment costs you. This week isn't about escaping. It's about designing. You can't always change your environment overnight, but you can change how you negotiate with it.",
+    reflection: "What does your ideal work environment look like. The one where you'd stop paying the tax? What's one specific thing in that environment that you could ask for, or create, this week?",
     challenge: "Write one specific request to make to your leader, your team, or yourself based on what you've learned over the past three weeks. Make it concrete. Make it yours."
   }
 ];
@@ -3596,8 +3602,8 @@ function WeekCard({ weekDef, person, status, onComplete, expanded, onToggle }) {
     if (theme === "DISC") {
       const dims = ["D", "I", "S", "C"];
       const prefTax = dims.reduce((sum, d) => sum + Math.abs(person.disc.adaptive[d] - person.disc.natural[d]), 0);
-      const taxLabel = prefTax >= 40 ? "Heavy" : prefTax >= 20 ? "Moderate" : "Light";
-      const taxColor = prefTax >= 40 ? "#C62828" : prefTax >= 20 ? "#E65100" : C.green;
+      const taxLabel = prefTax >= 160 ? "Critical" : prefTax >= 120 ? "Heavy" : prefTax >= 80 ? "Significant" : prefTax >= 40 ? "Moderate" : "Aligned";
+      const taxColor = prefTax >= 160 ? "#7F1D1D" : prefTax >= 120 ? "#C62828" : prefTax >= 80 ? "#E65100" : prefTax >= 40 ? "#F59E0B" : C.green;
       return (
         <div style={{ marginBottom: 12 }}>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 6, marginBottom: 10 }}>
@@ -3619,7 +3625,7 @@ function WeekCard({ weekDef, person, status, onComplete, expanded, onToggle }) {
               <div style={{ fontSize: 10, color: C.muted }}>{prefTax} total gap points</div>
             </div>
             <div style={{ flex: 1, fontSize: 11, color: C.text, lineHeight: 1.6, alignSelf: "center", paddingLeft: 12, borderLeft: `2px solid ${C.border}` }}>
-              {taxLabel === "Heavy" ? "Your environment is significantly misaligned. The exhaustion you feel is not a motivation problem — it is a design problem." : taxLabel === "Moderate" ? "You are adapting in meaningful ways. Some days feel natural; others feel like a performance." : "Your environment is a good fit. Protect this alignment — it is not guaranteed."}
+              {taxLabel === "Critical" ? "Your environment is demanding near-maximum adaptation. This isn't a motivation problem. It's a design problem at a critical level." : taxLabel === "Heavy" ? "Your environment doesn't fit your natural style. The fatigue you feel is real. It's the cost of showing up as someone you're not." : taxLabel === "Significant" ? "Two to three dimensions are under sustained pressure. Adaptation isn't occasional right now. It's constant." : taxLabel === "Moderate" ? "You're adapting in meaningful ways. Some days feel natural. Others feel like a performance." : "Your environment fits your natural style. Protect this. It's not guaranteed."}
             </div>
           </div>
         </div>
@@ -3650,7 +3656,7 @@ function WeekCard({ weekDef, person, status, onComplete, expanded, onToggle }) {
               <div style={{ fontSize: 10, color: C.muted }}>{topVals.length} top driver{topVals.length !== 1 ? "s" : ""} identified</div>
             </div>
             <div style={{ flex: 1, fontSize: 11, color: C.text, lineHeight: 1.6, alignSelf: "center", paddingLeft: 12, borderLeft: `2px solid ${C.border}` }}>
-              {topVals.length > 0 ? `Your top drivers — ${topVals.slice(0,2).map(([k]) => k).join(" and ")} — are what get you out of bed. Whether your environment honors or starves these determines your Passion Tax. That requires examining your environment, not just your profile.` : "No strong value drivers found at or above 60. Your motivation may be scattered or suppressed."}
+              {topVals.length > 0 ? `Your top drivers, ${topVals.slice(0,2).map(([k]) => k).join(" and ")}, are what get you out of bed. Whether your environment honors or starves these determines your Passion Tax. That requires examining your environment, not just your profile.` : "No strong value drivers found at or above 60. Your motivation may be scattered or suppressed."}
             </div>
           </div>
         </div>
@@ -3666,7 +3672,7 @@ function WeekCard({ weekDef, person, status, onComplete, expanded, onToggle }) {
       return (
         <div style={{ marginBottom: 12 }}>
           <div style={{ marginBottom: 10 }}>
-            <div style={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5, color: C.muted, marginBottom: 6 }}>{isEqual ? "External — Versatile Profile (Equal Capacity)" : "External — Your Decision Order"}</div>
+            <div style={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5, color: C.muted, marginBottom: 6 }}>{isEqual ? "External: Versatile Profile (Equal Capacity)" : "External: Your Decision Order"}</div>
             {(isEqual ? person.attr.ext : extSorted).map((a, i) => (
               <div key={a.name} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", borderRadius: 8, background: C.card, border: `1px solid ${C.border}`, borderLeft: isEqual || i === 0 ? `4px solid ${C.attr.ext}` : `1px solid ${C.border}`, marginBottom: 5 }}>
                 <div style={{ fontWeight: 800, fontSize: 16, color: C.attr.ext, width: 20 }}>{isEqual ? "=" : i + 1}</div>
@@ -3685,7 +3691,7 @@ function WeekCard({ weekDef, person, status, onComplete, expanded, onToggle }) {
               <div style={{ fontSize: 10, color: C.muted }}>{extMinus} bias pattern{extMinus !== 1 ? "s" : ""} to examine</div>
             </div>
             <div style={{ flex: 1, fontSize: 11, color: C.text, lineHeight: 1.6, alignSelf: "center", paddingLeft: 12, borderLeft: `2px solid ${C.border}` }}>
-              {extMinus === 0 ? "All three external lenses show active utilization. No patterns requiring further examination." : `${extMinus} of your external lens${extMinus > 1 ? "es show" : " shows"} a bias pattern worth investigating. You have the capacity — something is creating distance between your ability and your use of it.`}
+              {extMinus === 0 ? "All three external lenses show active use. No patterns requiring further examination." : `${extMinus} of your external lens${extMinus > 1 ? "es show" : " shows"} a bias pattern worth investigating. You have the capacity. Something is creating distance between your ability and your use of it.`}
             </div>
           </div>
         </div>
@@ -3695,17 +3701,17 @@ function WeekCard({ weekDef, person, status, onComplete, expanded, onToggle }) {
     if (theme === "Compound") {
       const dims = ["D", "I", "S", "C"];
       const prefTax = dims.reduce((sum, d) => sum + Math.abs(person.disc.adaptive[d] - person.disc.natural[d]), 0);
-      const prefLabel = prefTax >= 40 ? "Heavy" : prefTax >= 20 ? "Moderate" : "Light";
+      const prefLabel = prefTax >= 160 ? "Critical" : prefTax >= 120 ? "Heavy" : prefTax >= 80 ? "Significant" : prefTax >= 40 ? "Moderate" : "Aligned";
       const topVals = Object.entries(person.values).filter(([, s]) => s >= 60);
       const extMinus = person.attr.ext.filter(a => a.bias === "−").length;
       const processLabel = extMinus === 0 ? "Clear" : extMinus === 1 ? "1 Signal" : extMinus === 2 ? "2 Signals" : "3 Signals";
       // Compound only uses confirmed data (Preference Tax) - others shown as signals
-      const compoundColor = prefLabel === "Heavy" ? "#C62828" : prefLabel === "Moderate" ? "#E65100" : C.green;
+      const compoundColor = prefLabel === "Critical" ? "#7F1D1D" : prefLabel === "Heavy" ? "#C62828" : prefLabel === "Significant" ? "#E65100" : prefLabel === "Moderate" ? "#F59E0B" : C.green;
       return (
         <div style={{ marginBottom: 12 }}>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8, marginBottom: 12 }}>
             {[
-              ["Preference Tax", prefLabel, `${prefTax} gap pts`, prefLabel === "Heavy" ? "#C62828" : prefLabel === "Moderate" ? "#E65100" : C.green],
+              ["Preference Tax", prefLabel, `${prefTax} gap pts`, prefLabel === "Critical" ? "#7F1D1D" : prefLabel === "Heavy" ? "#C62828" : prefLabel === "Significant" ? "#E65100" : prefLabel === "Moderate" ? "#F59E0B" : C.green],
               ["Passion Profile", `${topVals.length} Drivers`, `${topVals.length} top identified`, topVals.length >= 3 ? C.green : topVals.length >= 1 ? "#E65100" : C.muted],
               ["Process Signals", processLabel, `${extMinus} pattern${extMinus !== 1 ? "s" : ""} detected`, extMinus === 0 ? C.green : extMinus >= 2 ? "#E65100" : "#558B2F"]
             ].map(([label, val, note, c]) => (
@@ -3720,7 +3726,7 @@ function WeekCard({ weekDef, person, status, onComplete, expanded, onToggle }) {
             <div style={{ fontSize: 10, fontWeight: 700, color: C.muted, textTransform: "uppercase", letterSpacing: 1, marginBottom: 6 }}>Your Compound Bill</div>
             <div style={{ fontSize: 36, fontWeight: 800, color: compoundColor, lineHeight: 1, marginBottom: 10 }}>Preference: {prefLabel}</div>
             <div style={{ fontSize: 12, color: C.text, lineHeight: 1.8, fontWeight: 500 }}>
-              {person.name.split(" ")[0]}, your Preference Tax is the confirmed cost your environment charges you daily. {prefLabel === "Heavy" ? "You are paying a heavy behavioral tax. This is not a personal failing — it is a design problem that has a design solution." : prefLabel === "Moderate" ? "You carry a moderate behavioral load. Some dimensions align; others resist." : "Your behavioral alignment is relatively light."} Your Passion and Process dimensions show patterns worth investigating through the Environment Alignment — that's where the full picture emerges.
+              {person.name.split(" ")[0]}, your Preference Tax is the confirmed cost your environment charges you every day. {prefLabel === "Critical" ? "You're paying a critical behavioral cost right now. That's not a personal failing. It's a design problem at a level that requires a real solution." : prefLabel === "Heavy" ? "You're paying a heavy behavioral price. The fatigue isn't weakness. It's what sustained adaptation costs." : prefLabel === "Significant" ? "You're carrying a significant daily cost. Multiple dimensions of who you are are under real pressure." : prefLabel === "Moderate" ? "You're carrying a moderate load. Some dimensions fit. Others don't. Knowing which is which is how you start building a better environment." : "Your behavioral environment largely fits who you are. That's worth protecting."} Your Passion and Process dimensions show patterns worth digging into through the Environment Alignment. That's where the full picture comes together.
             </div>
           </div>
         </div>
@@ -3790,7 +3796,7 @@ function WeekCard({ weekDef, person, status, onComplete, expanded, onToggle }) {
               {!challengeDone || !reflection.trim() ? "Complete the reflection and challenge to finish this week" : `Complete Week ${week} →`}
             </Btn>
           )}
-          {isComplete && <div style={{ textAlign: "center", fontSize: 12, color: C.green, fontWeight: 700 }}>✓ Week {week} Complete — great work.</div>}
+          {isComplete && <div style={{ textAlign: "center", fontSize: 12, color: C.green, fontWeight: 700 }}>✓ Week {week} Complete. Great work.</div>}
         </div>
       )}
     </div>
@@ -3818,7 +3824,7 @@ function AuditDashboard({ person }) {
   const totalTax = (() => {
     const dims = ["D", "I", "S", "C"];
     const pref = dims.reduce((sum, d) => sum + Math.abs(person.disc.adaptive[d] - person.disc.natural[d]), 0);
-    const prefLabel = pref >= 40 ? "Heavy" : pref >= 20 ? "Moderate" : "Light";
+    const prefLabel = pref >= 160 ? "Critical" : pref >= 120 ? "Heavy" : pref >= 80 ? "Significant" : pref >= 40 ? "Moderate" : "Aligned";
     const passion = Object.entries(person.values).filter(([, s]) => s < 40).length;
     const passLabel = passion >= 4 ? "Heavy" : passion >= 2 ? "Moderate" : "Light";
     const proc = person.attr.ext.filter(a => a.bias === "−").length;
@@ -3874,7 +3880,7 @@ function AuditDashboard({ person }) {
           <div style={{ fontSize: 10, fontWeight: 700, color: "#C8A96E", textTransform: "uppercase", letterSpacing: 1.2, marginBottom: 10 }}>Environment Audit Complete</div>
           <div style={{ fontSize: 36, fontWeight: 800, color: "#C8A96E", lineHeight: 1, marginBottom: 12 }}>All 4 Weeks Done</div>
           <div style={{ fontSize: 13, color: "rgba(255,255,255,0.75)", lineHeight: 1.7, maxWidth: 420, margin: "0 auto" }}>
-            {person.name.split(" ")[0]}, you now have a complete picture of your environment — and a plan to lead within it on your own terms.
+            {person.name.split(" ")[0]}, you now have a complete picture of your environment, and a plan to lead within it on your own terms.
           </div>
         </div>
       )}
