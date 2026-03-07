@@ -1964,15 +1964,97 @@ const valInterp = {
   Theoretical:     "a knowledge-seeker at heart. Learning, analyzing, and understanding for its own sake energizes you. Shallow work bores you."
 };
 
+const getAttrBand = (score) => score >= 8.0 ? "strong" : score >= 6.0 ? "moderate" : "mild";
 const attrExtInterp = {
-  Heart: { high: "Your strongest lens is people. You instinctively read how decisions affect relationships before anything else.", low: "People dynamics are not your first filter. You may miss how decisions land emotionally before logic kicks in." },
-  Hand:  { high: "Your first question is always: what works? You filter the world through practical results before theory or people.", low: "Practical outcomes are not your first filter. You may prefer theory or relationships before asking if it actually works." },
-  Head:  { high: "Your strongest lens is systems and logic. You see structure, process, and data before people or practicality.", low: "Systems and frameworks are not your first filter. You may skip the data and trust instinct or relationship." }
+  Heart: {
+    high: {
+      strong:   "People come first. Every time. You read how a decision will land emotionally before you ever ask if it'll work. That's your first filter, and it's non-negotiable.",
+      moderate: "Your first instinct is to check in on the people. You pick up on relational undercurrents before most people notice them. Logic and practicality follow, but people lead.",
+      mild:     "You lead with people, but not by a wide margin. You're tuned in emotionally, but you're also ready to shift to data or results when the situation calls for it."
+    },
+    low: {
+      strong:   "You don't lead with people. You lead with outcomes or logic, and the relational piece tends to come last. You may solve the problem and miss how the solution lands on the people it affects.",
+      moderate: "Relationships aren't your first filter. You're not cold, but you tend to move to results or structure before checking in on impact. You can miss the emotional temperature of a room.",
+      mild:     "People aren't quite your primary lens. You'll get there, but usually after the logic or practical questions are answered first. It's a slight delay, not an absence."
+    }
+  },
+  Hand: {
+    high: {
+      strong:   "Does it work? That's the first question. Always. You filter everything through practical results before theory ever enters the room. If it can't be applied, it's not real to you.",
+      moderate: "You lead with what's practical. Results and application come before theory or abstraction. You have patience for ideas, but only if they point somewhere useful.",
+      mild:     "Practical thinking is your lead lens, but not by a lot. You want things to work, but you're open to the theory behind them, especially when results are ambiguous."
+    },
+    low: {
+      strong:   "Practical application isn't where you start. You lead with people or systems before asking if it actually works. You may commit to something before stress-testing it against real-world conditions.",
+      moderate: "You don't naturally lead with 'does this work.' You'll get there, but your first instinct goes somewhere else. Relationship or logic tends to front-run practical evaluation.",
+      mild:     "Results aren't quite your first filter. You get to practicality, but not immediately. There's a slight gap between seeing an idea and asking if it'll hold up."
+    }
+  },
+  Head: {
+    high: {
+      strong:   "You see the system first. Structure, process, patterns, data. Before you see the people or the outcome, you see the architecture. That's a powerful lens, and it runs deep.",
+      moderate: "Logic and structure lead your thinking. You want to understand the framework before you move. You'll get to people and results, but the system has to make sense first.",
+      mild:     "You lean toward systems thinking, but you're not locked in. You notice patterns and structure, but you're willing to let relationships or results pull you in a different direction."
+    },
+    low: {
+      strong:   "Systems and data aren't your first move. You lead with people or results, and the logic layer comes later if at all. You may act on instinct or relationship before asking if the structure supports it.",
+      moderate: "You don't naturally front-run with frameworks or data. You get there eventually, but instinct or relational input tends to lead the charge.",
+      mild:     "Structure isn't your primary lens. You're not dismissing it, but your instinct goes somewhere else first. Logic and systems fill in after the initial read."
+    }
+  }
 };
 const attrIntInterp = {
-  "Self-Esteem":    { "+": "You have a strong sense of your own value. You are self-assured and confident in your abilities. Criticism rarely shakes your self-image, but it may also mean feedback doesn't land the way others intend it to.", "−": "You undervalue your own worth. You may dismiss your contributions, defer too quickly, or need external validation to feel confident. Your environment's messages about 'enough' affect you deeply.", "=": "You have a somewhat settled view of your own worth. You can receive feedback without it destabilizing your identity, but you may not be strongly motivated to grow in this area." },
-  "Role Awareness": { "+": "You require clarity about your role and purpose to function at your best. Ambiguity about expectations costs you energy.", "−": "You undervalue role clarity. You may take on tasks outside your lane or lack boundaries about what is yours to carry.", "=": "You have a balanced relationship with your role. You know what's yours and what isn't, most of the time." },
-  "Self-Direction": { "+": "You know where you're going. That's not stubbornness. That's clarity. You've built a strong sense of your future, and that clarity holds when everything around you gets noisy. Your environment can throw obstacles at you. It can create delays. But it can't pull you off your path. That's a strength. Not everyone has it.", "−": "You're open to influence and direction from others. Strong voices around you can shape your path. You may look to others to feel confident about your direction, and that openness makes you coachable and adaptable.", "=": "You balance leading yourself with staying open to others. You can own your direction while remaining coachable when the right input comes along." }
+  "Self-Esteem": {
+    "+": {
+      strong:   "You know your worth. Not arrogantly. Just clearly. Criticism doesn't shake your foundation because your foundation isn't built on what others think. That stability is rare. The only watch-out is that feedback sometimes doesn't land the way people intend it. You process it through a strong filter.",
+      moderate: "You have a solid sense of your own value. You can take a hit without losing your footing. Feedback registers without derailing you. That's a real strength in high-pressure environments.",
+      mild:     "You're slightly more confident than neutral. You generally trust your worth, but you're not immune to doubt when the pressure is on or when the feedback is pointed."
+    },
+    "−": {
+      strong:   "You carry real humility, but it may go too deep. You're likely underselling your contributions, deferring when you shouldn't, or waiting for external permission before trusting your own read. What your environment says about your value carries more weight than it should.",
+      moderate: "You tend to underestimate yourself. Not always, but enough that you sometimes dismiss your own contributions before anyone else has the chance to. You may need more external affirmation than you'd like to admit.",
+      mild:     "You're slightly more humble than centered. It's not debilitating, but there are moments where you question your worth a beat longer than necessary before moving forward."
+    },
+    "=": {
+      strong:   "You're genuinely centered on your own value. Feedback doesn't knock you over, and confidence doesn't tip into ego. That balance is hard to maintain under pressure, and you hold it well.",
+      moderate: "Your relationship with your own worth is mostly stable. You can receive feedback without it becoming a crisis, and you can advocate for yourself without needing it to be a fight.",
+      mild:     "You're close to center on self-worth. Neither strongly confident nor particularly self-doubting. The situation tends to pull you one way or the other."
+    }
+  },
+  "Role Awareness": {
+    "+": {
+      strong:   "Your role is tied directly to your identity. You need to know exactly what's yours to carry, and ambiguity about that costs you real energy. When your lane isn't clear, you don't just feel uncomfortable. You feel unmoored. Clarity here isn't a preference. It's a requirement.",
+      moderate: "You function best when your role is defined. Ambiguity slows you down. You'll push through it, but not without a cost. Clear expectations and clear ownership are what let you operate at full speed.",
+      mild:     "You lean toward wanting role clarity, but you're not completely thrown by ambiguity. Undefined expectations are annoying, not paralyzing."
+    },
+    "−": {
+      strong:   "Role boundaries don't register strongly for you. You take on what needs doing, regardless of whether it's technically yours. That makes you incredibly useful. It also means you may be carrying things that aren't yours to carry, and you may not notice until you're burned out.",
+      moderate: "You're loose on role definition. You tend to extend beyond your lane and sometimes absorb responsibilities that belong to others. Not out of ambition. You just don't feel the boundary.",
+      mild:     "You're slightly less anchored to role clarity than most. You can work in ambiguous environments without it destabilizing you, but you may drift outside your lane without noticing."
+    },
+    "=": {
+      strong:   "You have a clear, balanced relationship with your role. You know what's yours and what isn't. You're not territorial about it, but you're not a pushover either. That clarity makes you easy to work with.",
+      moderate: "You generally know what's yours to carry. You don't typically overextend or underfill. Your role awareness is functional and doesn't require a lot of energy to maintain.",
+      mild:     "You're close to neutral on role clarity. Some days you feel anchored. Others, the edges blur a little. Context tends to determine which way you go."
+    }
+  },
+  "Self-Direction": {
+    "+": {
+      strong:   "You know exactly where you're going. That's not stubbornness. That's deep clarity. You've built a strong internal compass over time, and it holds even when everything around you gets loud. Your environment can throw obstacles at you. It can create delays. But it can't pull you off your path. That's a rare kind of strength.",
+      moderate: "You know where you're going. That clarity holds most of the time. When pressure mounts or the right voice enters the room, you might feel a moment of doubt. But you tend to find your way back to your own direction.",
+      mild:     "You have a sense of your direction, but it's held loosely. You're open to influence, and sometimes the right person or the right argument can redirect you. That's not weakness. It's openness sitting right next to clarity."
+    },
+    "−": {
+      strong:   "You're highly receptive to external direction. Strong voices around you carry real weight in shaping where you go. That openness makes you genuinely coachable. The watch-out is knowing when to follow and when to hold your own ground.",
+      moderate: "You lean toward outside input when it comes to direction. You look to others to validate the path before you commit to it. That's not indecision. It's how you process. Just make sure the voices you're listening to deserve the weight you're giving them.",
+      mild:     "You're slightly more open to outside influence than self-directed. You have a sense of where you want to go, but you'll adjust it if someone makes a compelling enough case."
+    },
+    "=": {
+      strong:   "You're genuinely balanced between leading yourself and staying open. You can hold your direction without becoming rigid, and you can take input without losing your footing. That's a real leadership asset.",
+      moderate: "You balance autonomy and openness well. You can own your direction while staying coachable. You don't dig in when you shouldn't, and you don't drift when you need to hold.",
+      mild:     "You're close to center on self-direction. You can lead yourself and you can follow good input. Which one shows up depends more on the situation than on a strong internal pull either way."
+    }
+  }
 };
 
 function ReportSection({ num, title, children }) {
@@ -2171,7 +2253,7 @@ function EnvironmentReport({ person, onClose }) {
               <>
                 <p style={{ fontSize: 12, color: C.muted, margin: "0 0 12px", lineHeight: 1.6 }}>Your External Attributes show equal capacity across all three decision-making dimensions. You see People, Results, and Structure with the same clarity. There's no fixed processing sequence. Versatility IS your strength. Your bias indicators reveal your relationship to each lens, not the order you use them.</p>
                 {p.attr.ext.map(a => {
-                  const interp = attrExtInterp[a.label]?.high || "";
+                  const interp = attrExtInterp[a.label]?.high?.[getAttrBand(a.score)] || "";
                   return (
                     <div key={a.name} style={{ display: "flex", gap: 10, marginBottom: 8, padding: "10px 12px", borderRadius: 8, background: C.card, border: `1px solid ${C.border}`, borderLeft: `4px solid ${C.attr.ext}` }}>
                       <div style={{ flexShrink: 0, textAlign: "center", width: 52 }}>
@@ -2194,7 +2276,7 @@ function EnvironmentReport({ person, onClose }) {
                 <p style={{ fontSize: 12, color: C.muted, margin: "0 0 12px", lineHeight: 1.6 }}>Your External Attributes determine what you see first when you look at any situation. This is your decision-making order. The lens through which all information is filtered before you act.</p>
                 {extSorted.map((a, i) => {
                   const key = i === 0 ? "high" : "low";
-                  const interp = attrExtInterp[a.label]?.[key] || "";
+                  const interp = attrExtInterp[a.label]?.[key]?.[getAttrBand(a.score)] || "";
                   return (
                     <div key={a.name} style={{ display: "flex", gap: 10, marginBottom: 8, padding: "10px 12px", borderRadius: 8, background: C.card, border: `1px solid ${C.border}`, borderLeft: i === 0 ? `4px solid ${C.attr.ext}` : `1px solid ${C.border}` }}>
                       <div style={{ flexShrink: 0, textAlign: "center", width: 52 }}>
@@ -2227,7 +2309,7 @@ function EnvironmentReport({ person, onClose }) {
                     <Bias bias={a.bias} />
                   </div>
                 </div>
-                <div style={{ fontSize: 11, color: C.text, lineHeight: 1.5 }}>{attrIntInterp[a.name]?.[a.bias] || attrIntInterp[a.name]?.["="]}</div>
+                <div style={{ fontSize: 11, color: C.text, lineHeight: 1.5 }}>{attrIntInterp[a.name]?.[a.bias]?.[getAttrBand(a.score)] || attrIntInterp[a.name]?.["="]?.["moderate"] || ""}</div>
               </div>
             ))}
           </ReportSection>
