@@ -289,7 +289,7 @@ function calculateFriction(personA, personB) {
     return sum;
   }, 0);
 
-  // PASSION friction (Values gaps) — raw gap scoring per dimension, matching Facilitator Guide
+  // PASSION friction (Values gaps) - raw gap scoring per dimension, matching Facilitator Guide
   const valDims = ["Aesthetic", "Economic", "Individualistic", "Political", "Altruistic", "Regulatory", "Theoretical"];
   const valGaps = valDims.map(v => {
     const aScore = personA.values[v] || 0;
@@ -340,8 +340,26 @@ function calculateFriction(personA, personB) {
 
   const processScore = processResults.reduce((sum, r) => sum + r.score, 0);
 
+  // INTERNAL IMPACT friction (Two-factor: bias comparison + score gap, take higher)
+  // Same model as Process. SE, RA, SD compared across both people.
+  const internalResults = ["Self-Esteem", "Role Awareness", "Self-Direction"].map(attrName => {
+    const aAttr = personA.attr.int.find(a => a.name === attrName);
+    const bAttr = personB.attr.int.find(a => a.name === attrName);
+    if (!aAttr || !bAttr) return { name: attrName, resultType: "aligned", score: 0, aBias: "=", bBias: "=", aScore: 0, bScore: 0, scoreGap: 0, driver: "bias" };
+    const aBias = normBias(aAttr.bias);
+    const bBias = normBias(bAttr.bias);
+    const biasResult = processBiasScore(aBias, bBias);
+    const scoreGap = Math.abs(aAttr.score - bAttr.score);
+    const gapResult = processGapScore(scoreGap);
+    const useGap = gapResult.score > biasResult.score;
+    const final = useGap ? gapResult : biasResult;
+    return { name: attrName, ...final, aBias, bBias, aScore: aAttr.score, bScore: bAttr.score, scoreGap, driver: useGap ? "gap" : "bias" };
+  });
+
+  const internalScore = internalResults.reduce((sum, r) => sum + r.score, 0);
+
   // Aggregate score (weighted)
-  const totalScore = preferenceScore + passionScore + processScore;
+  const totalScore = preferenceScore + passionScore + processScore + internalScore;
 
   // Tier for display
   const tier = totalScore >= 12 ? "high" : totalScore >= 6 ? "moderate" : "low";
@@ -350,11 +368,13 @@ function calculateFriction(personA, personB) {
     preferenceScore,
     passionScore,
     processScore,
+    internalScore,
     totalScore,
     tier,
     discGaps,
     valuesDetail: { shared: sharedVals, aOnly: aOnlyVals, bOnly: bOnlyVals, valGaps },
-    processResults
+    processResults,
+    internalResults
   };
 }
 
@@ -430,12 +450,13 @@ function FrictionMap({ people, teamId, orgId, onClose, onViewComparison }) {
               <div style={{ fontSize: 13, color: tierStyle.text, fontWeight: 600, marginTop: 4 }}>{friction.tier.toUpperCase()} FRICTION</div>
             </div>
 
-            {/* Three pillars breakdown */}
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12, marginBottom: 20 }}>
+            {/* Four pillars breakdown */}
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 12, marginBottom: 20 }}>
               {[
                 { label: "Preference", sub: "DISC Style Gaps", score: friction.preferenceScore, max: 12, color: C.disc.D },
                 { label: "Passion", sub: "Values Gap", score: friction.passionScore, max: 14, color: C.values.Altruistic },
-                { label: "Process", sub: "Bias Conflicts", score: friction.processScore, max: 9, color: C.attr.ext }
+                { label: "Process", sub: "Bias Conflicts", score: friction.processScore, max: 9, color: C.attr.ext },
+                { label: "Internal", sub: "Self-Perception", score: friction.internalScore, max: 9, color: C.attr.int }
               ].map(p => (
                 <div key={p.label} style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: 16, textAlign: "center" }}>
                   <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: C.muted, marginBottom: 4 }}>{p.label}</div>
@@ -444,6 +465,39 @@ function FrictionMap({ people, teamId, orgId, onClose, onViewComparison }) {
                 </div>
               ))}
             </div>
+
+            {/* Priority Friction Areas */}
+            {(() => {
+              const allPoints = [
+                ...friction.discGaps.map(g => ({ label: `Preference: ${g.dim} (${["D","I","S","C"].includes(g.dim) ? {D:"Dominance",I:"Influence",S:"Steadiness",C:"Compliance"}[g.dim] : g.dim})`, score: g.tier === "high" ? 3 : g.tier === "moderate" ? 1 : 0, tier: g.tier, detail: `${personA.name.split(" ")[0]}: ${g.aScore} · ${personB.name.split(" ")[0]}: ${g.bScore} · Gap: ${g.gap}` })),
+                ...friction.valuesDetail.valGaps.map(g => ({ label: `Passion: ${g.dim}`, score: g.tier === "high" ? 3 : g.tier === "moderate" ? 1 : 0, tier: g.tier, detail: `${personA.name.split(" ")[0]}: ${g.aScore} · ${personB.name.split(" ")[0]}: ${g.bScore} · Gap: ${g.gap}` })),
+                ...friction.processResults.map(r => ({ label: `Process: ${r.label}`, score: r.score, tier: r.resultType === "conflict" ? "high" : r.resultType === "tension" ? "moderate" : "low", detail: `${personA.name.split(" ")[0]}: ${r.aScore} (${r.aBias}) · ${personB.name.split(" ")[0]}: ${r.bScore} (${r.bBias})` })),
+                ...friction.internalResults.map(r => ({ label: `Internal: ${r.name}`, score: r.score, tier: r.resultType === "conflict" ? "high" : r.resultType === "tension" ? "moderate" : "low", detail: `${personA.name.split(" ")[0]}: ${r.aScore} (${r.aBias}) · ${personB.name.split(" ")[0]}: ${r.bScore} (${r.bBias})` })),
+              ].filter(p => p.score > 0).sort((a, b) => b.score - a.score).slice(0, 5);
+
+              if (allPoints.length === 0) return null;
+              return (
+                <div style={{ background: "#1F2937", borderRadius: 10, padding: 16, marginBottom: 12 }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: "rgba(255,255,255,0.5)", letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 12 }}>Priority Friction Areas</div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                    {allPoints.map((p, i) => {
+                      const tierColor = p.tier === "high" ? "#EF9A9A" : p.tier === "moderate" ? "#FFCC80" : "#A5D6A7";
+                      const tierText = p.tier === "high" ? "#B71C1C" : p.tier === "moderate" ? "#E65100" : "#2E7D32";
+                      return (
+                        <div key={p.label} style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                          <div style={{ width: 22, height: 22, borderRadius: "50%", background: "rgba(255,255,255,0.1)", color: "#fff", fontSize: 11, fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>{i + 1}</div>
+                          <div style={{ flex: 1 }}>
+                            <div style={{ fontSize: 12, fontWeight: 700, color: "#fff" }}>{p.label}</div>
+                            <div style={{ fontSize: 11, color: "rgba(255,255,255,0.5)", marginTop: 1 }}>{p.detail}</div>
+                          </div>
+                          <div style={{ fontSize: 10, fontWeight: 700, color: tierText, background: tierColor, padding: "2px 10px", borderRadius: 8, flexShrink: 0 }}>{p.tier.toUpperCase()}</div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })()}
 
             {/* DISC gaps detail */}
             <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: 16, marginBottom: 12 }}>
@@ -522,6 +576,32 @@ function FrictionMap({ people, teamId, orgId, onClose, onViewComparison }) {
                 })}
               </div>
             </div>
+
+            {/* Internal Impact detail */}
+            <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: 16 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: C.muted, marginBottom: 4 }}>INTERNAL IMPACT (SELF-PERCEPTION)</div>
+              <div style={{ fontSize: 11, color: C.muted, marginBottom: 12 }}>How each person sees themselves affects how they show up together.</div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                {friction.internalResults.map(r => {
+                  const colors = { conflict: { bg: "#FFEBEE", border: "#B71C1C", text: "#B71C1C" }, tension: { bg: "#FFF3E0", border: "#E65100", text: "#E65100" }, aligned: { bg: "#E8F5E9", border: "#2E7D32", text: "#2E7D32" } };
+                  const c = colors[r.resultType];
+                  return (
+                    <div key={r.name} style={{ padding: "10px 14px", borderRadius: 6, background: c.bg, borderLeft: `3px solid ${c.border}` }}>
+                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
+                        <div>
+                          <span style={{ fontSize: 13, fontWeight: 700, color: C.text }}>{r.name}</span>
+                          <span style={{ fontSize: 11, color: C.muted, marginLeft: 12 }}>{personA.name.split(" ")[0]}: {r.aScore} ({r.aBias}) · {personB.name.split(" ")[0]}: {r.bScore} ({r.bBias})</span>
+                        </div>
+                        <span style={{ fontSize: 10, fontWeight: 700, color: c.text, padding: "2px 10px", borderRadius: 8, background: "#fff" }}>{r.resultType.toUpperCase()}</span>
+                      </div>
+                      <div style={{ fontSize: 10, color: C.muted }}>
+                        Gap: {r.scoreGap.toFixed(1)} pts · Driven by: {r.driver === "gap" ? "score gap" : "bias pattern"}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -573,7 +653,7 @@ function FrictionMap({ people, teamId, orgId, onClose, onViewComparison }) {
                       if (rowIdx === colIdx) {
                         return (
                           <td key={colPerson.id} style={{ padding: 6, textAlign: "center", background: "#F5F5F5" }}>
-                            <div style={{ width: 40, height: 40, margin: "0 auto", borderRadius: 6, background: "#E0E0E0", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, color: "#9E9E9E" }}>—</div>
+                            <div style={{ width: 40, height: 40, margin: "0 auto", borderRadius: 6, background: "#E0E0E0", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, color: "#9E9E9E" }}>-</div>
                           </td>
                         );
                       }
@@ -632,7 +712,7 @@ function FrictionMap({ people, teamId, orgId, onClose, onViewComparison }) {
                       <div>
                         <div style={{ fontSize: 13, fontWeight: 700, color: C.text }}>{pair.personA.name} & {pair.personB.name}</div>
                         <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>
-                          Preference: {pair.friction.preferenceScore} · Passion: {pair.friction.passionScore} · Process: {pair.friction.processScore}
+                          Preference: {pair.friction.preferenceScore} · Passion: {pair.friction.passionScore} · Process: {pair.friction.processScore} · Internal: {pair.friction.internalScore}
                         </div>
                       </div>
                       <div style={{ fontSize: 24, fontWeight: 800, color: tc.text }}>{pair.friction.totalScore}</div>
@@ -641,6 +721,127 @@ function FrictionMap({ people, teamId, orgId, onClose, onViewComparison }) {
                 })}
             </div>
           </div>
+
+          {/* Team Tax Aggregation */}
+          {(() => {
+            const pairs = Object.values(frictionMatrix);
+            if (pairs.length === 0) return null;
+
+            // PREFERENCE TAX - which DISC dims cause systemic friction
+            const discTax = ["D","I","S","C"].map(d => {
+              const total = pairs.reduce((sum, p) => sum + p.friction.discGaps.find(g => g.dim === d).score, 0);
+              const high = pairs.filter(p => p.friction.discGaps.find(g => g.dim === d).tier === "high").length;
+              const discFull = {D:"Dominance",I:"Influence",S:"Steadiness",C:"Compliance"};
+              return { dim: d, label: discFull[d], total, high };
+            }).sort((a,b) => b.total - a.total);
+
+            // PASSION TAX - which values collide most
+            const valDims = ["Aesthetic","Economic","Individualistic","Political","Altruistic","Regulatory","Theoretical"];
+            const valTax = valDims.map(v => {
+              const total = pairs.reduce((sum, p) => sum + p.friction.valuesDetail.valGaps.find(g => g.dim === v).score, 0);
+              const high = pairs.filter(p => p.friction.valuesDetail.valGaps.find(g => g.dim === v).tier === "high").length;
+              return { dim: v, total, high };
+            }).sort((a,b) => b.total - a.total).slice(0, 3);
+
+            // PROCESS TAX - which external attr causes most friction
+            const extLabels = ["Heart","Hand","Head"];
+            const procTax = extLabels.map(lbl => {
+              const total = pairs.reduce((sum, p) => sum + (p.friction.processResults.find(r => r.label === lbl)?.score || 0), 0);
+              const conflicts = pairs.filter(p => p.friction.processResults.find(r => r.label === lbl)?.resultType === "conflict").length;
+              return { label: lbl, total, conflicts };
+            }).sort((a,b) => b.total - a.total);
+
+            // INTERNAL TAX - which internal attr causes most friction
+            const intNames = ["Self-Esteem","Role Awareness","Self-Direction"];
+            const intTax = intNames.map(name => {
+              const total = pairs.reduce((sum, p) => sum + (p.friction.internalResults.find(r => r.name === name)?.score || 0), 0);
+              const conflicts = pairs.filter(p => p.friction.internalResults.find(r => r.name === name)?.resultType === "conflict").length;
+              return { name, total, conflicts };
+            }).sort((a,b) => b.total - a.total);
+
+            const maxPairs = pairs.length;
+            const barColor = (total, max) => total >= max * 0.6 ? "#C62828" : total >= max * 0.3 ? "#E65100" : "#2E7D32";
+            const barWidth = (total, max) => max > 0 ? Math.round((total / max) * 100) : 0;
+            const maxDisc = discTax[0].total || 1;
+            const maxVal = valTax[0].total || 1;
+            const maxProc = procTax[0].total || 1;
+            const maxInt = intTax[0].total || 1;
+
+            return (
+              <div style={{ marginTop: 24, background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, padding: 24 }}>
+                <div style={{ fontSize: 14, fontWeight: 800, color: C.text, marginBottom: 4 }}>Team Tax</div>
+                <div style={{ fontSize: 12, color: C.muted, marginBottom: 20 }}>Where this team pays the highest systemic friction cost across all {maxPairs} pair{maxPairs !== 1 ? "s" : ""}.</div>
+
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
+
+                  {/* Preference Tax */}
+                  <div>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: C.muted, textTransform: "uppercase", letterSpacing: 1, marginBottom: 10 }}>Preference (DISC)</div>
+                    {discTax.map(d => (
+                      <div key={d.dim} style={{ marginBottom: 8 }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 3 }}>
+                          <span style={{ fontSize: 12, fontWeight: 600, color: C.text }}>{d.label}</span>
+                          <span style={{ fontSize: 11, color: C.muted }}>{d.high} high · {d.total} pts</span>
+                        </div>
+                        <div style={{ height: 6, borderRadius: 3, background: C.border }}>
+                          <div style={{ height: 6, borderRadius: 3, background: barColor(d.total, maxDisc * 1.2), width: `${barWidth(d.total, maxDisc)}%`, transition: "width 0.3s" }} />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Passion Tax */}
+                  <div>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: C.muted, textTransform: "uppercase", letterSpacing: 1, marginBottom: 10 }}>Passion (Top Values Gaps)</div>
+                    {valTax.map(v => (
+                      <div key={v.dim} style={{ marginBottom: 8 }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 3 }}>
+                          <span style={{ fontSize: 12, fontWeight: 600, color: C.text }}>{v.dim}</span>
+                          <span style={{ fontSize: 11, color: C.muted }}>{v.high} high · {v.total} pts</span>
+                        </div>
+                        <div style={{ height: 6, borderRadius: 3, background: C.border }}>
+                          <div style={{ height: 6, borderRadius: 3, background: barColor(v.total, maxVal * 1.2), width: `${barWidth(v.total, maxVal)}%`, transition: "width 0.3s" }} />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Process Tax */}
+                  <div>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: C.muted, textTransform: "uppercase", letterSpacing: 1, marginBottom: 10 }}>Process (External Attributes)</div>
+                    {procTax.map(p => (
+                      <div key={p.label} style={{ marginBottom: 8 }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 3 }}>
+                          <span style={{ fontSize: 12, fontWeight: 600, color: C.text }}>{p.label}</span>
+                          <span style={{ fontSize: 11, color: C.muted }}>{p.conflicts} conflict · {p.total} pts</span>
+                        </div>
+                        <div style={{ height: 6, borderRadius: 3, background: C.border }}>
+                          <div style={{ height: 6, borderRadius: 3, background: barColor(p.total, maxProc * 1.2), width: `${barWidth(p.total, maxProc)}%`, transition: "width 0.3s" }} />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Internal Tax */}
+                  <div>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: C.muted, textTransform: "uppercase", letterSpacing: 1, marginBottom: 10 }}>Internal Impact</div>
+                    {intTax.map(p => (
+                      <div key={p.name} style={{ marginBottom: 8 }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 3 }}>
+                          <span style={{ fontSize: 12, fontWeight: 600, color: C.text }}>{p.name}</span>
+                          <span style={{ fontSize: 11, color: C.muted }}>{p.conflicts} conflict · {p.total} pts</span>
+                        </div>
+                        <div style={{ height: 6, borderRadius: 3, background: C.border }}>
+                          <div style={{ height: 6, borderRadius: 3, background: barColor(p.total, maxInt * 1.2), width: `${barWidth(p.total, maxInt)}%`, transition: "width 0.3s" }} />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                </div>
+              </div>
+            );
+          })()}
         </div>
       </div>
     </div>
@@ -1372,7 +1573,7 @@ function UploadForm({ orgs, selOrgId, selTeamId: parentTeamId, onAdd, onCancel }
           <div style={{ background: "#E8F5E9", borderRadius: 8, padding: 12, fontSize: 13 }}>
             {bulkResults.success.map((r, i) => (
               <div key={i} style={{ padding: "4px 0", color: "#2E7D32" }}>
-                {r.name} <span style={{ opacity: 0.6 }}>— {r.fileName}</span>
+                {r.name} <span style={{ opacity: 0.6 }}>- {r.fileName}</span>
               </div>
             ))}
           </div>
@@ -1387,7 +1588,7 @@ function UploadForm({ orgs, selOrgId, selTeamId: parentTeamId, onAdd, onCancel }
           <div style={{ background: "#FFF3E0", borderRadius: 8, padding: 12, fontSize: 13 }}>
             {bulkResults.partial.map((r, i) => (
               <div key={i} style={{ padding: "4px 0", color: "#E65100" }}>
-                {r.name} <span style={{ opacity: 0.6 }}>— {r.fieldCount}/22 fields — {r.fileName}</span>
+                {r.name} <span style={{ opacity: 0.6 }}>- {r.fieldCount}/22 fields - {r.fileName}</span>
               </div>
             ))}
           </div>
@@ -1402,7 +1603,7 @@ function UploadForm({ orgs, selOrgId, selTeamId: parentTeamId, onAdd, onCancel }
           <div style={{ background: "#FFEBEE", borderRadius: 8, padding: 12, fontSize: 13 }}>
             {bulkResults.failed.map((r, i) => (
               <div key={i} style={{ padding: "4px 0", color: "#C62828" }}>
-                {r.fileName} <span style={{ opacity: 0.8 }}>— {r.error}</span>
+                {r.fileName} <span style={{ opacity: 0.8 }}>- {r.error}</span>
               </div>
             ))}
           </div>
@@ -1521,13 +1722,13 @@ function UploadForm({ orgs, selOrgId, selTeamId: parentTeamId, onAdd, onCancel }
 
       {/* ATTRIBUTES */}
       <div style={{ background: C.card, borderRadius: 10, padding: 16, border: `1px solid ${C.border}`, marginBottom: 12 }}>
-        <div style={{ fontSize: 13, fontWeight: 700, color: C.attr.ext, marginBottom: 10 }}>Attributes — External (0–10)</div>
+        <div style={{ fontSize: 13, fontWeight: 700, color: C.attr.ext, marginBottom: 10 }}>Attributes - External (0–10)</div>
         <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
           <div style={{ display: "flex", gap: 6, alignItems: "flex-end" }}>{inp("Empathy", "e_emp", 10, 65)}{biasSelect("e_empB")}</div>
           <div style={{ display: "flex", gap: 6, alignItems: "flex-end" }}>{inp("Practical", "e_pra", 10, 65)}{biasSelect("e_praB")}</div>
           <div style={{ display: "flex", gap: 6, alignItems: "flex-end" }}>{inp("Systems", "e_sys", 10, 65)}{biasSelect("e_sysB")}</div>
         </div>
-        <div style={{ fontSize: 13, fontWeight: 700, color: C.attr.int, marginBottom: 10, marginTop: 14 }}>Attributes — Internal (0–10)</div>
+        <div style={{ fontSize: 13, fontWeight: 700, color: C.attr.int, marginBottom: 10, marginTop: 14 }}>Attributes - Internal (0–10)</div>
         <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
           <div style={{ display: "flex", gap: 6, alignItems: "flex-end" }}>{inp("Self-Esteem", "i_se", 10, 80)}{biasSelect("i_seB")}</div>
           <div style={{ display: "flex", gap: 6, alignItems: "flex-end" }}>{inp("Role Aware.", "i_ra", 10, 80)}{biasSelect("i_raB")}</div>
@@ -1559,7 +1760,7 @@ function UploadForm({ orgs, selOrgId, selTeamId: parentTeamId, onAdd, onCancel }
 function IndividualComparison({ leader, person, agreements, setAgreements, onStartWizard }) {
   const dims = ["D", "I", "S", "C"];
 
-  // DISC gap analysis — thresholds per Friction Finder Facilitator Guide
+  // DISC gap analysis - thresholds per Friction Finder Facilitator Guide
   // HIGH ≥ 40 pts | MODERATE 20–39 pts | LOW < 20 pts
   const discGaps = dims.map(d => {
     const lScore = leader.disc.natural[d];
@@ -1584,14 +1785,14 @@ function IndividualComparison({ leader, person, agreements, setAgreements, onSta
     return { d, lScore, pScore, gap, tier, leaderHigher, text };
   });
 
-  // Tier styles — white cards with left-border accents (no colored backgrounds)
+  // Tier styles - white cards with left-border accents (no colored backgrounds)
   const tierStyle = {
     high:     { borderColor: "#B71C1C", label: "HIGH",     labelColor: "#B71C1C" },
     moderate: { borderColor: "#E65100", label: "MODERATE", labelColor: "#E65100" },
     low:      { borderColor: "#2E7D32", label: "LOW",      labelColor: "#2E7D32" },
   };
 
-  // Process (Attributes) bias comparison — per Friction Finder Guide
+  // Process (Attributes) bias comparison - per Friction Finder Guide
   // CONFLICT = + vs −  |  TENSION = + vs = or − vs =  |  ALIGNED = same bias
   const processBiasResult = (lBias, pBias) => {
     if ((lBias === "+" && pBias === "−") || (lBias === "−" && pBias === "+")) return { label: "CONFLICT", color: "#B71C1C" };
@@ -1622,7 +1823,7 @@ function IndividualComparison({ leader, person, agreements, setAgreements, onSta
       <div style={{ marginBottom: 16, padding: "14px 18px", background: C.card, borderRadius: 10, border: `1px solid ${C.border}`, borderLeft: "3px solid #C8A96E", display: "flex", alignItems: "center", gap: 10 }}>
         <span style={{ color: "#C8A96E", fontSize: 16 }}>★</span>
         <div>
-          <div style={{ fontSize: 13, fontWeight: 700, color: C.text }}>CLOSING THE DISTANCE — {leader.name} &amp; {person.name}</div>
+          <div style={{ fontSize: 13, fontWeight: 700, color: C.text }}>CLOSING THE DISTANCE - {leader.name} &amp; {person.name}</div>
           <div style={{ fontSize: 11, color: C.muted }}>Friction map across Preference, Passion, and Process</div>
         </div>
         <div style={{ marginLeft: "auto" }}>
@@ -1632,13 +1833,13 @@ function IndividualComparison({ leader, person, agreements, setAgreements, onSta
         </div>
       </div>
 
-      {/* DISC Gaps — Preference Friction */}
+      {/* DISC Gaps - Preference Friction */}
       <div style={{ background: C.card, borderRadius: 12, padding: "20px 24px", border: `1px solid ${C.border}`, marginBottom: 14, boxShadow: "0 1px 3px rgba(0,0,0,0.04)" }}>
         <div style={{ marginBottom: 14 }}>
           <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.07em", textTransform: "uppercase", color: C.muted, marginBottom: 4 }}>PREFERENCE GAP</div>
           <div style={{ fontSize: 13, color: C.muted }}>How your behavioral styles differ across D, I, S, C</div>
         </div>
-        {/* Score comparison — Comparison Panel style */}
+        {/* Score comparison - Comparison Panel style */}
         <div style={{ display: "flex", borderRadius: 10, overflow: "hidden", border: `1px solid ${C.border}`, marginBottom: 14 }}>
           <div style={{ flex: 1, padding: "12px 16px", background: C.card, borderLeft: "3px solid #C8A96E" }}>
             <div style={{ fontSize: 9, fontWeight: 700, color: "#9A7A42", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 6 }}>★ {leader.name}</div>
@@ -1654,7 +1855,7 @@ function IndividualComparison({ leader, person, agreements, setAgreements, onSta
             </div>
           </div>
         </div>
-        {/* Per-dimension gap cards — white with left-border severity accent */}
+        {/* Per-dimension gap cards - white with left-border severity accent */}
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
           {discGaps.map(({ d, lScore, pScore, gap, tier, text }) => {
             const ts = tierStyle[tier];
@@ -1683,11 +1884,11 @@ function IndividualComparison({ leader, person, agreements, setAgreements, onSta
         </div>
       </div>
 
-      {/* Values Comparison — Passion Friction */}
+      {/* Values Comparison - Passion Friction */}
       <div style={{ background: C.card, borderRadius: 12, padding: "20px 24px", border: `1px solid ${C.border}`, marginBottom: 14, boxShadow: "0 1px 3px rgba(0,0,0,0.04)" }}>
         <div style={{ marginBottom: 14 }}>
           <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.07em", textTransform: "uppercase", color: C.muted, marginBottom: 4 }}>PASSION GAP</div>
-          <div style={{ fontSize: 13, color: C.muted }}>Motivational driver differences — what energizes each of you</div>
+          <div style={{ fontSize: 13, color: C.muted }}>Motivational driver differences - what energizes each of you</div>
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           <div style={{ padding: "10px 16px", borderRadius: 8, background: C.card, border: `1px solid ${C.border}`, borderLeft: "3px solid #C8A96E" }}>
@@ -1698,14 +1899,14 @@ function IndividualComparison({ leader, person, agreements, setAgreements, onSta
           </div>
           <div style={{ padding: "10px 16px", borderRadius: 8, background: C.card, border: `1px solid ${C.border}`, borderLeft: "3px solid #E65100" }}>
             <div style={{ fontSize: 9, fontWeight: 700, color: "#A83A00", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 2 }}>Your Blind Spot</div>
-            <div style={{ fontSize: 9, color: C.muted, marginBottom: 6 }}>They care about this — you may not be fueling it</div>
+            <div style={{ fontSize: 9, color: C.muted, marginBottom: 6 }}>They care about this - you may not be fueling it</div>
             <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
               {personOnly.length > 0 ? personOnly.map(v => <span key={v} style={{ fontSize: 10, padding: "2px 10px", borderRadius: 10, background: C.values[v] + "15", color: C.values[v], fontWeight: 600, border: `1px solid ${C.values[v]}30` }}>{v}</span>) : <span style={{ fontSize: 10, color: C.muted }}>No gaps here</span>}
             </div>
           </div>
           <div style={{ padding: "10px 16px", borderRadius: 8, background: C.card, border: `1px solid ${C.border}`, borderLeft: "3px solid #1565C0" }}>
             <div style={{ fontSize: 9, fontWeight: 700, color: "#0D4880", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 2 }}>Your Strength</div>
-            <div style={{ fontSize: 9, color: C.muted, marginBottom: 6 }}>You care about this — they may not notice or share it</div>
+            <div style={{ fontSize: 9, color: C.muted, marginBottom: 6 }}>You care about this - they may not notice or share it</div>
             <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
               {leaderOnly.length > 0 ? leaderOnly.map(v => <span key={v} style={{ fontSize: 10, padding: "2px 10px", borderRadius: 10, background: C.values[v] + "15", color: C.values[v], fontWeight: 600, border: `1px solid ${C.values[v]}30` }}>{v}</span>) : <span style={{ fontSize: 10, color: C.muted }}>No gaps here</span>}
             </div>
@@ -1713,11 +1914,11 @@ function IndividualComparison({ leader, person, agreements, setAgreements, onSta
         </div>
       </div>
 
-      {/* Attributes Comparison — Process Friction */}
+      {/* Attributes Comparison - Process Friction */}
       <div style={{ background: C.card, borderRadius: 12, padding: "20px 24px", border: `1px solid ${C.border}`, marginBottom: 14, boxShadow: "0 1px 3px rgba(0,0,0,0.04)" }}>
         <div style={{ marginBottom: 14 }}>
           <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.07em", textTransform: "uppercase", color: C.muted, marginBottom: 4 }}>PROCESS GAP</div>
-          <div style={{ fontSize: 13, color: C.muted }}>Decision-making style — bias comparison per Heart · Hand · Head</div>
+          <div style={{ fontSize: 13, color: C.muted }}>Decision-making style - bias comparison per Heart · Hand · Head</div>
         </div>
         {/* Side-by-side attribute profiles */}
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 12 }}>
@@ -2158,12 +2359,12 @@ function EnvironmentReport({ person, onClose }) {
                 <h1 style={{ margin: 0, fontSize: 24, fontWeight: 800, letterSpacing: -0.5 }}>{p.name}</h1>
                 {dims.map(d => <span key={d} style={{ padding: "3px 10px", borderRadius: 4, background: C.disc[d], color: d === "I" ? "#111827" : "#fff", fontWeight: 700, fontSize: 11 }}>{d}:{p.disc.natural[d]}</span>)}
               </div>
-              <div style={{ fontSize: 13, color: C.muted }}>Love Where You Lead — Environment Report</div>
+              <div style={{ fontSize: 13, color: C.muted }}>Love Where You Lead - Environment Report</div>
               <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>Generated {new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })}</div>
             </div>
           </div>
 
-          {/* 1: YOUR PREFERENCE — Natural */}
+          {/* 1: YOUR PREFERENCE - Natural */}
           <ReportSection num={1} title="YOUR PREFERENCE: Natural Style">
             <p style={{ fontSize: 14, color: C.muted, margin: "0 0 16px", lineHeight: 1.6 }}>Your Natural style is how you're built to lead when you're comfortable, off-guard, or under pressure. This is who you are when no one's adjusting for the room.</p>
             <div style={{ display: "flex", flexDirection: "column", gap: 12, marginBottom: 12 }}>
@@ -2225,7 +2426,7 @@ function EnvironmentReport({ person, onClose }) {
             </div>
           </ReportSection>
 
-          {/* 4: YOUR PASSION — Values */}
+          {/* 4: YOUR PASSION - Values */}
           <ReportSection num={4} title="YOUR PASSION: What Drives You">
             <p style={{ fontSize: 12, color: C.muted, margin: "0 0 12px", lineHeight: 1.6 }}>Your Values reveal what you're fundamentally motivated by. What gets you out of bed. What gives your work meaning. What drains you when it's absent. These aren't preferences. They're the fuel your leadership runs on.</p>
             {topVals.length > 0 && (
@@ -2265,7 +2466,7 @@ function EnvironmentReport({ person, onClose }) {
             )}
           </ReportSection>
 
-          {/* 5: YOUR PROCESS — External */}
+          {/* 5: YOUR PROCESS - External */}
           <ReportSection num={5} title="YOUR PROCESS: External (Heart, Hand, Head)">
             {isEqualExtProfile(p.attr.ext) ? (
               <>
@@ -2280,7 +2481,7 @@ function EnvironmentReport({ person, onClose }) {
                         <Bias bias={a.bias} />
                       </div>
                       <div style={{ flex: 1 }}>
-                        <div style={{ fontSize: 12, fontWeight: 700, color: C.attr.ext, marginBottom: 3 }}>{a.label} — {a.name}</div>
+                        <div style={{ fontSize: 12, fontWeight: 700, color: C.attr.ext, marginBottom: 3 }}>{a.label} - {a.name}</div>
                         <div style={{ fontSize: 11, color: C.text, lineHeight: 1.5 }}>{interp}</div>
                         {a.bias === "−" && <div style={{ fontSize: 10, color: "#E65100", marginTop: 3, fontWeight: 600 }}>⚠ Pattern detected. Your data shows reduced reliance on this lens despite having the capacity. The Environment Alignment can help determine whether this is environment-driven or a natural preference.</div>}
                         {a.bias === "+" && <div style={{ fontSize: 10, color: "#2E7D32", marginTop: 3, fontWeight: 600 }}>↑ You require this sense to function well. When it is absent, decisions feel incomplete.</div>}
@@ -2303,7 +2504,7 @@ function EnvironmentReport({ person, onClose }) {
                         <Bias bias={a.bias} />
                       </div>
                       <div style={{ flex: 1 }}>
-                        <div style={{ fontSize: 12, fontWeight: 700, color: i === 0 ? C.attr.ext : C.text, marginBottom: 3 }}>{a.label} — {a.name}</div>
+                        <div style={{ fontSize: 12, fontWeight: 700, color: i === 0 ? C.attr.ext : C.text, marginBottom: 3 }}>{a.label} - {a.name}</div>
                         <div style={{ fontSize: 11, color: C.text, lineHeight: 1.5 }}>{interp}</div>
                         {a.bias === "−" && <div style={{ fontSize: 10, color: "#E65100", marginTop: 3, fontWeight: 600 }}>⚠ Pattern detected. Your data shows reduced reliance on this lens despite having the capacity. The Environment Alignment can help determine whether this is environment-driven or a natural preference.</div>}
                         {a.bias === "+" && <div style={{ fontSize: 10, color: "#2E7D32", marginTop: 3, fontWeight: 600 }}>↑ You require this sense to function well. When it is absent, decisions feel incomplete.</div>}
@@ -2354,7 +2555,7 @@ function EnvironmentReport({ person, onClose }) {
               {taxCard("Preference Tax", prefTaxLabel, prefTaxColor, `${prefTax} gap points confirmed`)}
               {taxCard("Process Signals", extMinusBiases === 0 ? "Clear" : `${extMinusBiases} pattern${extMinusBiases > 1 ? "s" : ""}`, processTaxColor, extMinusBiases === 0 ? "No patterns detected" : `${extMinusBiases} bias pattern${extMinusBiases > 1 ? "s" : ""} to examine`)}
             </div>
-            {/* Peak-End Rule: Compound Bill Verdict — the session's peak moment */}
+            {/* Peak-End Rule: Compound Bill Verdict - the session's peak moment */}
             {(() => {
               const overallColor = prefTaxLabel === "Critical" ? "#7F1D1D" : prefTaxLabel === "Heavy" ? "#C62828" : prefTaxLabel === "Significant" ? "#E65100" : prefTaxLabel === "Moderate" ? "#F59E0B" : C.green;
               const verdictCopy = prefTaxLabel === "Critical"
@@ -2609,7 +2810,7 @@ function LeadershipTips({ person, onClose }) {
           <div style={{ marginTop: 20, padding: "14px 16px", borderRadius: 8, background: "#FFFDE7", border: "1px solid #FFF59D" }}>
             <div style={{ fontSize: 11, fontWeight: 700, color: "#9A7A42", marginBottom: 4 }}>REMEMBER</div>
             <div style={{ fontSize: 12, color: C.text, lineHeight: 1.6 }}>
-              These tips are based on {firstName}'s assessment data. The best leadership comes from ongoing conversation — use these as starting points, not rules.
+              These tips are based on {firstName}'s assessment data. The best leadership comes from ongoing conversation - use these as starting points, not rules.
             </div>
           </div>
         </div>
@@ -2916,7 +3117,7 @@ function CompareWithOthers({ person, team, onClose, photos = {} }) {
                   <div style={{ background: C.card, borderRadius: 12, padding: "20px 24px", border: `1px solid ${C.border}`, marginBottom: 14, boxShadow: "0 1px 3px rgba(0,0,0,0.04)" }}>
                     <div style={{ marginBottom: 14 }}>
                       <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.07em", textTransform: "uppercase", color: C.muted, marginBottom: 4 }}>PASSION GAP</div>
-                      <div style={{ fontSize: 13, color: C.muted }}>Motivational driver differences — what energizes each person</div>
+                      <div style={{ fontSize: 13, color: C.muted }}>Motivational driver differences - what energizes each person</div>
                     </div>
                     <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                       <div style={{ padding: "10px 16px", borderRadius: 8, background: C.card, border: `1px solid ${C.border}`, borderLeft: "3px solid #C8A96E" }}>
@@ -2946,7 +3147,7 @@ function CompareWithOthers({ person, team, onClose, photos = {} }) {
                   <div style={{ background: C.card, borderRadius: 12, padding: "20px 24px", border: `1px solid ${C.border}`, marginBottom: 14, boxShadow: "0 1px 3px rgba(0,0,0,0.04)" }}>
                     <div style={{ marginBottom: 14 }}>
                       <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.07em", textTransform: "uppercase", color: C.muted, marginBottom: 4 }}>PROCESS GAP</div>
-                      <div style={{ fontSize: 13, color: C.muted }}>Decision-making style — bias comparison per Heart · Hand · Head</div>
+                      <div style={{ fontSize: 13, color: C.muted }}>Decision-making style - bias comparison per Heart · Hand · Head</div>
                     </div>
                     {/* Side-by-side attribute profiles */}
                     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 12 }}>
@@ -3017,8 +3218,8 @@ function CompareWithOthers({ person, team, onClose, photos = {} }) {
                           <td key={d} style={{ padding: "10px 8px", textAlign: "center", borderBottom: `1px solid ${C.border}`, fontWeight: 600 }}>{p.disc.natural[d]}</td>
                         ))}
                         <td style={{ padding: "10px 8px", textAlign: "center", borderBottom: `1px solid ${C.border}` }}>{getDom(p.disc.natural)}</td>
-                        <td style={{ padding: "10px 8px", textAlign: "center", borderBottom: `1px solid ${C.border}` }}>{Object.entries(p.values).sort((a,b) => b[1]-a[1])[0]?.[0] || "—"}</td>
-                        <td style={{ padding: "10px 8px", textAlign: "center", borderBottom: `1px solid ${C.border}` }}>{[...p.attr.ext].sort((a,b) => b.score - a.score)[0]?.label || "—"}</td>
+                        <td style={{ padding: "10px 8px", textAlign: "center", borderBottom: `1px solid ${C.border}` }}>{Object.entries(p.values).sort((a,b) => b[1]-a[1])[0]?.[0] || "-"}</td>
+                        <td style={{ padding: "10px 8px", textAlign: "center", borderBottom: `1px solid ${C.border}` }}>{[...p.attr.ext].sort((a,b) => b.score - a.score)[0]?.label || "-"}</td>
                       </tr>
                       {otherMembers.map(m => (
                         <tr key={m.id} style={{ background: C.card, cursor: "pointer" }} onClick={() => setSelectedMemberId(m.id)}>
@@ -3033,8 +3234,8 @@ function CompareWithOthers({ person, team, onClose, photos = {} }) {
                             );
                           })}
                           <td style={{ padding: "10px 8px", textAlign: "center", borderBottom: `1px solid ${C.border}` }}>{getDom(m.disc.natural)}</td>
-                          <td style={{ padding: "10px 8px", textAlign: "center", borderBottom: `1px solid ${C.border}` }}>{Object.entries(m.values).sort((a,b) => b[1]-a[1])[0]?.[0] || "—"}</td>
-                          <td style={{ padding: "10px 8px", textAlign: "center", borderBottom: `1px solid ${C.border}` }}>{[...m.attr.ext].sort((a,b) => b.score - a.score)[0]?.label || "—"}</td>
+                          <td style={{ padding: "10px 8px", textAlign: "center", borderBottom: `1px solid ${C.border}` }}>{Object.entries(m.values).sort((a,b) => b[1]-a[1])[0]?.[0] || "-"}</td>
+                          <td style={{ padding: "10px 8px", textAlign: "center", borderBottom: `1px solid ${C.border}` }}>{[...m.attr.ext].sort((a,b) => b.score - a.score)[0]?.label || "-"}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -3124,6 +3325,260 @@ function CompareWithOthers({ person, team, onClose, photos = {} }) {
 }
 
 // ────── VIEWER ──────
+// ────── PRIORITY 8: SOPs INTEGRATION ──────
+const sopDisc = {
+  D: {
+    label: "Dominance",
+    sop: "Speed and decisiveness are your default. That's not a flaw - that's a feature. The work is making sure others are on board before you've already moved. Give people what they need to move with you, not behind you. Ask: who needs to weigh in before this becomes a decision?",
+    irks: "Indecision, unnecessary approval loops, and people who analyze when action is what's needed.",
+    need: "Autonomy over how problems get solved. Clear challenges and the room to run at them."
+  },
+  I: {
+    label: "Influence",
+    sop: "You create the spark. Others don't have to match your energy - your job is finding what lights them up, not keeping the spotlight on yourself. Figure out what excitement looks like for each person and help them get there. And recognize when you're doing too much - a good SOP for you has an off-switch.",
+    irks: "Transactional environments, cold leadership, and rooms where nobody laughs.",
+    need: "People interaction, recognition, and the freedom to communicate in your own way."
+  },
+  S: {
+    label: "Steadiness",
+    sop: "Stability is your superpower. When others move fast, you're the anchor. The challenge is building enough flexibility that fast movers don't feel slowed down, and that you can lean into change without it costing you. Plan for disruption so it doesn't catch you off guard.",
+    irks: "Sudden changes, lack of process, and environments that mistake urgency for progress.",
+    need: "Consistency, clear expectations, and enough time to do things right."
+  },
+  C: {
+    label: "Compliance",
+    sop: "The details you catch keep teams out of trouble. Share what you see in ways that invite people in. Not everyone needs every step - help them see the problem it solves. Be mindful of when more questions slow things down, and find the right time to get what you need without holding up the work.",
+    irks: "Rushing past important details, skipping process, and decisions made without data.",
+    need: "Accuracy, structure, time to analyze, and clear standards to work within."
+  }
+};
+
+const sopValues = {
+  Aesthetic:       { sop: "You need the work to mean something. Forced culture, empty rituals, and going-through-the-motions environments drain you. The initiative you'd thrive in: building how things feel, not just how they function. Creating trust and belonging where it's missing.", irks: "Cold top-down leadership, fake positivity, and work that feels empty." },
+  Economic:        { sop: "If it's not moving the needle, you don't want to spend time on it. Your lens is ROI - time, energy, money. You'd thrive leading anything that cuts waste, improves efficiency, or creates a clear win. Just make sure not everyone around you sees effort the way you do.", irks: "Long meetings with no outcome, vague goals, and doing things 'because we've always done it.'" },
+  Individualistic: { sop: "Micromanagement is your kryptonite. You need autonomy and the room to put your mark on the work. Give you a problem and let you run at it your way - you'll deliver. The challenge is staying connected to the team when independence is your default mode.", irks: "'Just follow the process' cultures, no room for creativity, being handed a plan with no input." },
+  Political:       { sop: "You want a seat at the table where the real decisions happen. Visibility, influence, and real responsibility - not just busy work. You step up when others won't. Channel that into outcomes for the team and people will follow. Sideline it and you'll quietly disengage.", irks: "Being left out of decisions, leaders who expect compliance, ambition being mistaken for arrogance." },
+  Altruistic:      { sop: "You're here to make a difference, not to be noticed. The work that lights you up is the work that helps someone else. Cold, numbers-first environments slowly cost you. What keeps you engaged: knowing your effort genuinely made someone's situation better.", irks: "Cultures that ignore the human cost, leaders who talk support but don't act on it, environments where ego matters more than impact." },
+  Regulatory:      { sop: "You build order where it's missing. Clear expectations, consistent follow-through, and systems that work - that's your environment. Chaos and ambiguity cost you more than they cost most. The work you'd thrive in: fixing things that are scattered, creating processes that stick.", irks: "Last-minute changes, vague roles, reinventing the wheel every time, leadership that breaks its own rules." },
+  Theoretical:     { sop: "You're always asking why - and that's a gift. Learning, analyzing, understanding the root of things keeps you engaged. Shallow 'just execute it' environments bore you fast. Give you a complex problem to research or a system to understand and you'll go deep. The challenge: not everyone needs the full picture before moving.", irks: "'Just do it' cultures, curiosity treated as overthinking, no time to reflect or learn." }
+};
+
+const sopProcess = {
+  Heart: { sop: "Lead with who it affects before you explain what you're doing. Your ability to read how a decision lands on people is a read others don't have. Use it to catch what the data misses - and name it when you see it.", consideration: "How does this affect people? Who haven't we heard from? Have we considered everyone before we move?" },
+  Hand:  { sop: "Keep the team focused on what's actually actionable. SMART goals, clear ownership, and following through on what was decided. The questions your team needs from you: What's the fastest path? What are we actually committing to? Who owns what?", consideration: "What can we realistically do now? How do we make sure what we decide actually gets done?" },
+  Head:  { sop: "Ask the system question before anyone moves. What's the ripple effect? What are we not seeing long-term? Your SWOT lens is protection the team needs - especially from fast movers who'll commit before the consequences are visible.", consideration: "What's the big picture? What problems will we face before, during, and after? Are we keeping the main thing the main thing?" }
+};
+
+function ConnectionSOPs({ person }) {
+  const [open, setOpen] = useState(null);
+  const domDims = ["D","I","S","C"].filter(d => person.disc.natural[d] >= 60);
+  const topVals = Object.entries(person.values).filter(([,s]) => s >= 60).sort((a,b) => b[1]-a[1]).slice(0,2);
+  const leadAttr = person.attr.ext.reduce((a,b) => a.score >= b.score ? a : b);
+  const leadLabel = leadAttr.name === "Empathy" ? "Heart" : leadAttr.name === "Practical Thinking" ? "Hand" : "Head";
+
+  return (
+    <div style={{ background: C.card, borderRadius: 12, padding: 24, border: `1px solid ${C.border}`, marginBottom: 32, boxShadow: "0 1px 3px rgba(0,0,0,0.1)" }}>
+      <div style={{ marginBottom: 16 }}>
+        <div style={{ fontSize: 16, fontWeight: 800, color: C.text }}>Connection SOPs</div>
+        <div style={{ fontSize: 12, color: C.muted, marginTop: 2 }}>How to work with {person.name.split(" ")[0]} - and what it costs when you don't.</div>
+      </div>
+
+      {/* DISC SOPs */}
+      {domDims.length > 0 && (
+        <div style={{ marginBottom: 16 }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: C.muted, textTransform: "uppercase", letterSpacing: 1, marginBottom: 8 }}>Preference (DISC)</div>
+          {domDims.map(d => {
+            const s = sopDisc[d];
+            return (
+              <div key={d} style={{ padding: 14, borderRadius: 8, background: C.hi, border: `1px solid ${C.border}`, borderLeft: `3px solid ${C.disc[d]}`, marginBottom: 8 }}>
+                <div onClick={() => setOpen(open === `disc-${d}` ? null : `disc-${d}`)} style={{ cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <span style={{ fontSize: 13, fontWeight: 700, color: C.disc[d] }}>High {d} - {s.label}</span>
+                  <span style={{ fontSize: 12, color: C.muted }}>{open === `disc-${d}` ? "▲" : "▼"}</span>
+                </div>
+                {open === `disc-${d}` && (
+                  <div style={{ marginTop: 10 }}>
+                    <div style={{ fontSize: 12, color: C.text, lineHeight: 1.7, marginBottom: 8 }}>{s.sop}</div>
+                    <div style={{ fontSize: 11, color: C.muted }}><strong>What they need:</strong> {s.need}</div>
+                    <div style={{ fontSize: 11, color: "#C62828", marginTop: 4 }}><strong>What irks them:</strong> {s.irks}</div>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Values SOPs */}
+      {topVals.length > 0 && (
+        <div style={{ marginBottom: 16 }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: C.muted, textTransform: "uppercase", letterSpacing: 1, marginBottom: 8 }}>Passion (Top Values)</div>
+          {topVals.map(([v, score]) => {
+            const s = sopValues[v];
+            return (
+              <div key={v} style={{ padding: 14, borderRadius: 8, background: C.hi, border: `1px solid ${C.border}`, borderLeft: `3px solid ${C.values[v]}`, marginBottom: 8 }}>
+                <div onClick={() => setOpen(open === `val-${v}` ? null : `val-${v}`)} style={{ cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <span style={{ fontSize: 13, fontWeight: 700, color: C.values[v] }}>{v} <span style={{ fontWeight: 400, fontSize: 11, color: C.muted }}>({score})</span></span>
+                  <span style={{ fontSize: 12, color: C.muted }}>{open === `val-${v}` ? "▲" : "▼"}</span>
+                </div>
+                {open === `val-${v}` && (
+                  <div style={{ marginTop: 10 }}>
+                    <div style={{ fontSize: 12, color: C.text, lineHeight: 1.7, marginBottom: 8 }}>{s.sop}</div>
+                    <div style={{ fontSize: 11, color: "#C62828" }}><strong>What irks them:</strong> {s.irks}</div>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Process SOP */}
+      <div>
+        <div style={{ fontSize: 11, fontWeight: 700, color: C.muted, textTransform: "uppercase", letterSpacing: 1, marginBottom: 8 }}>Process (Lead Attribute)</div>
+        <div style={{ padding: 14, borderRadius: 8, background: C.hi, border: `1px solid ${C.border}`, borderLeft: `3px solid ${C.attr.ext}` }}>
+          <div onClick={() => setOpen(open === "proc" ? null : "proc")} style={{ cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <span style={{ fontSize: 13, fontWeight: 700, color: C.attr.ext }}>{leadLabel} - {leadAttr.name} ({leadAttr.score})</span>
+            <span style={{ fontSize: 12, color: C.muted }}>{open === "proc" ? "▲" : "▼"}</span>
+          </div>
+          {open === "proc" && (
+            <div style={{ marginTop: 10 }}>
+              <div style={{ fontSize: 12, color: C.text, lineHeight: 1.7, marginBottom: 8 }}>{sopProcess[leadLabel].sop}</div>
+              <div style={{ fontSize: 11, color: C.muted, fontStyle: "italic" }}>"{sopProcess[leadLabel].consideration}"</div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ────── PRIORITY 6: ENVIRONMENT ALIGNMENT SELF-REPORT ──────
+function EnvironmentAlignment({ person, onClose }) {
+  const [answers, setAnswers] = useState({});
+  const [submitted, setSubmitted] = useState(false);
+
+  // Build personalized questions from their profile
+  const questions = [];
+
+  // DISC question - based on Natural dominant dim
+  const domDim = ["D","I","S","C"].reduce((a,b) => person.disc.natural[b] > person.disc.natural[a] ? b : a, "D");
+  const discQ = {
+    D: { id: "q_disc", category: "Preference", text: "At work, can you make decisions and move quickly without waiting for approval at every turn?" },
+    I: { id: "q_disc", category: "Preference", text: "Does your work give you regular chances to connect, communicate, and energize the people around you?" },
+    S: { id: "q_disc", category: "Preference", text: "Is your work environment predictable enough that you're not burning energy on constant unexpected change?" },
+    C: { id: "q_disc", category: "Preference", text: "Do you get the time and information you need to meet the quality standard you hold for your work?" }
+  };
+  questions.push(discQ[domDim]);
+
+  // Values questions - top 2 values
+  const valQ = {
+    Aesthetic:       { id: "q_val_ae", category: "Passion", text: "Does your work environment feel like it actually cares about people - not just output?" },
+    Economic:        { id: "q_val_ec", category: "Passion", text: "Do you see a clear, measurable return on the time and energy you invest at work?" },
+    Individualistic: { id: "q_val_in", category: "Passion", text: "Do you have real autonomy over how you work - or do you mostly execute someone else's plan?" },
+    Political:       { id: "q_val_po", category: "Passion", text: "Do you have genuine influence over decisions that matter at work - not just the ones you're assigned?" },
+    Altruistic:      { id: "q_val_al", category: "Passion", text: "Does your work feel like it's genuinely helping people in ways that matter to you?" },
+    Regulatory:      { id: "q_val_re", category: "Passion", text: "Are expectations, roles, and processes clear - or do you spend energy filling in what's left undefined?" },
+    Theoretical:     { id: "q_val_th", category: "Passion", text: "Does your environment give you time to think, learn, and understand the 'why' behind what you're doing?" }
+  };
+  Object.entries(person.values).filter(([,s]) => s >= 60).sort((a,b) => b[1]-a[1]).slice(0,2).forEach(([v]) => questions.push(valQ[v]));
+
+  // Attributes questions - for any − bias
+  const extBiasQ = {
+    "Empathy":           { id: "q_heart_bias", category: "Process", text: "Do the people around you pay attention to how decisions land on individuals - or does that tend to get skipped?" },
+    "Practical Thinking":{ id: "q_hand_bias",  category: "Process", text: "Does your team actually follow through on what it decides, or do good plans die in the room?" },
+    "Systems Judgment":  { id: "q_head_bias",  category: "Process", text: "Does your environment take time to think strategically, or does it mostly react to what's in front of it?" }
+  };
+  person.attr.ext.forEach(a => { if (normBias(a.bias) === "\u2212") questions.push(extBiasQ[a.name]); });
+
+  const intBiasQ = {
+    "Self-Esteem":    { id: "q_se",  category: "Internal", text: "Do you feel genuinely valued for what you bring - not just for finishing tasks?" },
+    "Role Awareness": { id: "q_ra",  category: "Internal", text: "Is your role and what success looks like clearly defined - or does it feel like you're always guessing?" },
+    "Self-Direction": { id: "q_sd",  category: "Internal", text: "Do you have a clear path forward - personal goals, a growth direction, something you're actively working toward?" }
+  };
+  person.attr.int.forEach(a => { if (normBias(a.bias) === "\u2212") questions.push(intBiasQ[a.name]); });
+
+  const opts = ["Often","Sometimes","Rarely"];
+  const score = { Often: 2, Sometimes: 1, Rarely: 0 };
+  const allAnswered = questions.every(q => answers[q.id] !== undefined);
+
+  const results = submitted ? (() => {
+    const byCategory = {};
+    questions.forEach(q => {
+      if (!byCategory[q.category]) byCategory[q.category] = { total: 0, max: 0 };
+      byCategory[q.category].total += score[answers[q.id]] || 0;
+      byCategory[q.category].max += 2;
+    });
+    return byCategory;
+  })() : null;
+
+  const getStatus = (total, max) => {
+    const pct = total / max;
+    return pct >= 0.7 ? { label: "Supported", color: "#2E7D32", bg: "#E8F5E9", text: "Your environment is working for this dimension." }
+         : pct >= 0.4 ? { label: "Signal",    color: "#E65100", bg: "#FFF3E0", text: "Your environment partially supports this. Worth watching." }
+         :               { label: "Tax",       color: "#B71C1C", bg: "#FFEBEE", text: "Your environment is actively costing you here. This is confirmed." };
+  };
+
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
+      <div style={{ background: "#fff", borderRadius: 16, width: "100%", maxWidth: 560, maxHeight: "90vh", overflow: "auto", boxShadow: "0 20px 60px rgba(0,0,0,0.3)" }}>
+        <div style={{ padding: "20px 24px 16px", borderBottom: `1px solid ${C.border}`, display: "flex", justifyContent: "space-between", alignItems: "center", position: "sticky", top: 0, background: "#fff", zIndex: 1 }}>
+          <div>
+            <div style={{ fontSize: 16, fontWeight: 800 }}>Environment Alignment</div>
+            <div style={{ fontSize: 12, color: C.muted }}>Personalized for {person.name.split(" ")[0]}'s profile · {questions.length} questions</div>
+          </div>
+          <button onClick={onClose} style={{ width: 32, height: 32, borderRadius: "50%", background: C.hi, border: `1px solid ${C.border}`, cursor: "pointer", fontSize: 16 }}>✕</button>
+        </div>
+
+        <div style={{ padding: 24 }}>
+          {!submitted ? (
+            <>
+              <div style={{ fontSize: 12, color: C.muted, marginBottom: 20, lineHeight: 1.6 }}>
+                These questions are built from {person.name.split(" ")[0]}'s actual profile data. Honest answers here turn signals into confirmed taxes - or clear them.
+              </div>
+              {questions.map((q, i) => (
+                <div key={q.id} style={{ marginBottom: 20, padding: 16, borderRadius: 10, background: C.hi, border: `1px solid ${C.border}` }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: C.muted, textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 6 }}>{q.category}</div>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: C.text, lineHeight: 1.5, marginBottom: 12 }}>{q.text}</div>
+                  <div style={{ display: "flex", gap: 8 }}>
+                    {opts.map(o => (
+                      <button key={o} onClick={() => setAnswers(a => ({...a, [q.id]: o}))}
+                        style={{ flex: 1, padding: "8px 4px", borderRadius: 8, border: `2px solid ${answers[q.id] === o ? C.accent : C.border}`, background: answers[q.id] === o ? C.accent : "#fff", color: answers[q.id] === o ? "#fff" : C.text, fontSize: 12, fontWeight: 600, cursor: "pointer", transition: "all 0.15s" }}>
+                        {o}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ))}
+              <button onClick={() => setSubmitted(true)} disabled={!allAnswered}
+                style={{ width: "100%", padding: "14px", borderRadius: 10, background: allAnswered ? C.accent : C.border, color: "#fff", border: "none", fontSize: 14, fontWeight: 700, cursor: allAnswered ? "pointer" : "default", transition: "background 0.2s" }}>
+                See Results
+              </button>
+            </>
+          ) : (
+            <>
+              <div style={{ fontSize: 14, fontWeight: 700, color: C.text, marginBottom: 4 }}>What the environment is actually doing to {person.name.split(" ")[0]}</div>
+              <div style={{ fontSize: 12, color: C.muted, marginBottom: 20 }}>Based on {person.name.split(" ")[0]}'s answers - not assumptions.</div>
+              {Object.entries(results).map(([cat, {total, max}]) => {
+                const st = getStatus(total, max);
+                return (
+                  <div key={cat} style={{ padding: 16, borderRadius: 10, background: st.bg, border: `1px solid`, borderColor: st.color + "44", marginBottom: 12 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+                      <span style={{ fontSize: 13, fontWeight: 700, color: C.text }}>{cat}</span>
+                      <span style={{ fontSize: 11, fontWeight: 800, color: st.color, background: "#fff", padding: "2px 10px", borderRadius: 8 }}>{st.label}</span>
+                    </div>
+                    <div style={{ fontSize: 12, color: C.text }}>{st.text}</div>
+                  </div>
+                );
+              })}
+              <button onClick={() => { setAnswers({}); setSubmitted(false); }} style={{ width: "100%", marginTop: 8, padding: 12, borderRadius: 10, background: C.hi, border: `1px solid ${C.border}`, fontSize: 13, fontWeight: 600, cursor: "pointer", color: C.text }}>Retake</button>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function Viewer({ person, leader, agreements, setAgreements, photos = {}, onUploadPhoto, initialTab = "profile", initialShowTips = false, initialShowCompare = false, onClearShowTips, onClearShowCompare, team = [] }) {
   const [dv, setDv] = useState("both");
   const [tab, setTab] = useState(initialTab);
@@ -3131,6 +3586,7 @@ function Viewer({ person, leader, agreements, setAgreements, photos = {}, onUplo
   const [showReport, setShowReport] = useState(false);
   const [showTips, setShowTips] = useState(initialShowTips);
   const [showCompare, setShowCompare] = useState(initialShowCompare);
+  const [showAlignment, setShowAlignment] = useState(false);
 
   // Handle external triggers for showing tips
   useEffect(() => {
@@ -3159,6 +3615,9 @@ function Viewer({ person, leader, agreements, setAgreements, photos = {}, onUplo
 
   return (
     <div>
+      {showAlignment && (
+        <EnvironmentAlignment person={sel} onClose={() => setShowAlignment(false)} />
+      )}
       {showWizard && canCompare && (
         <BridgeWizard leader={leader} person={person} agreements={agreements} setAgreements={setAgreements} onClose={() => setShowWizard(false)} />
       )}
@@ -3181,6 +3640,7 @@ function Viewer({ person, leader, agreements, setAgreements, photos = {}, onUplo
           </div>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", justifyContent: "flex-end" }}>
+          <Btn onClick={() => setShowAlignment(true)} style={{ fontSize: 11 }}>🎯 Env. Alignment</Btn>
           <Btn onClick={() => setShowReport(true)} style={{ fontSize: 11 }}>📄 Environment Report</Btn>
           {canCompare && (
             <div style={{ display: "flex", background: C.hi, borderRadius: 8, border: `1px solid ${C.border}`, overflow: "hidden" }}>
@@ -3280,6 +3740,10 @@ function Viewer({ person, leader, agreements, setAgreements, photos = {}, onUplo
           ))}
         </div>
       </div>
+
+      {/* CONNECTION SOPs */}
+      <ConnectionSOPs person={sel} />
+
       </div>)}
     </div>
   );
@@ -3353,7 +3817,7 @@ function LeaderComparison({ leader, team }) {
         </div>
       </div>
 
-      {/* Leadership Style — Comparison Panel */}
+      {/* Leadership Style - Comparison Panel */}
       <div style={{ marginBottom: 20 }}>
         <div style={{ fontSize: 10, fontWeight: 700, color: C.muted, textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 8 }}>Leadership Style Gap</div>
         <div style={{ display: "flex", borderRadius: 10, overflow: "hidden", border: `1px solid ${C.border}` }}>
@@ -3374,7 +3838,7 @@ function LeaderComparison({ leader, team }) {
         </div>
       </div>
 
-      {/* Motivational Driver Gap — Insight Strips */}
+      {/* Motivational Driver Gap - Insight Strips */}
       <div style={{ marginBottom: 20 }}>
         <div style={{ fontSize: 10, fontWeight: 700, color: C.muted, textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 8 }}>Motivational Driver Gap</div>
         <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
@@ -3613,34 +4077,244 @@ function TeamInsights({ people, teamId, orgId, leaderId, userId, photos = {}, on
         <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 8 }}>
           {valData.filter(v => v.count > 0).slice(0, 3).map(v => (
             <div key={v.name} style={{ flex: "1 1 200px", padding: "8px 10px", borderRadius: 7, background: C.hi, border: `1px solid ${C.border}` }}>
-              <div style={{ fontSize: 10, fontWeight: 700, color: v.color, marginBottom: 3 }}>{v.name} — {v.count} of {complete.length} people</div>
+              <div style={{ fontSize: 10, fontWeight: 700, color: v.color, marginBottom: 3 }}>{v.name} - {v.count} of {complete.length} people</div>
               <div style={{ fontSize: 10, color: C.muted }}>This team is motivated by {valDescs[v.name]}.</div>
             </div>
           ))}
         </div>
       </div>
 
-      {/* 1E: Attributes Distribution */}
-      <div style={{ background: C.card, borderRadius: 12, padding: 24, border: `1px solid ${C.border}`, marginBottom: 32, boxShadow: "0 1px 3px rgba(0,0,0,0.1)" }}>
-        <Sec title="How Your Team Decides" sub="Decision-making order by average attribute score" color={C.attr.ext} />
-        <div style={{ fontSize: 11, color: C.muted, marginBottom: 12 }}>
-          Ranked by team average score — this is the order your team processes decisions.
-        </div>
-        {decisionOrder.map(([label, avg], idx) => (
-          <div key={label} style={{ display: "flex", alignItems: "flex-start", gap: 12, padding: "12px 16px", borderRadius: 8, background: C.card, border: `1px solid ${C.border}`, borderLeft: idx === 0 ? `3px solid ${C.attr.ext}` : `1px solid ${C.border}`, marginBottom: 8 }}>
-            <div style={{ flexShrink: 0, width: 28, height: 28, borderRadius: "50%", background: idx === 0 ? C.attr.ext : C.hi, color: idx === 0 ? "#fff" : C.muted, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: 14, border: `1px solid ${idx === 0 ? "transparent" : C.border}` }}>{idx + 1}</div>
-            <div style={{ flex: 1 }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
-                <span style={{ fontSize: 16 }}>{attrIcons[label]}</span>
-                <span style={{ fontSize: 13, fontWeight: 800, color: idx === 0 ? C.attr.ext : C.text }}>{label}</span>
-                <span style={{ marginLeft: "auto", fontSize: 11, fontWeight: 700, color: C.muted }}>avg {avg} / 10</span>
-                {attrCounts[label] > 0 && <span style={{ fontSize: 10, color: C.muted, background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: "1px 7px" }}>{attrCounts[label]} lead here</span>}
-              </div>
-              <div style={{ fontSize: 11, color: C.muted, lineHeight: 1.5 }}>{attrInsights[label]}</div>
+      {/* KRI Dashboard */}
+      {complete.length >= 2 && (() => {
+        const intNames = ["Self-Esteem", "Role Awareness", "Self-Direction"];
+        const kriColors = { green: "#2E7D32", yellow: "#E65100", red: "#B71C1C" };
+        const kriBg = { green: "#E8F5E9", yellow: "#FFF3E0", red: "#FFEBEE" };
+        const kriBorder = { green: "#A5D6A7", yellow: "#FFCC80", red: "#EF9A9A" };
+
+        // For each Internal Attribute: avg score, bias distribution, risk level
+        const kriData = intNames.map(name => {
+          const rows = complete.map(p => {
+            const a = p.attr.int.find(a => a.name === name);
+            return a ? { score: a.score, bias: normBias(a.bias) } : null;
+          }).filter(Boolean);
+
+          const avgScore = rows.length > 0 ? Math.round((rows.reduce((s, r) => s + r.score, 0) / rows.length) * 10) / 10 : 0;
+          const minusBias = rows.filter(r => r.bias === "\u2212").length;
+          const plusBias  = rows.filter(r => r.bias === "+").length;
+          const equalBias = rows.filter(r => r.bias === "=").length;
+          const minusPct = rows.length > 0 ? Math.round((minusBias / rows.length) * 100) : 0;
+
+          // Risk: high minus bias + low score = elevated retention risk
+          const risk = (minusPct >= 60 || avgScore < 6.0) ? "red"
+                     : (minusPct >= 40 || avgScore < 7.0) ? "yellow"
+                     : "green";
+
+          const descriptions = {
+            "Self-Esteem": {
+              green: "Most of your team trusts their own value. They can take feedback without losing footing.",
+              yellow: "A meaningful portion of your team may be underselling themselves or waiting for external permission before acting.",
+              red: "Self-doubt is systemic here. Your team is likely operating below their actual capability because they don't fully trust their own judgment."
+            },
+            "Role Awareness": {
+              green: "Your team has a clear sense of ownership. People know what's theirs to carry.",
+              yellow: "Role ambiguity is creating friction. Some people are overextending while others may be underfilling.",
+              red: "Role clarity is a real problem. The team is burning energy on undefined ownership. This shows up as conflict, dropped balls, and quiet resentment."
+            },
+            "Self-Direction": {
+              green: "Your team can lead themselves. They know where they're going and don't need constant redirection.",
+              yellow: "Some team members are looking for more direction than you may realize. Ambiguity costs them energy.",
+              red: "Your team needs more directional clarity than they're getting. Without it, they default to inaction or wait for you to decide."
+            }
+          };
+
+          return { name, avgScore, minusBias, plusBias, equalBias, minusPct, risk, total: rows.length, desc: descriptions[name][risk] };
+        });
+
+        const overallRisk = kriData.some(k => k.risk === "red") ? "red"
+                          : kriData.some(k => k.risk === "yellow") ? "yellow" : "green";
+        const riskLabel = { red: "Elevated", yellow: "Watch", green: "Healthy" };
+
+        return (
+          <div style={{ background: C.card, borderRadius: 12, padding: 24, border: `1px solid ${C.border}`, marginBottom: 32, boxShadow: "0 1px 3px rgba(0,0,0,0.1)" }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
+              <div style={{ fontSize: 16, fontWeight: 800, color: C.text }}>KRI Dashboard</div>
+              <div style={{ fontSize: 11, fontWeight: 700, color: kriColors[overallRisk], background: kriBg[overallRisk], border: `1px solid ${kriBorder[overallRisk]}`, padding: "3px 12px", borderRadius: 20 }}>{riskLabel[overallRisk]} Risk</div>
+            </div>
+            <div style={{ fontSize: 12, color: C.muted, marginBottom: 20 }}>Key Retention Indicators from Internal Attributes across {complete.length} team members.</div>
+
+            <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+              {kriData.map(k => (
+                <div key={k.name} style={{ background: kriBg[k.risk], border: `1px solid ${kriBorder[k.risk]}`, borderRadius: 10, padding: 16 }}>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+                    <div style={{ fontSize: 13, fontWeight: 800, color: C.text }}>{k.name}</div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                      <span style={{ fontSize: 11, color: C.muted }}>Avg: <strong style={{ color: k.avgScore < 6.0 ? kriColors.red : k.avgScore < 7.0 ? kriColors.yellow : kriColors.green }}>{k.avgScore}</strong> / 10</span>
+                      <span style={{ fontSize: 10, fontWeight: 700, color: kriColors[k.risk], background: "#fff", padding: "2px 10px", borderRadius: 8 }}>{riskLabel[k.risk].toUpperCase()}</span>
+                    </div>
+                  </div>
+
+                  {/* Bias distribution bar */}
+                  <div style={{ display: "flex", height: 8, borderRadius: 4, overflow: "hidden", marginBottom: 8 }}>
+                    {k.plusBias > 0 && <div style={{ flex: k.plusBias, background: "#2E7D32" }} title={`${k.plusBias} Requires (+)`} />}
+                    {k.equalBias > 0 && <div style={{ flex: k.equalBias, background: "#1565C0" }} title={`${k.equalBias} Balanced (=)`} />}
+                    {k.minusBias > 0 && <div style={{ flex: k.minusBias, background: "#B71C1C" }} title={`${k.minusBias} Undervalues (-)`} />}
+                  </div>
+
+                  <div style={{ display: "flex", gap: 12, marginBottom: 10, fontSize: 11, color: C.muted }}>
+                    <span style={{ color: "#2E7D32", fontWeight: 600 }}>{k.plusBias} Requires (+)</span>
+                    <span style={{ color: "#1565C0", fontWeight: 600 }}>{k.equalBias} Balanced (=)</span>
+                    <span style={{ color: "#B71C1C", fontWeight: 600 }}>{k.minusBias} Undervalues (-)</span>
+                  </div>
+
+                  <div style={{ fontSize: 12, color: C.text, lineHeight: 1.6 }}>{k.desc}</div>
+                </div>
+              ))}
             </div>
           </div>
-        ))}
-      </div>
+        );
+      })()}
+
+      {/* Culture Visibility Model */}
+      {complete.length >= 2 && (() => {
+        const W = 420, H = 380, PAD = 40;
+        const plotW = W - PAD * 2, plotH = H - PAD * 2;
+
+        // For each member: DISC representation (how similar to team avg) and Values representation
+        const teamDiscAvg = { D: 0, I: 0, S: 0, C: 0 };
+        const teamValAvg = { Aesthetic: 0, Economic: 0, Individualistic: 0, Political: 0, Altruistic: 0, Regulatory: 0, Theoretical: 0 };
+        complete.forEach(p => {
+          ["D","I","S","C"].forEach(d => { teamDiscAvg[d] += p.disc.natural[d]; });
+          Object.keys(teamValAvg).forEach(v => { teamValAvg[v] += p.values[v]; });
+        });
+        ["D","I","S","C"].forEach(d => { teamDiscAvg[d] /= complete.length; });
+        Object.keys(teamValAvg).forEach(v => { teamValAvg[v] /= complete.length; });
+
+        const getRepScores = (p) => {
+          const discDiff = ["D","I","S","C"].reduce((s,d) => s + Math.abs(p.disc.natural[d] - teamDiscAvg[d]), 0) / 4;
+          const valDiff = Object.keys(teamValAvg).reduce((s,v) => s + Math.abs(p.values[v] - teamValAvg[v]), 0) / 7;
+          return {
+            discRep: Math.max(0, 100 - discDiff),
+            valRep:  Math.max(0, 100 - valDiff)
+          };
+        };
+
+        const threshold = 65;
+        const getQuadrant = (dr, vr) => {
+          const hiD = dr >= threshold, hiV = vr >= threshold;
+          if (hiD && hiV)  return { label: "Dominant Culture",      color: "#F59E0B", bg: "rgba(245,158,11,0.08)",  desc: "Behavioral and motivational style matches the team's dominant culture." };
+          if (!hiD && hiV) return { label: "Behaviorally Silent",   color: "#3B82F6", bg: "rgba(59,130,246,0.08)",  desc: "Shares the team's values but expresses them through a different behavioral style. Often adapting to fit in." };
+          if (hiD && !hiV) return { label: "Motivationally Silent", color: "#8B5CF6", bg: "rgba(139,92,246,0.08)",  desc: "Looks like they fit in behaviorally, but their internal drivers differ from the dominant culture." };
+          return                  { label: "Invisible Culture",      color: "#EF4444", bg: "rgba(239,68,68,0.08)",   desc: "Differs from the dominant culture in both behavior and motivation. Highest risk of quiet disengagement." };
+        };
+
+        const plotData = complete.map(p => {
+          const { discRep, valRep } = getRepScores(p);
+          const q = getQuadrant(discRep, valRep);
+          const x = PAD + (discRep / 100) * plotW;
+          const y = PAD + ((100 - valRep) / 100) * plotH;
+          return { ...p, discRep, valRep, quadrant: q, x, y };
+        });
+
+        const [hovered, setHovered] = useState(null);
+
+        // Count per quadrant
+        const qCounts = {};
+        plotData.forEach(p => { qCounts[p.quadrant.label] = (qCounts[p.quadrant.label] || 0) + 1; });
+        const qDefs = [
+          { label: "Dominant Culture",      color: "#F59E0B" },
+          { label: "Behaviorally Silent",   color: "#3B82F6" },
+          { label: "Motivationally Silent", color: "#8B5CF6" },
+          { label: "Invisible Culture",     color: "#EF4444" }
+        ];
+
+        return (
+          <div style={{ background: C.card, borderRadius: 12, padding: 24, border: `1px solid ${C.border}`, marginBottom: 32, boxShadow: "0 1px 3px rgba(0,0,0,0.1)" }}>
+            <div style={{ fontSize: 16, fontWeight: 800, color: C.text, marginBottom: 4 }}>Culture Visibility Model</div>
+            <div style={{ fontSize: 12, color: C.muted, marginBottom: 20 }}>Who shapes the culture - and who's adapting silently to fit into it.</div>
+
+            <div style={{ display: "flex", gap: 24, flexWrap: "wrap" }}>
+              {/* SVG Plot */}
+              <div style={{ flex: "1 1 400px" }}>
+                <svg width="100%" viewBox={`0 0 ${W} ${H}`} style={{ display: "block" }}>
+                  {/* Quadrant backgrounds */}
+                  <rect x={PAD} y={PAD} width={plotW/2} height={plotH/2} fill="rgba(59,130,246,0.06)" />
+                  <rect x={PAD+plotW/2} y={PAD} width={plotW/2} height={plotH/2} fill="rgba(245,158,11,0.06)" />
+                  <rect x={PAD} y={PAD+plotH/2} width={plotW/2} height={plotH/2} fill="rgba(239,68,68,0.06)" />
+                  <rect x={PAD+plotW/2} y={PAD+plotH/2} width={plotW/2} height={plotH/2} fill="rgba(139,92,246,0.06)" />
+
+                  {/* Divider lines */}
+                  <line x1={PAD} y1={PAD+plotH/2} x2={PAD+plotW} y2={PAD+plotH/2} stroke={C.border} strokeWidth={1} strokeDasharray="4,4" />
+                  <line x1={PAD+plotW/2} y1={PAD} x2={PAD+plotW/2} y2={PAD+plotH} stroke={C.border} strokeWidth={1} strokeDasharray="4,4" />
+
+                  {/* Quadrant labels */}
+                  <text x={PAD+plotW/4} y={PAD+14} textAnchor="middle" fontSize={9} fill="#3B82F6" fontWeight="700">BEHAVIORALLY SILENT</text>
+                  <text x={PAD+plotW*3/4} y={PAD+14} textAnchor="middle" fontSize={9} fill="#F59E0B" fontWeight="700">DOMINANT CULTURE</text>
+                  <text x={PAD+plotW/4} y={PAD+plotH-6} textAnchor="middle" fontSize={9} fill="#EF4444" fontWeight="700">INVISIBLE CULTURE</text>
+                  <text x={PAD+plotW*3/4} y={PAD+plotH-6} textAnchor="middle" fontSize={9} fill="#8B5CF6" fontWeight="700">MOTIVATIONALLY SILENT</text>
+
+                  {/* Axis labels */}
+                  <text x={PAD} y={PAD-8} textAnchor="start" fontSize={9} fill={C.muted}>Low DISC Fit</text>
+                  <text x={PAD+plotW} y={PAD-8} textAnchor="end" fontSize={9} fill={C.muted}>High DISC Fit</text>
+                  <text x={PAD-8} y={PAD+12} textAnchor="end" fontSize={9} fill={C.muted} transform={`rotate(-90, ${PAD-10}, ${PAD+plotH/2})`}>High Values Fit</text>
+
+                  {/* People dots */}
+                  {plotData.map((p, i) => {
+                    const initials = p.name.split(" ").map(w=>w[0]).join("").slice(0,2);
+                    const isHov = hovered === p.id;
+                    return (
+                      <g key={p.id} onMouseEnter={() => setHovered(p.id)} onMouseLeave={() => setHovered(null)} style={{ cursor: "pointer" }}>
+                        <circle cx={p.x} cy={p.y} r={isHov ? 20 : 16} fill={p.quadrant.color} opacity={0.9} />
+                        <text x={p.x} y={p.y+4} textAnchor="middle" fontSize={isHov ? 10 : 9} fill="#fff" fontWeight="800">{initials}</text>
+                        {isHov && (
+                          <g>
+                            <rect x={p.x - 70} y={p.y - 50} width={140} height={40} rx={6} fill="#1F2937" opacity={0.95} />
+                            <text x={p.x} y={p.y - 35} textAnchor="middle" fontSize={9} fill="#fff" fontWeight="700">{p.name.split(" ")[0]}</text>
+                            <text x={p.x} y={p.y - 20} textAnchor="middle" fontSize={8} fill="#9CA3AF">{p.quadrant.label}</text>
+                          </g>
+                        )}
+                      </g>
+                    );
+                  })}
+                </svg>
+              </div>
+
+              {/* Quadrant summary */}
+              <div style={{ flex: "1 1 200px", display: "flex", flexDirection: "column", gap: 8 }}>
+                {qDefs.map(q => {
+                  const count = qCounts[q.label] || 0;
+                  const members = plotData.filter(p => p.quadrant.label === q.label);
+                  return (
+                    <div key={q.label} style={{ padding: "10px 14px", borderRadius: 8, background: C.hi, border: `1px solid ${C.border}`, borderLeft: `3px solid ${q.color}` }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: count > 0 ? 4 : 0 }}>
+                        <span style={{ fontSize: 11, fontWeight: 700, color: q.color }}>{q.label}</span>
+                        <span style={{ fontSize: 11, fontWeight: 800, color: count > 0 ? C.text : C.muted }}>{count}</span>
+                      </div>
+                      {count > 0 && (
+                        <div style={{ fontSize: 10, color: C.muted }}>
+                          {members.map(p => p.name.split(" ")[0]).join(", ")}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+
+                {/* Adaptation note */}
+                {plotData.some(p => p.quadrant.label !== "Dominant Culture") && (
+                  <div style={{ marginTop: 4, padding: "10px 14px", borderRadius: 8, background: "#FFF3E0", border: "1px solid #FFCC80" }}>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: "#E65100", marginBottom: 4 }}>Watch For</div>
+                    <div style={{ fontSize: 11, color: C.text, lineHeight: 1.6 }}>
+                      {plotData.filter(p => p.quadrant.label === "Invisible Culture").length > 0
+                        ? `${plotData.filter(p=>p.quadrant.label==="Invisible Culture").map(p=>p.name.split(" ")[0]).join(" and ")} differ from the dominant culture in both behavior and motivation. Highest disengagement risk.`
+                        : "Some team members are adapting silently. Check the Friction Map and KRI Dashboard for where that cost is showing up."}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
     </div>
   );
 }
@@ -3777,7 +4451,7 @@ function WeekCard({ weekDef, person, status, onComplete, expanded, onToggle }) {
               <div key={a.name} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", borderRadius: 8, background: C.card, border: `1px solid ${C.border}`, borderLeft: isEqual || i === 0 ? `4px solid ${C.attr.ext}` : `1px solid ${C.border}`, marginBottom: 5 }}>
                 <div style={{ fontWeight: 800, fontSize: 16, color: C.attr.ext, width: 20 }}>{isEqual ? "=" : i + 1}</div>
                 <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: 12, fontWeight: 700 }}>{a.label} — {a.name}</div>
+                  <div style={{ fontSize: 12, fontWeight: 700 }}>{a.label} - {a.name}</div>
                 </div>
                 <div style={{ fontSize: 16, fontWeight: 800, color: C.attr.ext }}>{a.score}</div>
                 <Bias bias={a.bias} />
@@ -3859,7 +4533,7 @@ function WeekCard({ weekDef, person, status, onComplete, expanded, onToggle }) {
           <div style={{ background: "#1A1A1A", borderRadius: 10, height: 140, display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 14, position: "relative", overflow: "hidden" }}>
             <div style={{ textAlign: "center", color: "#fff" }}>
               <div style={{ fontSize: 36, marginBottom: 6 }}>▶</div>
-              <div style={{ fontSize: 12, fontWeight: 600, opacity: 0.8 }}>Week {week} — {title}</div>
+              <div style={{ fontSize: 12, fontWeight: 600, opacity: 0.8 }}>Week {week} - {title}</div>
               <div style={{ fontSize: 10, opacity: 0.5, marginTop: 2 }}>Video coming soon</div>
             </div>
           </div>
@@ -4073,7 +4747,7 @@ function LoginPage({ onLogin }) {
     <div style={{ minHeight: "100vh", background: "#F9FAFB", display: "flex", alignItems: "center", justifyContent: "center", padding: "24px 16px", fontFamily: "Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" }}>
       <div style={{ width: "100%", maxWidth: 960, background: "#fff", borderRadius: 16, boxShadow: "0 4px 24px rgba(0,0,0,0.1)", display: "grid", gridTemplateColumns: "1fr 1fr", overflow: "hidden" }}>
 
-        {/* LEFT — Branding */}
+        {/* LEFT - Branding */}
         <div style={{ background: "linear-gradient(160deg, #E3F7FF 0%, #F0FAF0 100%)", padding: 48, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", textAlign: "center" }}>
           {/* Logo mark */}
           <svg width="72" height="72" viewBox="0 0 72 72" fill="none" style={{ marginBottom: 12 }}>
@@ -4093,7 +4767,7 @@ function LoginPage({ onLogin }) {
             The Environment You Need.<br />Right Where You Are.
           </div>
 
-          {/* Illustration — team climbing steps */}
+          {/* Illustration - team climbing steps */}
           <svg width="280" height="220" viewBox="0 0 280 220" fill="none">
             {/* Steps */}
             <rect x="20" y="180" width="240" height="16" rx="4" fill={C.blue} opacity="0.15" />
@@ -4119,7 +4793,7 @@ function LoginPage({ onLogin }) {
           </svg>
         </div>
 
-        {/* RIGHT — Form */}
+        {/* RIGHT - Form */}
         <div style={{ padding: 48, display: "flex", flexDirection: "column", justifyContent: "center" }}>
 
           {/* SIGN IN MODE */}
