@@ -57,6 +57,93 @@ body {
   box-sizing: border-box;
 }
 
+/* ── Login Page — CSS-driven responsive (no JS dependency) ── */
+.login-wrapper {
+  min-height: 100dvh;
+  min-height: 100vh; /* fallback for older browsers */
+  background: #F9FAFB;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px 16px;
+  overflow-y: auto;
+  font-family: Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+.login-card {
+  width: 100%;
+  max-width: 960px;
+  background: #fff;
+  border-radius: 16px;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.1);
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  overflow: hidden;
+}
+
+.login-branding-desktop { display: block; }
+.login-branding-mobile { display: none; }
+.login-form { padding: 48px; }
+
+@media (max-width: 768px) {
+  .login-wrapper {
+    align-items: flex-start;
+    padding: 0;
+  }
+
+  .login-card {
+    max-width: 100%;
+    border-radius: 0;
+    box-shadow: none;
+    grid-template-columns: 1fr;
+    overflow: visible;
+  }
+
+  .login-branding-desktop { display: none; }
+  .login-branding-mobile { display: block; }
+  .login-form { padding: 24px 20px; }
+}
+
+/* ── Mobile Responsive ── */
+@media (max-width: 768px) {
+  /* Prevent horizontal overflow */
+  html, body { overflow-x: hidden; }
+
+  /* Make touch targets 44px minimum (exclude checkboxes, tiny icon buttons) */
+  button, select, input:not([type="checkbox"]):not([type="radio"]) { min-height: 44px; }
+  input[type="checkbox"], input[type="radio"] { min-height: auto; }
+
+  /* Modal bodies go near-full-width on mobile */
+  .modal-body {
+    max-width: calc(100vw - 24px) !important;
+    margin: 12px !important;
+    border-radius: 12px !important;
+  }
+
+  /* Recharts containers: allow shrink */
+  .recharts-responsive-container { min-width: 0 !important; }
+}
+
+/* ── Onboarding Welcome Sequence ── */
+.onboarding-step {
+  animation: onboardingFadeIn 400ms ease-out both;
+}
+
+@keyframes onboardingFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.onboarding-progress-fill {
+  transition: width 800ms ease-out;
+}
+
 /* Print styles for Conflict Report */
 @media print {
   /* Hide navigation and non-essential elements */

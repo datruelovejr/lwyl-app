@@ -1,0 +1,484 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OrgHarmony LWYL — Session Handoff & Code Wiki</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mermaid/10.6.1/mermaid.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+        body { font-family: 'Inter', -apple-system, sans-serif; line-height: 1.7; color: #111827; background: #F9FAFB; margin: 0; }
+        .container { max-width: 960px; margin: 0 auto; padding: 40px 24px; }
+        header { background: linear-gradient(135deg, #1F2937 0%, #111827 100%); color: white; padding: 60px 24px; text-align: center; }
+        header h1 { font-size: 32px; font-weight: 800; margin: 0 0 8px; }
+        header p { color: rgba(255,255,255,0.7); font-size: 16px; margin: 4px 0; }
+        .gold { color: #C8A96E; }
+        .content { background: white; padding: 48px; border-radius: 12px; box-shadow: 0 2px 12px rgba(0,0,0,0.06); margin-top: -24px; }
+        h1 { font-size: 28px; font-weight: 800; border-bottom: 3px solid #C8A96E; padding-bottom: 10px; margin-top: 48px; color: #1F2937; }
+        h2 { font-size: 22px; font-weight: 700; border-bottom: 2px solid #E5E7EB; padding-bottom: 8px; margin-top: 36px; color: #1F2937; }
+        h3 { font-size: 18px; font-weight: 700; color: #4f92cf; margin-top: 28px; }
+        code { background: #F3F4F6; padding: 2px 6px; border-radius: 4px; color: #C62828; font-size: 14px; }
+        pre { background: #1F2937; color: #F9FAFB; padding: 20px; border-radius: 8px; overflow-x: auto; font-size: 13px; line-height: 1.5; }
+        pre code { background: none; color: inherit; padding: 0; }
+        table { width: 100%; border-collapse: collapse; margin: 20px 0; box-shadow: 0 1px 3px rgba(0,0,0,0.08); border-radius: 8px; overflow: hidden; }
+        th { background: #1F2937; color: white; padding: 12px 16px; text-align: left; font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }
+        td { padding: 12px 16px; border-bottom: 1px solid #E5E7EB; font-size: 14px; }
+        tr:last-child td { border-bottom: none; }
+        tr:nth-child(even) { background: #F9FAFB; }
+        .mermaid { background: white; padding: 20px; border-radius: 8px; border: 1px solid #E5E7EB; margin: 20px 0; overflow-x: auto; }
+        blockquote { border-left: 4px solid #C8A96E; padding: 12px 20px; margin: 20px 0; background: #FFFBF0; border-radius: 0 8px 8px 0; }
+        hr { border: none; border-top: 2px solid #E5E7EB; margin: 40px 0; }
+        strong { color: #1F2937; }
+        @media print { body { background: white; } .container { padding: 0; } .content { box-shadow: none; padding: 24px; } header { padding: 30px 24px; } }
+    </style>
+</head>
+<body>
+    <header>
+        <p class="gold">ORGHARMONY</p>
+        <h1>Session Handoff & Code Wiki</h1>
+        <p>Passion & Process Tax Measurement Methodology</p>
+        <p>Love Where You Lead Platform — March 5, 2026</p>
+    </header>
+    <div class="container">
+        <div class="content">
+            
+<strong>Session Date:</strong> March 5, 2026  
+<strong>Company:</strong> OrgHarmony (formerly BTCG Consulting)  
+<strong>Framework:</strong> Bridging the Connection Gap (BTCG)  
+<strong>Initiative:</strong> Love Where You Lead (LWYL)  
+<strong>File Modified:</strong> <code>src/app/page.jsx</code> (4,846 lines)  
+<strong>Total Changes:</strong> 9 corrections across 3 features  
+<strong>Deployment:</strong> VS Code → Git Push → Vercel auto-deploy
+
+<hr>
+
+<h2>Table of Contents</h2>
+
+<p>1. [Executive Summary](#1-executive-summary)</p>
+<p>2. [Architecture Overview](#2-architecture-overview)</p>
+<p>3. [Technology Stack](#3-technology-stack)</p>
+<p>4. [Project Structure](#4-project-structure)</p>
+<p>5. [Component Map](#5-component-map)</p>
+<p>6. [Bugs Fixed (3)](#6-bugs-fixed)</p>
+<p>7. [Methodology Corrections (6)](#7-methodology-corrections)</p>
+<p>8. [What Was NOT Changed](#8-what-was-not-changed)</p>
+<p>9. [Strategic Decisions](#9-strategic-decisions)</p>
+<p>10. [Deployment & Testing](#10-deployment--testing)</p>
+<p>11. [Next Session Roadmap](#11-next-session-roadmap)</p>
+
+<hr>
+
+<h2>1. Executive Summary</h2>
+
+<h3>Why This Session Happened</h3>
+
+<p>Daniel identified a foundational validity issue: the app was assigning Passion Tax and Process Tax to individuals upon assessment completion, but individual assessment data alone cannot confirm whether someone's environment is starving their passions or suppressing their process. The data shows what a person NEEDS — it does not show what the environment PROVIDES.</p>
+
+<p>The Preference Tax (DISC) does not have this problem because the assessment captures BOTH Natural and Adaptive styles. The gap between those two IS the environment's fingerprint. Values and Attributes have no equivalent "adaptive" measure.</p>
+
+<h3>What Was Accomplished</h3>
+
+<table><tr><th>Category</th><th>Count</th><th>Description</th></tr><tr><td><strong>Bugs Fixed</strong></td><td>3</td><td>Self-Esteem +/− identical text, Self-Direction +/− swapped, No equal profile protocol</td></tr><tr><td><strong>Methodology Corrections</strong></td><td>6</td><td>Process Tax → Signals, Compound Bill alignment, Passion Tax formula, Audit Week 4, Friction Map Passion scoring, Causal language removal</td></tr><tr><td><strong>Features Affected</strong></td><td>3</td><td>Environment Report, Environment Audit, Friction Map</td></tr><tr><td><strong>Lines Modified</strong></td><td>~250</td><td>Across a 4,846-line file</td></tr></table>
+<h3>Company Context</h3>
+
+<table><tr><th>Element</th><th>Description</th></tr><tr><td><strong>OrgHarmony</strong></td><td>A transformation company that helps leaders create environments where people thrive</td></tr><tr><td><strong>BTCG</strong></td><td>The conflict resolution framework (Bridging the Connection Gap)</td></tr><tr><td><strong>Love Where You Lead</strong></td><td>The leader initiative — Leaders First approach</td></tr><tr><td><strong>Core Question</strong></td><td>"Do you love where you lead, or do you love that you're the leader?"</td></tr><tr><td><strong>Core Principle</strong></td><td>The purpose is transformation, not information</td></tr></table>
+<hr>
+
+<h2>2. Architecture Overview</h2>
+
+<h3>Tax Methodology System</h3>
+
+<p>The following diagram shows how assessment data flows through the tax calculation system after corrections. Green = confirmed from data. Orange = signal requiring additional input. Blue = future features.</p>
+
+<div class="mermaid">
+<p>graph TB</p>
+<p>subgraph Assessment["ADVanced Insights Assessment"]</p>
+<p>DISC["DISC<br/>Natural + Adaptive"]</p>
+<p>VALUES["Values<br/>7 Dimensions"]</p>
+<p>EXT["External Attributes<br/>Heart, Hand, Head<br/>Score + Bias"]</p>
+<p>INT["Internal Attributes<br/>SE, RA, SD<br/>Score + Bias"]</p>
+<p>end</p>
+
+<p>subgraph Individual["Individual Level (Environment Report)"]</p>
+<p>PT["✅ Preference Tax<br/>CONFIRMED<br/>Sum of |Natural - Adaptive|"]</p>
+<p>PP["🔍 Passion Profile<br/>SIGNAL<br/>Top Drivers Identified"]</p>
+<p>PS["🔍 Process Signals<br/>SIGNAL<br/>Bias Patterns Detected"]</p>
+<p>II["🔍 Internal Impact<br/>SIGNAL<br/>Environment Sensitivity"]</p>
+<p>CB["Compound Bill<br/>Confirmed: Preference<br/>Pending: Passion + Process"]</p>
+<p>end</p>
+
+<p>subgraph Dyadic["Dyadic Level (Friction Map)"]</p>
+<p>PF["Preference Friction<br/>Raw DISC Gaps<br/>40/20 Thresholds"]</p>
+<p>PAF["Passion Friction<br/>Raw Value Gaps<br/>40/20 Thresholds"]</p>
+<p>PRF["Process Friction<br/>Bias Comparison<br/>CONFLICT/TENSION/ALIGNED"]</p>
+<p>PRI["Priority Friction Areas<br/>Top 5 Ranked"]</p>
+<p>end</p>
+
+<p>subgraph Team["Team Level (Future)"]</p>
+<p>TT["Team Tax Aggregation"]</p>
+<p>KRI["KRI Dashboard<br/>Key Retention Indicators"]</p>
+<p>CVM["Culture Visibility Model<br/>DISC × Values Quadrant"]</p>
+<p>end</p>
+
+<p>DISC --> PT</p>
+<p>DISC --> PF</p>
+<p>VALUES --> PP</p>
+<p>VALUES --> PAF</p>
+<p>EXT --> PS</p>
+<p>EXT --> PRF</p>
+<p>INT --> II</p>
+<p>INT --> KRI</p>
+<p>PT --> CB</p>
+<p>PP --> CB</p>
+<p>PS --> CB</p>
+<p>PF --> PRI</p>
+<p>PAF --> PRI</p>
+<p>PRF --> PRI</p>
+<p>PRI --> TT</p>
+<p>TT --> CVM</p>
+
+<p>classDef confirmed fill:#E8F5E9,stroke:#2E7D32,stroke-width:2px,color:#1B5E20</p>
+<p>classDef signal fill:#FFF3E0,stroke:#E65100,stroke-width:2px,color:#BF360C</p>
+<p>classDef future fill:#E3F2FD,stroke:#1565C0,stroke-width:2px,color:#0D47A1</p>
+<p>classDef assessment fill:#F3E5F5,stroke:#7B1FA2,stroke-width:2px,color:#4A148C</p>
+
+<p>class PT confirmed</p>
+<p>class PP,PS,II signal</p>
+<p>class TT,KRI,CVM future</p>
+<p>class DISC,VALUES,EXT,INT assessment</p>
+
+</div>
+
+<h3>Data Flow: Before vs. After Corrections</h3>
+
+<p>This diagram shows what changed in the tax calculation logic — the broken formulas on the left, the corrected approach on the right.</p>
+
+<div class="mermaid">
+<p>graph LR</p>
+<p>subgraph Before["BEFORE: Tax Calculation (Broken)"]</p>
+<p>direction TB</p>
+<p>B_DISC["DISC Gap"] --> B_PREF["Preference Tax ✅"]</p>
+<p>B_LOW["Low Values Count"] --> B_PASS["Passion Tax ❌<br/>Counted foods you DON'T love"]</p>
+<p>B_MINUS["Minus Bias Count"] --> B_PROC["Process Tax ❌<br/>Blamed environment"]</p>
+<p>B_PREF --> B_COMP["Compound Bill ❌<br/>Mixed confirmed + unconfirmed"]</p>
+<p>B_PASS --> B_COMP</p>
+<p>B_PROC --> B_COMP</p>
+<p>end</p>
+
+<p>subgraph After["AFTER: Tax Calculation (Corrected)"]</p>
+<p>direction TB</p>
+<p>A_DISC["DISC Gap"] --> A_PREF["Preference Tax ✅<br/>CONFIRMED"]</p>
+<p>A_TOP["Top Drivers Count"] --> A_PASS["Passion Profile 🔍<br/>Shows what drives you"]</p>
+<p>A_BIAS["Bias Patterns"] --> A_PROC["Process Signals 🔍<br/>Patterns to investigate"]</p>
+<p>A_PREF --> A_COMP["Compound Bill ✅<br/>Confirmed anchor +<br/>Signals for investigation"]</p>
+<p>A_PASS -.-> A_COMP</p>
+<p>A_PROC -.-> A_COMP</p>
+<p>end</p>
+
+<p>subgraph FrictionBefore["FRICTION MAP: Passion (Broken)"]</p>
+<p>direction TB</p>
+<p>FB_VALS["Top Values"] --> FB_COUNT["Count Unshared ❌<br/>Lost all magnitude"]</p>
+<p>end</p>
+
+<p>subgraph FrictionAfter["FRICTION MAP: Passion (Corrected)"]</p>
+<p>direction TB</p>
+<p>FA_VALS["All 7 Values"] --> FA_GAP["Raw Gap Per Dimension ✅<br/>40/20 Thresholds"]</p>
+<p>end</p>
+
+<p>classDef broken fill:#FFEBEE,stroke:#C62828,stroke-width:2px</p>
+<p>classDef fixed fill:#E8F5E9,stroke:#2E7D32,stroke-width:2px</p>
+<p>classDef signal fill:#FFF3E0,stroke:#E65100,stroke-width:2px</p>
+
+<p>class B_PASS,B_PROC,B_COMP,B_LOW,B_MINUS,FB_COUNT broken</p>
+<p>class A_PREF,A_DISC,FA_GAP,A_COMP fixed</p>
+<p>class A_PASS,A_PROC,A_BIAS,A_TOP signal</p>
+
+</div>
+
+<h3>Three Measurement Levels</h3>
+
+<table><tr><th>Level</th><th>What It Measures</th><th>Data Source</th><th>Status</th></tr><tr><td><strong>Preference (DISC)</strong></td><td>Behavioral adaptation cost</td><td>Natural vs. Adaptive (TWO data points)</td><td>✅ Confirmed from individual data</td></tr><tr><td><strong>Passion (Values)</strong></td><td>Motivational alignment</td><td>Motivator scores (ONE data point)</td><td>🔍 Signal — needs Environment Alignment or team data</td></tr><tr><td><strong>Process (External Attributes)</strong></td><td>Decision-making utilization</td><td>Score + Bias (TWO data points)</td><td>🔍 Signal — bias pattern worth investigating</td></tr><tr><td><strong>Internal Impact (Internal Attributes)</strong></td><td>Environment permeability</td><td>Score + Bias (TWO data points)</td><td>🔍 Signal — Key Retention Indicator at team level</td></tr></table>
+<hr>
+
+<h2>3. Technology Stack</h2>
+
+<table><tr><th>Technology</th><th>Version</th><th>Purpose</th></tr><tr><td><strong>Next.js</strong></td><td>16.1.6</td><td>React framework with server-side rendering</td></tr><tr><td><strong>React</strong></td><td>19.2.3</td><td>UI component library</td></tr><tr><td><strong>Supabase</strong></td><td>^2.97.0</td><td>Backend — authentication + database</td></tr><tr><td><strong>Recharts</strong></td><td>^3.7.0</td><td>Data visualization (bar charts, pie charts)</td></tr><tr><td><strong>Tailwind CSS</strong></td><td>^4</td><td>Utility-first styling (used in layout.tsx)</td></tr><tr><td><strong>Vercel</strong></td><td>—</td><td>Hosting and auto-deployment from Git</td></tr></table>
+<hr>
+
+<h2>4. Project Structure</h2>
+
+<pre><code>lwyl-app-main/
+<p>├── src/</p>
+<p>│   ├── app/</p>
+<p>│   │   ├── page.jsx          ← 4,846 lines — ALL app logic lives here</p>
+<p>│   │   ├── layout.tsx         ← Root layout with Inter font</p>
+<p>│   │   └── globals.css        ← Global styles</p>
+<p>│   └── lib/</p>
+<p>│       └── supabase.js        ← Supabase client + auth + data helpers</p>
+<p>├── package.json</p>
+<p>├── next.config.ts</p>
+<p>├── supabase-schema.sql        ← Database schema</p>
+<p>├── tsconfig.json</p>
+<p>└── [8 .md specification files]</p>
+</code></pre>
+
+<strong>Architecture Note:</strong> The entire application — 25 React components, 6 utility functions, 15 seed profiles, interpretation engines, and all feature logic — lives in a single file (<code>page.jsx</code>). This is a monolithic single-page architecture deployed as a Next.js app.
+
+<hr>
+
+<h2>5. Component Map</h2>
+
+<h3>Modified Components (This Session)</h3>
+
+<div class="mermaid">
+<p>graph TB</p>
+<p>ROOT["BTCGSystem<br/>Line 4173<br/>Main App Component"]</p>
+
+<p>ROOT --> LOGIN["LoginPage<br/>Line 3886"]</p>
+<p>ROOT --> VIEWER["Viewer<br/>Line 3021<br/>Profile Display"]</p>
+<p>ROOT --> TEAM["TeamInsights<br/>Line 3329"]</p>
+<p>ROOT --> UPLOAD["UploadForm<br/>Line 898"]</p>
+
+<p>VIEWER --> ENVREPORT["🔧 EnvironmentReport<br/>Line 1991<br/>MODIFIED: Sections 05,07,08"]</p>
+<p>VIEWER --> INDCOMP["🔧 IndividualComparison<br/>Line 1542<br/>MODIFIED: Equal Profile"]</p>
+<p>VIEWER --> BRIDGE["BridgeWizard<br/>Line 1755"]</p>
+<p>VIEWER --> TIPS["LeadershipTips<br/>Line 2429"]</p>
+<p>VIEWER --> COMPARE["CompareWithOthers<br/>Line 2519"]</p>
+
+<p>TEAM --> FRICTION["FrictionMap<br/>Line 350"]</p>
+<p>TEAM --> SUMMARY["TeamSummary<br/>Line 2282"]</p>
+<p>TEAM --> LEADERCOMP["LeaderComparison<br/>Line 3202"]</p>
+<p>TEAM --> JOURNAL["VoiceJournal<br/>Line 634"]</p>
+
+<p>FRICTION --> CALCFRIC["🔧 calculateFriction()<br/>Line 272<br/>MODIFIED: Passion Scoring"]</p>
+
+<p>ROOT --> AUDIT["AuditDashboard<br/>Line 3800"]</p>
+<p>AUDIT --> WEEKCARD["🔧 WeekCard<br/>Line 3586<br/>MODIFIED: Weeks 2,3,4"]</p>
+
+<p>subgraph Helpers["Helper Functions & Data"]</p>
+<p>EQUAL["🆕 isEqualExtProfile()<br/>Line 22<br/>NEW: Equal Profile Detection"]</p>
+<p>INTERP["🔧 attrIntInterp<br/>Line 1972<br/>MODIFIED: SE +/-, SD +/-"]</p>
+<p>WEEKDATA["🔧 weekData<br/>Line 3544<br/>MODIFIED: Week 3 Intro"]</p>
+<p>MKP["mkP()<br/>Line 25<br/>Profile Constructor"]</p>
+<p>end</p>
+
+<p>ENVREPORT --> EQUAL</p>
+<p>ENVREPORT --> INTERP</p>
+<p>INDCOMP --> EQUAL</p>
+<p>WEEKCARD --> EQUAL</p>
+<p>WEEKCARD --> WEEKDATA</p>
+
+<p>classDef modified fill:#FFF3E0,stroke:#E65100,stroke-width:3px,color:#BF360C</p>
+<p>classDef new fill:#E8F5E9,stroke:#2E7D32,stroke-width:3px,color:#1B5E20</p>
+<p>classDef unchanged fill:#FFFFFF,stroke:#9E9E9E,stroke-width:1px,color:#424242</p>
+
+<p>class ENVREPORT,INDCOMP,CALCFRIC,WEEKCARD,INTERP,WEEKDATA modified</p>
+<p>class EQUAL new</p>
+<p>class LOGIN,BRIDGE,TIPS,COMPARE,SUMMARY,LEADERCOMP,JOURNAL,UPLOAD,MKP unchanged</p>
+
+</div>
+
+<h3>Complete Component Registry</h3>
+
+<table><tr><th>Component</th><th>Line</th><th>Purpose</th><th>Modified?</th></tr><tr><td><code>BTCGSystem</code></td><td>4173</td><td>Main app component — routing, auth, state</td><td>No</td></tr><tr><td><code>LoginPage</code></td><td>3886</td><td>Authentication UI</td><td>No</td></tr><tr><td><code>Viewer</code></td><td>3021</td><td>Individual profile display with tabs</td><td>No</td></tr><tr><td><code>EnvironmentReport</code></td><td>1991</td><td>8-section Environment Report modal</td><td><strong>Yes — Sections 05, 07, 08</strong></td></tr><tr><td><code>IndividualComparison</code></td><td>1542</td><td>Leader-to-member side-by-side</td><td><strong>Yes — Equal profile handling</strong></td></tr><tr><td><code>BridgeWizard</code></td><td>1755</td><td>Connection Agreement creation wizard</td><td>No</td></tr><tr><td><code>LeadershipTips</code></td><td>2429</td><td>Coaching tips based on comparison</td><td>No</td></tr><tr><td><code>CompareWithOthers</code></td><td>2519</td><td>Compare any two profiles</td><td>No</td></tr><tr><td><code>TeamInsights</code></td><td>3329</td><td>Team-level aggregate views</td><td>No</td></tr><tr><td><code>FrictionMap</code></td><td>350</td><td>Pairwise friction matrix + detail</td><td><strong>Yes — Passion scoring + display</strong></td></tr><tr><td><code>TeamSummary</code></td><td>2282</td><td>One-page summaries per team member</td><td>No</td></tr><tr><td><code>LeaderComparison</code></td><td>3202</td><td>Leader vs. full team comparison</td><td>No</td></tr><tr><td><code>VoiceJournal</code></td><td>634</td><td>Audio reflection journaling</td><td>No</td></tr><tr><td><code>AuditDashboard</code></td><td>3800</td><td>4-week Environment Audit UI</td><td>No (sidebar badge not updated)</td></tr><tr><td><code>WeekCard</code></td><td>3586</td><td>Individual week in Environment Audit</td><td><strong>Yes — Weeks 2, 3, 4</strong></td></tr><tr><td><code>UploadForm</code></td><td>898</td><td>Assessment PDF upload + manual entry</td><td>No</td></tr></table>
+<h3>Modified Helper Functions & Data</h3>
+
+<table><tr><th>Helper</th><th>Line</th><th>Purpose</th><th>Change</th></tr><tr><td><code>isEqualExtProfile()</code></td><td>22</td><td><strong>NEW</strong> — Detects equal External Attribute profiles</td><td>Added</td></tr><tr><td><code>attrIntInterp</code></td><td>1972</td><td>Internal Attribute interpretation text</td><td>Self-Esteem +/−, Self-Direction +/− corrected</td></tr><tr><td><code>weekData[2]</code></td><td>3570</td><td>Week 3 intro text</td><td>Causal language removed</td></tr><tr><td><code>calculateFriction()</code></td><td>272</td><td>Pairwise friction scoring</td><td>Passion scoring → raw gaps</td></tr></table>
+<hr>
+
+<h2>6. Bugs Fixed</h2>
+
+<h3>Bug 1: Self-Esteem (+) Strong Ego — Missing Interpretation</h3>
+
+<strong>Location:</strong> <code>attrIntInterp["Self-Esteem"]</code> — Line 1973  
+<strong>Severity:</strong> Critical — displayed factually incorrect information to users
+
+<strong>Problem:</strong> Both <code>+</code> (Strong Ego) and <code>−</code> (Humility) showed identical text: "You undervalue your own worth." A leader with Strong Ego was told they undervalue themselves — the exact opposite of reality.
+
+<strong>Profiles Affected:</strong> Timothy Hurd (8.8, +), Lamarr Miller (8.8, +), and any future profile with Self-Esteem + bias.
+
+<table><tr><th>Bias</th><th>Before (Broken)</th><th>After (Corrected)</th></tr><tr><td><strong>+ Strong Ego</strong></td><td>"You undervalue your own worth. You may dismiss your contributions, defer too quickly, or need external validation to feel confident."</td><td>"You have a strong sense of your own value. You are self-assured and confident in your abilities. Criticism rarely shakes your self-image, but it may also mean feedback doesn't land the way others intend it to."</td></tr><tr><td><strong>− Humility</strong></td><td>*(identical to + above)*</td><td>"You undervalue your own worth. You may dismiss your contributions, defer too quickly, or need external validation to feel confident. Your environment's messages about 'enough' affect you deeply."</td></tr><tr><td><strong>= Balanced</strong></td><td>"You have a stable sense of your own worth."</td><td>"You have a somewhat settled view of your own worth. You can receive feedback without it destabilizing your identity, but you may not be strongly motivated to grow in this area."</td></tr></table>
+<strong>Source:</strong> The_DISC_Values_Attributes_Perspective.pdf, Advanced_Insights__Frameworks.pdf
+
+<hr>
+
+<h3>Bug 2: Self-Direction (+) and (−) Were Swapped</h3>
+
+<strong>Location:</strong> <code>attrIntInterp["Self-Direction"]</code> — Line 1975  
+<strong>Severity:</strong> Critical — 73% of profiles (11 of 15) received wrong interpretation
+
+<strong>Problem:</strong> The <code>+</code> (Stubborn) text said: "You require significant guidance and structure from external sources to operate effectively. Independence is taxing." That describes Persuadable (−). The <code>−</code> text described Stubborn (+). They were completely backwards.
+
+<table><tr><th>Bias</th><th>Before (Swapped)</th><th>After (Corrected)</th></tr><tr><td><strong>+ Stubborn</strong></td><td>"You require significant guidance and structure from external sources to operate effectively. Independence is taxing."</td><td>"You are locked onto your direction. You have solidified confidence about your path and future. Detours feel like defeat, not flexibility. Your environment can slow you but not easily redirect you."</td></tr><tr><td><strong>− Persuadable</strong></td><td>"You undervalue external direction. You may resist coaching, skip collaboration, or overestimate your own self-sufficiency."</td><td>"You are open to influence and direction from others. Strong voices around you can redirect your path. You may need external guidance to feel confident about your direction."</td></tr></table>
+<strong>Source:</strong> Advanced_Insights__Frameworks.pdf — Self-Direction bias definitions
+
+<hr>
+
+<h3>Bug 3: Equal Profile Protocol — No Rule Existed</h3>
+
+<strong>Location:</strong> New helper <code>isEqualExtProfile()</code> at Line 22 + 4 rendering locations  
+<strong>Severity:</strong> High — arbitrary sequence assigned to equal-capacity profiles
+
+<strong>Problem:</strong> When External Attribute scores are within 0.5 of each other (e.g., Daniel's 8.3/8.3/8.3), JavaScript's sort is arbitrary. The app displayed a false 1/2/3 sequence. The Environment Report Complete Reference explicitly states: "When external scores are EQUAL, there is no processing sequence. Versatility IS the story."
+
+<strong>Rule Established:</strong> Gap between max and min External score ≤ 0.5 = Equal Profile. > 0.5 = Sequenced Profile.
+
+<table><tr><th>Location</th><th>Before</th><th>After</th></tr><tr><td>Environment Report Section 05</td><td>Shows arbitrary 1/2/3 sequence</td><td>Shows "=" for all three, "Versatile Profile" label, explanation that versatility IS the strength</td></tr><tr><td>Leader-to-Individual Comparison</td><td>Numbered sequence for equal profiles</td><td>Shows "(Versatile)" badge with "=" indicators</td></tr><tr><td>Environment Audit Week 3</td><td>Shows "Decision Order" with numbers</td><td>Shows "Versatile Profile (Equal Capacity)" with "="</td></tr></table>
+<strong>Source:</strong> Environment_Report_Complete_Reference.md.pdf — Score Equality Rule
+
+<hr>
+
+<h2>7. Methodology Corrections</h2>
+
+<h3>Correction 1: Process Tax → Process Signals (Environment Report Section 07)</h3>
+
+<strong>Location:</strong> Lines 2234-2246  
+<strong>What Changed:</strong> Section title, description, tax card labels, and narrative text
+
+<strong>Before:</strong> "PROCESS TAX — Where Capacity Is Being Lost" with text "Every minus (−) bias on an External Attribute means you have a lens your environment has conditioned you not to trust."
+
+<strong>After:</strong> "PROCESS SIGNALS — Patterns Worth Examining" with text "A minus (−) bias means you have a lens you are not fully leveraging — this could be environment-driven, experience-driven, or a natural preference. The Environment Alignment can help determine the source."
+
+<strong>Reasoning:</strong> The Innermetrix framework defines each External bias differently. Practical Thinking (−/Frustrated) explicitly references past environment damage. Empathy (−/Undervalue) and Systems Judgment (−/Autonomy) do not carry the same environmental evidence. A blanket causal claim is not psychometrically defensible from individual data alone.
+
+<hr>
+
+<h3>Correction 2: Compound Bill Alignment (Environment Report Section 08)</h3>
+
+<strong>Location:</strong> Lines 2248-2279  
+<strong>What Changed:</strong> Section title, description, tax cards, verdict logic
+
+<strong>Before:</strong> Combined Preference Tax (confirmed) with Process Tax (unconfirmed) into single Heavy/Moderate/Light label.
+
+<strong>After:</strong> Separates confirmed from pending. Shows "Preference Tax: [Level] — confirmed" alongside "Process Signals: [X patterns] — to examine." Verdict driven by CONFIRMED Preference Tax only.
+
+<strong>Reasoning:</strong> Mixing confirmed and unconfirmed data into a single verdict creates false precision. When an I/O Psychologist asks "How do you know the compound bill is Heavy?", the answer must trace to defensible data.
+
+<hr>
+
+<h3>Correction 3: Passion Tax Formula (Environment Audit Week 2)</h3>
+
+<strong>Location:</strong> Lines 3633-3653  
+<strong>What Changed:</strong> Tax calculation formula and display labels
+
+<strong>Before:</strong> <code>passionTax = lowVals.length</code> — counted values scoring below 40. Label: "Your Passion Tax"
+
+<strong>After:</strong> Shows "Passion Profile" with count of active top drivers. Label: "Your Passion Profile"
+
+<strong>Reasoning:</strong> Counting low values measures what DOESN'T motivate the person. Having 4 values you don't love is not a tax — it's normal. The tax is whether your TOP motivators are being fed or starved, which requires environment data. The corrected language: "Whether your environment honors or starves these determines your Passion Tax. That requires examining your environment, not just your profile."
+
+<hr>
+
+<h3>Correction 4: Environment Audit Week 4 Compound Bill</h3>
+
+<strong>Location:</strong> Lines 3699-3729  
+<strong>What Changed:</strong> All three tax calculations and compound verdict
+
+<strong>Before:</strong> Combined Preference Tax + wrong Passion Tax (low values count) + Process Tax (minus bias count) into single compound label.
+
+<strong>After:</strong> Shows Preference Tax as confirmed anchor. Passion shown as "Passion Profile" with driver count. Process shown as "Process Signals" with pattern count. Verdict driven by confirmed Preference Tax only.
+
+<hr>
+
+<h3>Correction 5: Friction Map Passion Scoring</h3>
+
+<strong>Location:</strong> Lines 292-311, 344, 457-486  
+<strong>What Changed:</strong> Scoring formula and detail display
+
+<strong>Before:</strong> <code>passionScore = aOnlyVals.length + bOnlyVals.length</code> — counted unshared top values. An 80-point gap on Economic was invisible if neither person had Economic as a "top value."
+
+<strong>After:</strong> Raw gap score per value dimension with 40/20 thresholds (matching Facilitator Guide). Each of 7 values gets its own gap calculation and severity rating. Display shows per-dimension gap cards with scores and severity.
+
+<strong>Source:</strong> Friction_Finder_Facilitator_Guide.pdf — Scoring Quick Reference
+
+<hr>
+
+<h3>Correction 6: Causal Language Removal</h3>
+
+<strong>Location:</strong> Multiple — Lines 3570, 2183, 2206, 2243, 3688  
+<strong>What Changed:</strong> All instances of "your environment conditioned you" or "trained you not to"
+
+<strong>Before:</strong> "The bias indicators show where your environment has conditioned you to underuse the capacity you were born with. That's not a preference — it's a loss."
+
+<strong>After:</strong> "The bias indicators show where you may not be fully leveraging the capacity you were built with. Whether that's environment-driven, experience-driven, or simply a natural preference — the pattern is worth understanding."
+
+<strong>Verification:</strong> <code>grep "conditioned you\|conditioned out of you\|environment.*trained you" page.jsx</code> returns zero results.
+
+<hr>
+
+<h2>8. What Was NOT Changed</h2>
+
+<table><tr><th>Component</th><th>Reason</th></tr><tr><td><strong>Preference Tax (DISC)</strong></td><td>Methodology is sound — Natural-to-Adaptive gap IS the built-in environmental measure</td></tr><tr><td><strong>Values Display (Section 04)</strong></td><td>Already correctly shows Values without claiming a tax — right design decision</td></tr><tr><td><strong>Friction Map Preference Scoring</strong></td><td>Weighted point system (3/1/0) kept for aggregate; raw gaps shown in detail view</td></tr><tr><td><strong>Friction Map Process Scoring</strong></td><td>Bias comparison kept; two-factor model (score gap + bias) is next session</td></tr><tr><td><strong>Audit Sidebar Compound Bill</strong></td><td>Line 3822 still uses old Passion formula for sidebar badge — cosmetic, next session</td></tr></table>
+<hr>
+
+<h2>9. Strategic Decisions</h2>
+
+<h3>Decision 1: Confirmed vs. Signal Framework</h3>
+
+<p>The app now distinguishes between CONFIRMED taxes (supported by individual data) and SIGNALS (patterns requiring additional input). Preference Tax = confirmed. Passion and Process = signals. This creates a natural engagement loop: the person wants to complete the Environment Alignment to see their full picture.</p>
+
+<h3>Decision 2: Internal Impact as Separate Construct</h3>
+
+<p>Internal Attributes (Self-Esteem, Role Awareness, Self-Direction) will be separated from External Attributes. External = Process (decision-making capacity). Internal = Internal Impact (self-perception and environment permeability). Not yet coded — next session.</p>
+
+<h3>Decision 3: Key Retention Indicators (KRI)</h3>
+
+<p>Aggregate Internal Attributes at team/org level serve as leading indicators of retention risk. When SE, RA, SD are low across a team = systemic environment erosion. Maps to I/O Psychology's Person-Environment Fit research.</p>
+
+<h3>Decision 4: Culture Visibility Model + Attributes</h3>
+
+<p>Culture Visibility Model stays as DISC × Values quadrant. Attributes incorporated as companion views: "Culture Decision Pattern" (aggregate External) and "Culture Retention Risk" (aggregate Internal / KRI).</p>
+
+<h3>Decision 5: Two-Factor Attributes Friction Model</h3>
+
+<p>Attributes friction will use BOTH score gaps AND bias comparison, taking the HIGHER. This preserves bias comparison while adding gap-based scoring. Applies to External and Internal. Not yet coded — next session.</p>
+
+<hr>
+
+<h2>10. Deployment & Testing</h2>
+
+<h3>Deployment Steps</h3>
+
+<p>1. Download <code>page.jsx</code> from this session's output</p>
+<p>2. In VS Code, replace <code>src/app/page.jsx</code> with downloaded file</p>
+<p>3. Save → Git commit (<code>page.jsx</code> only) → Git push</p>
+<p>4. Vercel auto-deploys from push</p>
+
+<h3>Testing Checklist</h3>
+
+<strong>Test with Daniel Truelove Jr. (p1) — Equal Profile:</strong>
+
+☐ Self-Direction shows "locked onto your direction" (not "requires guidance")
+☐ Self-Esteem (−) shows "undervalue your own worth... environment's messages affect you deeply"
+☐ External Attributes show "=" for all three — no 1/2/3 sequence
+☐ Section 07 says "PROCESS SIGNALS" not "PROCESS TAX"
+☐ Compound Bill shows "Preference: Heavy" as confirmed anchor
+☐ Environment Audit Week 2 shows "Passion Profile" not "Passion Tax"
+
+<strong>Test with Timothy Hurd (p4) — Sequenced Profile + Strong Ego:</strong>
+
+☐ Self-Esteem (+) shows "strong sense of your own value"
+☐ External Attributes show numbered sequence (9.3/8.3/7.4)
+
+<strong>Test Friction Map with any two profiles:</strong>
+
+☐ Passion detail shows per-dimension gap cards with scores and severity
+☐ Shared top drivers shown as context below gap cards
+☐ No language says "conditioned" or "trained you not to" anywhere
+
+<hr>
+
+<h2>11. Next Session Roadmap</h2>
+
+<table><tr><th>Priority</th><th>Item</th><th>Dependency</th><th>Impact</th></tr><tr><td>1</td><td>Two-Factor Attributes Friction Model</td><td>None</td><td>Friction Map accuracy</td></tr><tr><td>2</td><td>Internal Attributes in Friction Map</td><td>#1</td><td>Self-perception friction visibility</td></tr><tr><td>3</td><td>Priority Friction Areas (ranked top 5)</td><td>#1-2</td><td>Facilitation readiness</td></tr><tr><td>4</td><td>Team Tax Aggregation</td><td>#1-3</td><td>Team-level diagnosis</td></tr><tr><td>5</td><td>KRI Dashboard</td><td>#4</td><td>Retention risk visibility</td></tr><tr><td>6</td><td>Environment Alignment Self-Report</td><td>Methodology only</td><td>Confirms Passion + Process taxes</td></tr><tr><td>7</td><td>Culture Visibility Model Integration</td><td>#4</td><td>Cultural diagnostic</td></tr><tr><td>8</td><td>SOPs Integration</td><td>None</td><td>Intervention layer</td></tr><tr><td>9</td><td>Leader Experience Journey</td><td>#1-7</td><td>Transformation, not information</td></tr></table>
+<hr>
+
+<p>*© OrgHarmony. All Rights Reserved.*</p>
+<p>*Framework: Bridging the Connection Gap (BTCG)*</p>
+<p>*Initiative: Love Where You Lead (LWYL)*</p>
+<p>*Generated by Code Wiki Documentation System*</p>
+        </div>
+    </div>
+    <script>mermaid.initialize({startOnLoad: true, theme: 'neutral', themeVariables: {primaryColor: '#E3F2FD', primaryBorderColor: '#1565C0', primaryTextColor: '#111827'}});</script>
+</body>
+</html>
