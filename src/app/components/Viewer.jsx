@@ -19,6 +19,7 @@ import { LeadershipTips } from "./LeadershipTips";
 import { CompareWithOthers } from "./CompareWithOthers";
 import { ConnectionSOPs } from "./ConnectionSOPs";
 import { EnvironmentAlignment } from "./EnvironmentAlignment";
+import { MeetingRoom } from "./MeetingRoom";
 
 export function Viewer({ person, leader, agreements, setAgreements, photos = {}, onUploadPhoto, initialTab = "profile", initialShowTips = false, initialShowCompare = false, onClearShowTips, onClearShowCompare, team = [] }) {
   const isMobile = useIsMobile();
@@ -29,6 +30,7 @@ export function Viewer({ person, leader, agreements, setAgreements, photos = {},
   const [showTips, setShowTips] = useState(initialShowTips);
   const [showCompare, setShowCompare] = useState(initialShowCompare);
   const [showAlignment, setShowAlignment] = useState(false);
+  const [showMeeting, setShowMeeting] = useState(false);
 
   // Handle external triggers for showing tips
   useEffect(() => {
@@ -60,6 +62,9 @@ export function Viewer({ person, leader, agreements, setAgreements, photos = {},
       {showAlignment && (
         <EnvironmentAlignment person={sel} onClose={() => setShowAlignment(false)} />
       )}
+      {showMeeting && (
+        <MeetingRoom person={sel} leader={leader} onClose={() => setShowMeeting(false)} />
+      )}
       {showWizard && canCompare && (
         <BridgeWizard leader={leader} person={person} agreements={agreements} setAgreements={setAgreements} onClose={() => setShowWizard(false)} />
       )}
@@ -82,6 +87,7 @@ export function Viewer({ person, leader, agreements, setAgreements, photos = {},
           </div>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", justifyContent: isMobile ? "flex-start" : "flex-end" }}>
+          <Btn onClick={() => setShowMeeting(true)} style={{ fontSize: 11 }}>{isMobile ? "🤝 Prep" : "🤝 Meeting Room"}</Btn>
           <Btn onClick={() => setShowAlignment(true)} style={{ fontSize: 11 }}>{isMobile ? "🎯 Align" : "🎯 Env. Alignment"}</Btn>
           <Btn onClick={() => setShowReport(true)} style={{ fontSize: 11 }}>{isMobile ? "📄 Report" : "📄 Environment Report"}</Btn>
           {canCompare && (

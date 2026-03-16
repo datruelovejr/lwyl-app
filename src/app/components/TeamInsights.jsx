@@ -13,6 +13,8 @@ import { FrictionMap } from "./FrictionMap";
 import { VoiceJournal } from "./VoiceJournal";
 import { TeamSummary } from "./TeamSummary";
 import { LeaderComparison } from "./LeaderComparison";
+import { Card, StoryCard, AlertCard, SectionHead, MetricCard, Expandable } from "./ui";
+import { getEnvironmentTaxSummary, compoundPatterns, discInsights } from "../knowledge/assessmentInsights";
 
 export function TeamInsights({ people, teamId, orgId, leaderId, userId, photos = {}, onUploadPhoto, onViewProfile, onCompare, onShowTips }) {
   const isMobile = useIsMobile();
@@ -24,7 +26,7 @@ export function TeamInsights({ people, teamId, orgId, leaderId, userId, photos =
   const total = people.filter(p => p.orgId === orgId && (teamId ? p.teamId === teamId : true)).length;
   const leader = leaderId ? people.find(p => p.id === leaderId) : null;
 
-  // ── 1C: DISC Distribution ──
+  // ── DISC Distribution ──
   const discStyleDescs = {
     D: "driven by results, speed, and directness. They need autonomy, challenges, and quick decisions.",
     I: "energized by people, enthusiasm, and collaboration. They need recognition, social interaction, and optimism.",
@@ -39,7 +41,7 @@ export function TeamInsights({ people, teamId, orgId, leaderId, userId, photos =
     dom.split("/").forEach(d => { if (dimCounts[d] !== undefined) dimCounts[d]++; });
   });
 
-  // ── 1D: Values Distribution ──
+  // ── Values Distribution ──
   const valDescs = {
     Aesthetic: "harmony, balance, beauty, and creative expression",
     Economic: "ROI, efficiency, and practical return on investment",
@@ -57,38 +59,6 @@ export function TeamInsights({ people, teamId, orgId, leaderId, userId, photos =
   const valData = Object.entries(valCounts)
     .map(([name, count]) => ({ name, count, color: C.values[name] }))
     .sort((a, b) => b.count - a.count);
-
-  // ── 1E: Attributes Distribution ──
-  const attrInsights = {
-    Heart: "They need to understand how decisions affect people. Lead with who is impacted before explaining strategy or numbers.",
-    Hand: "They need to know what works and gets results. Lead with practical outcomes before theory or people dynamics.",
-    Head: "They need to see the logic and structure. Lead with the framework and data before the human story."
-  };
-  const attrIcons = { Heart: "❤️", Hand: "✋", Head: "🧠" };
-  // Average external scores across team to determine collective decision ORDER
-  const attrAvgs = { Heart: 0, Hand: 0, Head: 0 };
-  if (complete.length > 0) {
-    complete.forEach(p => {
-      attrAvgs.Heart += p.attr.ext[0].score;
-      attrAvgs.Hand  += p.attr.ext[1].score;
-      attrAvgs.Head  += p.attr.ext[2].score;
-    });
-    attrAvgs.Heart = Math.round((attrAvgs.Heart / complete.length) * 10) / 10;
-    attrAvgs.Hand  = Math.round((attrAvgs.Hand  / complete.length) * 10) / 10;
-    attrAvgs.Head  = Math.round((attrAvgs.Head  / complete.length) * 10) / 10;
-  }
-  const decisionOrder = Object.entries(attrAvgs).sort((a, b) => b[1] - a[1]);
-  // Also track individual lead counts for secondary display
-  const attrCounts = { Heart: 0, Hand: 0, Head: 0 };
-  complete.forEach(p => {
-    const [emp, pra, sys] = p.attr.ext.map(a => a.score);
-    const maxScore = Math.max(emp, pra, sys);
-    const minScore = Math.min(emp, pra, sys);
-    if (maxScore - minScore <= 0.5) return;
-    if (emp === maxScore) attrCounts.Heart++;
-    else if (pra === maxScore) attrCounts.Hand++;
-    else attrCounts.Head++;
-  });
 
   if (complete.length === 0) return (
     <div style={{ textAlign: "center", padding: 60, color: C.muted }}>
@@ -117,17 +87,14 @@ export function TeamInsights({ people, teamId, orgId, leaderId, userId, photos =
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
           <Btn onClick={() => setShowJournal(true)} style={{ fontSize: 11 }}>🎙️ Journal</Btn>
           {complete.length > 0 && (
-            <>
-              <Btn onClick={() => setShowFrictionMap(true)} style={{ fontSize: 11 }}>🔥 Friction</Btn>
-              <Btn onClick={() => setShowSummary(true)} style={{ fontSize: 11 }}>📋 Summary</Btn>
-            </>
+            <Btn onClick={() => setShowSummary(true)} style={{ fontSize: 11 }}>📋 Summary</Btn>
           )}
         </div>
       </div>
 
-      {/* 2B: Completion Tracker */}
+      {/* Completion Tracker */}
       {total > 0 && (
-        <div style={{ background: C.card, borderRadius: 12, padding: 24, border: `1px solid ${C.border}`, marginBottom: 32, boxShadow: "0 1px 3px rgba(0,0,0,0.1)" }}>
+        <Card>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
             <div style={{ fontSize: 12, fontWeight: 700, color: C.text }}>Assessment Completion</div>
             <div style={{ fontSize: 11, fontWeight: 700, color: complete.length === total ? C.green : C.muted }}>{complete.length}/{total} complete</div>
@@ -142,21 +109,164 @@ export function TeamInsights({ people, teamId, orgId, leaderId, userId, photos =
               ))}
             </div>
           )}
-        </div>
+        </Card>
       )}
 
-      {/* 2A: Leader Comparison */}
+      {/* Leader Comparison */}
       {leader && leader.status !== "pending" && leader.disc && (
         <LeaderComparison leader={leader} team={people.filter(p => p.orgId === orgId && (teamId ? p.teamId === teamId : true))} />
       )}
 
-      {/* 1C: DISC Distribution */}
-      <div style={{ background: C.card, borderRadius: 12, padding: 24, border: `1px solid ${C.border}`, marginBottom: 32, boxShadow: "0 1px 3px rgba(0,0,0,0.1)" }}>
+      {/* ══════ TEAM ENVIRONMENT HEALTH (Story-First) ══════ */}
+      {complete.length >= 2 && (() => {
+        const memberTax = complete.map(p => {
+          const tax = getEnvironmentTaxSummary(p);
+          const totalGap = tax.totalGap;
+          return { ...p, totalGap, tax };
+        }).sort((a, b) => b.totalGap - a.totalGap);
+
+        const avgGap = Math.round(memberTax.reduce((s, m) => s + m.totalGap, 0) / memberTax.length);
+        const atRisk = memberTax.filter(m => m.totalGap >= 80);
+        const frustPT = memberTax.filter(m => m.tax.hasFrustratedPT);
+        const teamLabel = avgGap >= 120 ? "Critical" : avgGap >= 80 ? "Heavy" : avgGap >= 50 ? "Elevated" : avgGap >= 25 ? "Moderate" : "Healthy";
+        const teamColor = avgGap >= 120 ? "#7F1D1D" : avgGap >= 80 ? "#991B1B" : avgGap >= 50 ? "#C2410C" : avgGap >= 25 ? "#D97706" : "#15803D";
+
+        // Aggregate bias patterns
+        const extBiasAgg = { Heart: { "+": 0, "−": 0, "=": 0 }, Hand: { "+": 0, "−": 0, "=": 0 }, Head: { "+": 0, "−": 0, "=": 0 } };
+        complete.forEach(p => {
+          p.attr.ext.forEach(a => {
+            const b = normBias(a.bias);
+            if (extBiasAgg[a.label]?.[b] !== undefined) extBiasAgg[a.label][b]++;
+          });
+        });
+        const blindSpots = Object.entries(extBiasAgg)
+          .filter(([, biases]) => biases["−"] >= Math.ceil(complete.length * 0.4))
+          .map(([label, biases]) => ({ label, count: biases["−"], pct: Math.round((biases["−"] / complete.length) * 100) }));
+
+        // Team compound patterns
+        const teamCompounds = {};
+        complete.forEach(p => {
+          const tax = getEnvironmentTaxSummary(p);
+          tax.activeCompounds.forEach(cp => {
+            if (!teamCompounds[cp.id]) teamCompounds[cp.id] = { ...cp, members: [] };
+            teamCompounds[cp.id].members.push(p.name.split(" ")[0]);
+          });
+        });
+        const activeCompounds = Object.values(teamCompounds);
+
+        // Build narrative for each at-risk person
+        const getPersonNarrative = (m) => {
+          const name = m.name.split(" ")[0];
+          const costlyGaps = m.tax.costlyGaps;
+          if (costlyGaps.length === 0) return `${name} is carrying ${m.totalGap} gap points of adaptation cost.`;
+          const topGap = costlyGaps[0];
+          const direction = topGap.gap > 0 ? "amplifying" : "suppressing";
+          const dimName = discFull[topGap.dim];
+          return `${name} is ${direction} their ${dimName} by ${Math.abs(topGap.gap)} points every day. That's their biggest adaptation cost. Their environment is asking them to show up differently than they're wired to.`;
+        };
+
+        return (
+          <Card>
+            <SectionHead title="Team Environment Health" sub={`How much your team is adapting to fit their environment`} badge={teamLabel} badgeColor={teamColor} />
+
+            {/* Summary metrics */}
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 20 }}>
+              <MetricCard value={avgGap} label="Avg Preference Tax" sub="gap points across team" accent={teamColor} />
+              <MetricCard value={atRisk.length} label="People at risk" sub="80+ gap points" accent={atRisk.length > 0 ? "#C2410C" : "#15803D"} />
+              <MetricCard value={frustPT.length} label="Damage signals" sub="frustrated PT bias" accent={frustPT.length > 0 ? "#991B1B" : "#15803D"} />
+            </div>
+
+            {/* Frustrated PT - environment damage */}
+            {frustPT.length > 0 && (
+              <AlertCard severity="critical" title="Environment damage detected">
+                {frustPT.map((m, i) => {
+                  const name = m.name.split(" ")[0];
+                  return <div key={m.id} style={{ marginBottom: i < frustPT.length - 1 ? 8 : 0 }}>
+                    <strong>{name}</strong> has a Frustrated Practical Thinking bias. Their environment has taught them that getting practical results doesn't matter. That's the single strongest damage signal in the entire assessment. It's worth a direct conversation.
+                  </div>;
+                })}
+              </AlertCard>
+            )}
+
+            {/* At-risk members - per person story cards */}
+            {atRisk.length > 0 && (
+              <>
+                <div style={{ fontSize: 13, fontWeight: 700, color: C.text, marginBottom: 10, marginTop: 4 }}>People carrying the highest cost</div>
+                {atRisk.slice(0, 5).map(m => (
+                  <StoryCard key={m.id} accent={m.totalGap >= 120 ? "#991B1B" : "#C2410C"} title={`${m.name.split(" ")[0]} · ${m.totalGap} gap points`}>
+                    {getPersonNarrative(m)}
+                    {m.tax.hasFrustratedPT && <div style={{ marginTop: 6, fontSize: 11, fontWeight: 600, color: "#991B1B" }}>Frustrated PT bias detected. Environment damage signal.</div>}
+                    {m.tax.activeCompounds.length > 0 && (
+                      <div style={{ marginTop: 6, fontSize: 11, color: C.muted }}>
+                        Active patterns: {m.tax.activeCompounds.map(c => c.name).join(", ")}
+                      </div>
+                    )}
+                  </StoryCard>
+                ))}
+              </>
+            )}
+
+            {/* Blind spots */}
+            {blindSpots.length > 0 && (
+              <>
+                <div style={{ fontSize: 13, fontWeight: 700, color: C.text, marginBottom: 10, marginTop: 16 }}>Team process blind spots</div>
+                {blindSpots.map(bs => {
+                  const blindSpotStory = {
+                    Heart: `${bs.pct}% of your team undervalues empathy. Decisions are landing on people without anyone checking the emotional temperature first. You might not see the relational damage until someone leaves.`,
+                    Hand: `${bs.pct}% of your team undervalues practical execution. Ideas and analysis are running ahead of results. The gap between what gets decided and what actually gets done is probably wider than you think.`,
+                    Head: `${bs.pct}% of your team undervalues systems thinking. Decisions are happening on instinct or relationships without structural analysis. Patterns get missed. Consequences show up late.`
+                  };
+                  return (
+                    <AlertCard key={bs.label} severity="warning" title={`${bs.label}: ${bs.pct}% of team undervaluing`}>
+                      {blindSpotStory[bs.label]}
+                    </AlertCard>
+                  );
+                })}
+              </>
+            )}
+
+            {/* Compound Patterns - with full descriptions */}
+            {activeCompounds.length > 0 && (
+              <>
+                <div style={{ fontSize: 13, fontWeight: 700, color: C.text, marginBottom: 10, marginTop: 16 }}>Compound patterns on this team</div>
+                {activeCompounds.map(cp => {
+                  // Find the full pattern data from compoundPatterns
+                  const patternKey = Object.keys(compoundPatterns).find(k => compoundPatterns[k].id === cp.id);
+                  const fullPattern = patternKey ? compoundPatterns[patternKey] : null;
+
+                  return (
+                    <StoryCard key={cp.id} accent="#9A7A42" title={`${cp.name}: ${cp.members.join(", ")}`}>
+                      {fullPattern ? (
+                        <>
+                          <div style={{ marginBottom: 8 }}>{fullPattern.description}</div>
+                          <Expandable label="Strength" color="#15803D">
+                            <div style={{ fontSize: 12, color: C.text, lineHeight: 1.7 }}>{fullPattern.strength}</div>
+                          </Expandable>
+                          <Expandable label="When it goes wrong" color="#991B1B">
+                            <div style={{ fontSize: 12, color: C.text, lineHeight: 1.7 }}>{fullPattern.toxicPattern}</div>
+                          </Expandable>
+                          <Expandable label="What to watch for" color="#C2410C">
+                            <div style={{ fontSize: 12, color: C.text, lineHeight: 1.7 }}>{fullPattern.recommendation}</div>
+                          </Expandable>
+                        </>
+                      ) : (
+                        <div>{cp.members.join(", ")} {cp.members.length === 1 ? "shows" : "show"} this cross-dimensional pattern.</div>
+                      )}
+                    </StoryCard>
+                  );
+                })}
+              </>
+            )}
+          </Card>
+        );
+      })()}
+
+      {/* DISC Distribution */}
+      <Card>
         <div style={{ marginBottom: 16 }}>
           <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.07em", textTransform: "uppercase", color: C.muted, marginBottom: 4 }}>THE TEAM YOU LEAD</div>
           <div style={{ fontSize: 13, color: C.muted }}>Natural DISC style distribution · {complete.length} assessed members</div>
         </div>
-        {/* 4-column DISC card grid */}
         <div style={{ display: "grid", gridTemplateColumns: isMobile ? "repeat(2, 1fr)" : "repeat(4, 1fr)", gap: isMobile ? 12 : 32 }}>
           {["D", "I", "S", "C"].map(d => {
             const count = dimCounts[d];
@@ -174,22 +284,38 @@ export function TeamInsights({ people, teamId, orgId, leaderId, userId, photos =
                     ? `${count} ${count === 1 ? "person is" : "people are"} ${discStyleDescs[d]}`
                     : `No ${discFull[d]}-dominant members.`}
                 </div>
+                {count === 0 && complete.length >= 3 && (
+                  <div style={{ fontSize: 10, color: "#C2410C", marginTop: 6, lineHeight: 1.4 }}>
+                    {d === "D" && "No one is naturally driving decisions. The team may struggle with decisiveness."}
+                    {d === "I" && "No one is naturally building energy and connection. The team may lack relational glue."}
+                    {d === "S" && "No one is naturally providing stability. The team may move fast but miss the consistency that builds trust."}
+                    {d === "C" && "No one is naturally catching details. The team may move fast but miss what matters in the fine print."}
+                  </div>
+                )}
+                {count > Math.ceil(complete.length * 0.5) && complete.length >= 3 && (
+                  <div style={{ fontSize: 10, color: "#1565C0", marginTop: 6, lineHeight: 1.4 }}>
+                    {d === "D" && "Heavy D concentration. This team can drive results but may struggle with patience and follow-through."}
+                    {d === "I" && "Heavy I concentration. This team can inspire but may struggle with accountability and finishing."}
+                    {d === "S" && "Heavy S concentration. This team is stable but may resist necessary change."}
+                    {d === "C" && "Heavy C concentration. This team is precise but may over-analyze and move too slowly."}
+                  </div>
+                )}
               </div>
             );
           })}
         </div>
-      </div>
+      </Card>
 
-      {/* 1D: Values Distribution */}
-      <div style={{ background: C.card, borderRadius: 12, padding: 24, border: `1px solid ${C.border}`, marginBottom: 32, boxShadow: "0 1px 3px rgba(0,0,0,0.1)" }}>
+      {/* Values Distribution */}
+      <Card>
         <Sec title="Team Values Distribution" sub="Motivational drivers across your team" color={C.values.Altruistic} />
-        <div style={{ fontSize: 11, color: C.muted, marginBottom: 10 }}>Values with score ≥ 60 count as a Top Driver</div>
+        <div style={{ fontSize: 11, color: C.muted, marginBottom: 10 }}>Values scoring 60+ count as a Top Driver</div>
         <ResponsiveContainer width="100%" height={200}>
           <BarChart data={valData} layout="vertical" barSize={24} barCategoryGap="20%">
             <CartesianGrid strokeDasharray="3 3" stroke="#eee" horizontal={false} />
             <XAxis type="number" domain={[0, complete.length]} allowDecimals={false} tick={{ fontSize: 9, fill: C.muted }} axisLine={false} tickLine={false} />
             <YAxis type="category" dataKey="name" width={isMobile ? 70 : 100} tick={{ fontSize: isMobile ? 9 : 10, fontWeight: 600, fill: C.text }} axisLine={false} tickLine={false} />
-            <Tooltip formatter={(value, name) => [`${value} of ${complete.length} people`, "Top Driver"]} />
+            <Tooltip formatter={(value) => [`${value} of ${complete.length} people`, "Top Driver"]} />
             <Bar dataKey="count" radius={[0, 4, 4, 0]}>{valData.map((e, i) => <Cell key={i} fill={e.color} />)}</Bar>
           </BarChart>
         </ResponsiveContainer>
@@ -200,17 +326,21 @@ export function TeamInsights({ people, teamId, orgId, leaderId, userId, photos =
               <div style={{ fontSize: 10, color: C.muted }}>This team is motivated by {valDescs[v.name]}.</div>
             </div>
           ))}
+          {valData.filter(v => v.count === 0).length >= 4 && complete.length >= 3 && (
+            <AlertCard severity="warning" title="Motivational gap">
+              {valData.filter(v => v.count === 0).length} of 7 values have zero top drivers on this team. People driven by {valData.filter(v => v.count === 0).slice(0, 2).map(v => v.name).join(" or ")} may feel like they don't belong here.
+            </AlertCard>
+          )}
         </div>
-      </div>
+      </Card>
 
       {/* KRI Dashboard */}
       {complete.length >= 2 && (() => {
         const intNames = ["Self-Esteem", "Role Awareness", "Self-Direction"];
-        const kriColors = { green: "#2E7D32", yellow: "#E65100", red: "#B71C1C" };
-        const kriBg = { green: "#E8F5E9", yellow: "#FFF3E0", red: "#FFEBEE" };
-        const kriBorder = { green: "#A5D6A7", yellow: "#FFCC80", red: "#EF9A9A" };
+        const kriColors = { green: "#15803D", yellow: "#C2410C", red: "#991B1B" };
+        const kriBg = { green: "#F0FDF4", yellow: "#FFF7ED", red: "#FEF2F2" };
+        const kriBorder = { green: "#BBF7D0", yellow: "#FED7AA", red: "#FECACA" };
 
-        // For each Internal Attribute: avg score, bias distribution, risk level
         const kriData = intNames.map(name => {
           const rows = complete.map(p => {
             const a = p.attr.int.find(a => a.name === name);
@@ -223,25 +353,24 @@ export function TeamInsights({ people, teamId, orgId, leaderId, userId, photos =
           const equalBias = rows.filter(r => r.bias === "=").length;
           const minusPct = rows.length > 0 ? Math.round((minusBias / rows.length) * 100) : 0;
 
-          // Risk: high minus bias + low score = elevated retention risk
           const risk = (minusPct >= 60 || avgScore < 6.0) ? "red"
                      : (minusPct >= 40 || avgScore < 7.0) ? "yellow"
                      : "green";
 
           const descriptions = {
             "Self-Esteem": {
-              green: "Most of your team trusts their own value. They can take feedback without losing footing.",
-              yellow: "A meaningful portion of your team may be underselling themselves or waiting for external permission before acting.",
+              green: "Your team trusts their own value. They can take feedback without losing footing.",
+              yellow: "Some of your team may be underselling themselves or waiting for external permission before acting. Worth watching.",
               red: "Self-doubt is systemic here. Your team is likely operating below their actual capability because they don't fully trust their own judgment."
             },
             "Role Awareness": {
-              green: "Your team has a clear sense of ownership. People know what's theirs to carry.",
-              yellow: "Role ambiguity is creating friction. Some people are overextending while others may be underfilling.",
+              green: "Your team has clear ownership. People know what's theirs to carry.",
+              yellow: "Role ambiguity is creating friction. Some people are overextending while others may be underfilling. Worth clarifying.",
               red: "Role clarity is a real problem. The team is burning energy on undefined ownership. This shows up as conflict, dropped balls, and quiet resentment."
             },
             "Self-Direction": {
-              green: "Your team can lead themselves. They know where they're going and don't need constant redirection.",
-              yellow: "Some team members are looking for more direction than you may realize. Ambiguity costs them energy.",
+              green: "Your team can lead themselves. They know where they're going.",
+              yellow: "Some team members need more direction than you realize. Ambiguity costs them energy.",
               red: "Your team needs more directional clarity than they're getting. Without it, they default to inaction or wait for you to decide."
             }
           };
@@ -254,183 +383,38 @@ export function TeamInsights({ people, teamId, orgId, leaderId, userId, photos =
         const riskLabel = { red: "Elevated", yellow: "Watch", green: "Healthy" };
 
         return (
-          <div style={{ background: C.card, borderRadius: 12, padding: 24, border: `1px solid ${C.border}`, marginBottom: 32, boxShadow: "0 1px 3px rgba(0,0,0,0.1)" }}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
-              <div style={{ fontSize: 16, fontWeight: 800, color: C.text }}>KRI Dashboard</div>
-              <div style={{ fontSize: 11, fontWeight: 700, color: kriColors[overallRisk], background: kriBg[overallRisk], border: `1px solid ${kriBorder[overallRisk]}`, padding: "3px 12px", borderRadius: 20 }}>{riskLabel[overallRisk]} Risk</div>
-            </div>
-            <div style={{ fontSize: 12, color: C.muted, marginBottom: 20 }}>Key Retention Indicators from Internal Attributes across {complete.length} team members.</div>
+          <Card>
+            <SectionHead title="Key Retention Indicators" sub={`Internal attributes across ${complete.length} team members`} badge={`${riskLabel[overallRisk]} Risk`} badgeColor={kriColors[overallRisk]} />
 
-            <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
               {kriData.map(k => (
                 <div key={k.name} style={{ background: kriBg[k.risk], border: `1px solid ${kriBorder[k.risk]}`, borderRadius: 10, padding: 16 }}>
                   <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
                     <div style={{ fontSize: 13, fontWeight: 800, color: C.text }}>{k.name}</div>
                     <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                      <span style={{ fontSize: 11, color: C.muted }}>Avg: <strong style={{ color: k.avgScore < 6.0 ? kriColors.red : k.avgScore < 7.0 ? kriColors.yellow : kriColors.green }}>{k.avgScore}</strong> / 10</span>
+                      <span style={{ fontSize: 11, color: C.muted }}>Avg: <strong style={{ color: kriColors[k.risk] }}>{k.avgScore}</strong> / 10</span>
                       <span style={{ fontSize: 10, fontWeight: 700, color: kriColors[k.risk], background: "#fff", padding: "2px 10px", borderRadius: 8 }}>{riskLabel[k.risk].toUpperCase()}</span>
                     </div>
                   </div>
 
                   {/* Bias distribution bar */}
                   <div style={{ display: "flex", height: 8, borderRadius: 4, overflow: "hidden", marginBottom: 8 }}>
-                    {k.plusBias > 0 && <div style={{ flex: k.plusBias, background: "#2E7D32" }} title={`${k.plusBias} Requires (+)`} />}
-                    {k.equalBias > 0 && <div style={{ flex: k.equalBias, background: "#1565C0" }} title={`${k.equalBias} Balanced (=)`} />}
-                    {k.minusBias > 0 && <div style={{ flex: k.minusBias, background: "#B71C1C" }} title={`${k.minusBias} Undervalues (-)`} />}
+                    {k.plusBias > 0 && <div style={{ flex: k.plusBias, background: "#15803D" }} title={`${k.plusBias} Requires (+)`} />}
+                    {k.equalBias > 0 && <div style={{ flex: k.equalBias, background: "#1D4ED8" }} title={`${k.equalBias} Balanced (=)`} />}
+                    {k.minusBias > 0 && <div style={{ flex: k.minusBias, background: "#991B1B" }} title={`${k.minusBias} Undervalues (-)`} />}
                   </div>
 
                   <div style={{ display: "flex", gap: 12, marginBottom: 10, fontSize: 11, color: C.muted }}>
-                    <span style={{ color: "#2E7D32", fontWeight: 600 }}>{k.plusBias} Requires (+)</span>
-                    <span style={{ color: "#1565C0", fontWeight: 600 }}>{k.equalBias} Balanced (=)</span>
-                    <span style={{ color: "#B71C1C", fontWeight: 600 }}>{k.minusBias} Undervalues (-)</span>
+                    <span style={{ color: "#15803D", fontWeight: 600 }}>{k.plusBias} Requires (+)</span>
+                    <span style={{ color: "#1D4ED8", fontWeight: 600 }}>{k.equalBias} Balanced (=)</span>
+                    <span style={{ color: "#991B1B", fontWeight: 600 }}>{k.minusBias} Undervalues (-)</span>
                   </div>
 
                   <div style={{ fontSize: 12, color: C.text, lineHeight: 1.6 }}>{k.desc}</div>
                 </div>
               ))}
             </div>
-          </div>
-        );
-      })()}
-
-      {/* Culture Visibility Model */}
-      {complete.length >= 2 && (() => {
-        const W = 420, H = 380, PAD = 40;
-        const plotW = W - PAD * 2, plotH = H - PAD * 2;
-
-        // For each member: DISC representation (how similar to team avg) and Values representation
-        const teamDiscAvg = { D: 0, I: 0, S: 0, C: 0 };
-        const teamValAvg = { Aesthetic: 0, Economic: 0, Individualistic: 0, Political: 0, Altruistic: 0, Regulatory: 0, Theoretical: 0 };
-        complete.forEach(p => {
-          ["D","I","S","C"].forEach(d => { teamDiscAvg[d] += p.disc.natural[d]; });
-          Object.keys(teamValAvg).forEach(v => { teamValAvg[v] += p.values[v]; });
-        });
-        ["D","I","S","C"].forEach(d => { teamDiscAvg[d] /= complete.length; });
-        Object.keys(teamValAvg).forEach(v => { teamValAvg[v] /= complete.length; });
-
-        const getRepScores = (p) => {
-          const discDiff = ["D","I","S","C"].reduce((s,d) => s + Math.abs(p.disc.natural[d] - teamDiscAvg[d]), 0) / 4;
-          const valDiff = Object.keys(teamValAvg).reduce((s,v) => s + Math.abs(p.values[v] - teamValAvg[v]), 0) / 7;
-          return {
-            discRep: Math.max(0, 100 - discDiff),
-            valRep:  Math.max(0, 100 - valDiff)
-          };
-        };
-
-        const threshold = 65;
-        const getQuadrant = (dr, vr) => {
-          const hiD = dr >= threshold, hiV = vr >= threshold;
-          if (hiD && hiV)  return { label: "Dominant Culture",      color: "#F59E0B", bg: "rgba(245,158,11,0.08)",  desc: "Behavioral and motivational style matches the team's dominant culture." };
-          if (!hiD && hiV) return { label: "Behaviorally Silent",   color: "#3B82F6", bg: "rgba(59,130,246,0.08)",  desc: "Shares the team's values but expresses them through a different behavioral style. Often adapting to fit in." };
-          if (hiD && !hiV) return { label: "Motivationally Silent", color: "#8B5CF6", bg: "rgba(139,92,246,0.08)",  desc: "Looks like they fit in behaviorally, but their internal drivers differ from the dominant culture." };
-          return                  { label: "Invisible Culture",      color: "#EF4444", bg: "rgba(239,68,68,0.08)",   desc: "Differs from the dominant culture in both behavior and motivation. Highest risk of quiet disengagement." };
-        };
-
-        const plotData = complete.map(p => {
-          const { discRep, valRep } = getRepScores(p);
-          const q = getQuadrant(discRep, valRep);
-          const x = PAD + (discRep / 100) * plotW;
-          const y = PAD + ((100 - valRep) / 100) * plotH;
-          return { ...p, discRep, valRep, quadrant: q, x, y };
-        });
-
-        const [hovered, setHovered] = useState(null);
-
-        // Count per quadrant
-        const qCounts = {};
-        plotData.forEach(p => { qCounts[p.quadrant.label] = (qCounts[p.quadrant.label] || 0) + 1; });
-        const qDefs = [
-          { label: "Dominant Culture",      color: "#F59E0B" },
-          { label: "Behaviorally Silent",   color: "#3B82F6" },
-          { label: "Motivationally Silent", color: "#8B5CF6" },
-          { label: "Invisible Culture",     color: "#EF4444" }
-        ];
-
-        return (
-          <div style={{ background: C.card, borderRadius: 12, padding: 24, border: `1px solid ${C.border}`, marginBottom: 32, boxShadow: "0 1px 3px rgba(0,0,0,0.1)" }}>
-            <div style={{ fontSize: 16, fontWeight: 800, color: C.text, marginBottom: 4 }}>Culture Visibility Model</div>
-            <div style={{ fontSize: 12, color: C.muted, marginBottom: 20 }}>Who shapes the culture - and who's adapting silently to fit into it.</div>
-
-            <div style={{ display: "flex", gap: 24, flexWrap: "wrap" }}>
-              {/* SVG Plot */}
-              <div style={{ flex: "1 1 400px" }}>
-                <svg width="100%" viewBox={`0 0 ${W} ${H}`} style={{ display: "block" }}>
-                  {/* Quadrant backgrounds */}
-                  <rect x={PAD} y={PAD} width={plotW/2} height={plotH/2} fill="rgba(59,130,246,0.06)" />
-                  <rect x={PAD+plotW/2} y={PAD} width={plotW/2} height={plotH/2} fill="rgba(245,158,11,0.06)" />
-                  <rect x={PAD} y={PAD+plotH/2} width={plotW/2} height={plotH/2} fill="rgba(239,68,68,0.06)" />
-                  <rect x={PAD+plotW/2} y={PAD+plotH/2} width={plotW/2} height={plotH/2} fill="rgba(139,92,246,0.06)" />
-
-                  {/* Divider lines */}
-                  <line x1={PAD} y1={PAD+plotH/2} x2={PAD+plotW} y2={PAD+plotH/2} stroke={C.border} strokeWidth={1} strokeDasharray="4,4" />
-                  <line x1={PAD+plotW/2} y1={PAD} x2={PAD+plotW/2} y2={PAD+plotH} stroke={C.border} strokeWidth={1} strokeDasharray="4,4" />
-
-                  {/* Quadrant labels */}
-                  <text x={PAD+plotW/4} y={PAD+14} textAnchor="middle" fontSize={9} fill="#3B82F6" fontWeight="700">BEHAVIORALLY SILENT</text>
-                  <text x={PAD+plotW*3/4} y={PAD+14} textAnchor="middle" fontSize={9} fill="#F59E0B" fontWeight="700">DOMINANT CULTURE</text>
-                  <text x={PAD+plotW/4} y={PAD+plotH-6} textAnchor="middle" fontSize={9} fill="#EF4444" fontWeight="700">INVISIBLE CULTURE</text>
-                  <text x={PAD+plotW*3/4} y={PAD+plotH-6} textAnchor="middle" fontSize={9} fill="#8B5CF6" fontWeight="700">MOTIVATIONALLY SILENT</text>
-
-                  {/* Axis labels */}
-                  <text x={PAD} y={PAD-8} textAnchor="start" fontSize={9} fill={C.muted}>Low DISC Fit</text>
-                  <text x={PAD+plotW} y={PAD-8} textAnchor="end" fontSize={9} fill={C.muted}>High DISC Fit</text>
-                  <text x={PAD-8} y={PAD+12} textAnchor="end" fontSize={9} fill={C.muted} transform={`rotate(-90, ${PAD-10}, ${PAD+plotH/2})`}>High Values Fit</text>
-
-                  {/* People dots */}
-                  {plotData.map((p, i) => {
-                    const initials = p.name.split(" ").map(w=>w[0]).join("").slice(0,2);
-                    const isHov = hovered === p.id;
-                    return (
-                      <g key={p.id} onMouseEnter={() => setHovered(p.id)} onMouseLeave={() => setHovered(null)} style={{ cursor: "pointer" }}>
-                        <circle cx={p.x} cy={p.y} r={isHov ? 20 : 16} fill={p.quadrant.color} opacity={0.9} />
-                        <text x={p.x} y={p.y+4} textAnchor="middle" fontSize={isHov ? 10 : 9} fill="#fff" fontWeight="800">{initials}</text>
-                        {isHov && (
-                          <g>
-                            <rect x={p.x - 70} y={p.y - 50} width={140} height={40} rx={6} fill="#1F2937" opacity={0.95} />
-                            <text x={p.x} y={p.y - 35} textAnchor="middle" fontSize={9} fill="#fff" fontWeight="700">{p.name.split(" ")[0]}</text>
-                            <text x={p.x} y={p.y - 20} textAnchor="middle" fontSize={8} fill="#9CA3AF">{p.quadrant.label}</text>
-                          </g>
-                        )}
-                      </g>
-                    );
-                  })}
-                </svg>
-              </div>
-
-              {/* Quadrant summary */}
-              <div style={{ flex: "1 1 200px", display: "flex", flexDirection: "column", gap: 8 }}>
-                {qDefs.map(q => {
-                  const count = qCounts[q.label] || 0;
-                  const members = plotData.filter(p => p.quadrant.label === q.label);
-                  return (
-                    <div key={q.label} style={{ padding: "10px 14px", borderRadius: 8, background: C.hi, border: `1px solid ${C.border}`, borderLeft: `3px solid ${q.color}` }}>
-                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: count > 0 ? 4 : 0 }}>
-                        <span style={{ fontSize: 11, fontWeight: 700, color: q.color }}>{q.label}</span>
-                        <span style={{ fontSize: 11, fontWeight: 800, color: count > 0 ? C.text : C.muted }}>{count}</span>
-                      </div>
-                      {count > 0 && (
-                        <div style={{ fontSize: 10, color: C.muted }}>
-                          {members.map(p => p.name.split(" ")[0]).join(", ")}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-
-                {/* Adaptation note */}
-                {plotData.some(p => p.quadrant.label !== "Dominant Culture") && (
-                  <div style={{ marginTop: 4, padding: "10px 14px", borderRadius: 8, background: "#FFF3E0", border: "1px solid #FFCC80" }}>
-                    <div style={{ fontSize: 11, fontWeight: 700, color: "#E65100", marginBottom: 4 }}>Watch For</div>
-                    <div style={{ fontSize: 11, color: C.text, lineHeight: 1.6 }}>
-                      {plotData.filter(p => p.quadrant.label === "Invisible Culture").length > 0
-                        ? `${plotData.filter(p=>p.quadrant.label==="Invisible Culture").map(p=>p.name.split(" ")[0]).join(" and ")} differ from the dominant culture in both behavior and motivation. Highest disengagement risk.`
-                        : "Some team members are adapting silently. Check the Friction Map and KRI Dashboard for where that cost is showing up."}
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
+          </Card>
         );
       })()}
 
