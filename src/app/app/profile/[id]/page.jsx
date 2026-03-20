@@ -3,7 +3,6 @@
 import { use } from "react";
 import { useLWYL } from "../../../contexts/LWYLContext";
 import { Viewer } from "../../../components/Viewer";
-import { C } from "../../../constants/colors";
 
 export default function ProfilePage({ params }) {
   const { id } = use(params);
@@ -17,15 +16,15 @@ export default function ProfilePage({ params }) {
 
   if (!person) {
     return (
-      <div style={{ textAlign: "center", padding: 60, color: C.muted }}>
-        <div style={{ fontSize: 36, marginBottom: 12 }}>📋</div>
-        <div style={{ fontSize: 14, fontWeight: 600 }}>Person not found</div>
+      <div className="text-center py-15 text-muted">
+        <div className="text-4xl mb-3">{"\ud83d\udccb"}</div>
+        <div className="text-sm font-semibold">Person not found</div>
       </div>
     );
   }
 
   return (
-    <div style={{ padding: "16px 24px", overflowY: "auto", maxHeight: "100vh" }}>
+    <div className="px-6 py-4 overflow-y-auto max-h-screen">
       <Viewer
         person={person}
         leader={leader}
@@ -40,8 +39,8 @@ export default function ProfilePage({ params }) {
         onClearShowCompare={() => {}}
         team={teamPeople}
       />
-      <div style={{ textAlign: "center", padding: "8px 0 20px", fontSize: 9, color: C.muted }}>
-        © Bridging the Connection Gap · Dr. Daniel Truelove Jr.
+      <div className="text-center pt-2 pb-5 text-[9px] text-muted">
+        &copy; Bridging the Connection Gap &middot; Dr. Daniel Truelove Jr.
       </div>
     </div>
   );

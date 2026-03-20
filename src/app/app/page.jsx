@@ -63,7 +63,7 @@ export default function ConsultantDashboard() {
               }
             }
 
-            // Environment tax — anyone paying high cost
+            // Environment tax -- anyone paying high cost
             const highTax = completePeople.filter(p => {
               try { return getEnvironmentTaxSummary(p).totalGap >= 80; } catch { return false; }
             }).length;
@@ -136,7 +136,7 @@ export default function ConsultantDashboard() {
 
 // ── New Org Wizard ────────────────────────────────────────────────
 // Step 1: Org name, leader name, pain point
-// Step 2: Assessment link — people get added when they complete assessment or via PDF upload
+// Step 2: Assessment link -- people get added when they complete assessment or via PDF upload
 
 function NewOrgWizard({ onClose }) {
   const { addOrg, updateOrg, addTeam, setSelOrgId } = useLWYL();

@@ -1,41 +1,21 @@
-let jsZipPromise = null;
+/**
+ * PDF and ZIP utilities -- loads JSZip and PDF.js from npm packages.
+ */
+
+import JSZip from 'jszip';
+import * as pdfjsLib from 'pdfjs-dist';
+
+pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs';
+
 export function loadJSZip() {
-  if (jsZipPromise) return jsZipPromise;
-  jsZipPromise = new Promise((resolve, reject) => {
-    if (window.JSZip) { resolve(window.JSZip); return; }
-    const script = document.createElement("script");
-    script.src = "https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js";
-    script.onload = () => {
-      if (window.JSZip) resolve(window.JSZip);
-      else { jsZipPromise = null; reject(new Error("JSZip not available")); }
-    };
-    script.onerror = () => { jsZipPromise = null; reject(new Error("Failed to load JSZip")); };
-    document.head.appendChild(script);
-  });
-  return jsZipPromise;
+  return Promise.resolve(JSZip);
 }
 
-let pdfJsPromise = null;
 export function loadPDFJS() {
-  if (pdfJsPromise) return pdfJsPromise;
-  pdfJsPromise = new Promise((resolve, reject) => {
-    if (window.pdfjsLib) { resolve(window.pdfjsLib); return; }
-    const script = document.createElement("script");
-    script.src = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js";
-    script.onload = () => {
-      if (window.pdfjsLib) {
-        window.pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
-        resolve(window.pdfjsLib);
-      } else { pdfJsPromise = null; reject(new Error("PDF.js not available")); }
-    };
-    script.onerror = () => { pdfJsPromise = null; reject(new Error("Failed to load PDF.js")); };
-    document.head.appendChild(script);
-  });
-  return pdfJsPromise;
+  return Promise.resolve(pdfjsLib);
 }
 
 export async function extractTextFromPDF(arrayBuffer) {
-  const pdfjsLib = await loadPDFJS();
   const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
   const pageTexts = {};
   const pagesToRead = [2, 3, 4];

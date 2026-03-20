@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from "react";
+import { motion } from "framer-motion";
 import { useLWYL } from "../../contexts/LWYLContext";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
@@ -9,27 +10,27 @@ import {
   Calendar, Bell, Clock, RefreshCw, ChevronDown, ChevronUp, Edit3, X
 } from "lucide-react";
 
-const DISC_COLORS = { D: "#C62828", I: "#F59E0B", S: "#16A34A", C: "#2563EB" };
+const DISC_COLORS = { D: "var(--disc-d)", I: "var(--disc-i)", S: "var(--disc-s)", C: "var(--disc-c)" };
 
 const getDominantDisc = (disc) => Object.entries(disc).sort(([,a],[,b]) => b - a)[0][0];
 
 const FRICTION_INFO = {
   preference: {
     label: "Preference Friction",
-    color: "#29B6F6",
-    desc: "HOW they work — DISC behavioral style differences. Confirmed, measurable cost.",
+    color: "var(--disc-c)",
+    desc: "HOW they work -- DISC behavioral style differences. Confirmed, measurable cost.",
     signal: "Confirmed friction"
   },
   passion: {
     label: "Passion Signal",
-    color: "#FF7043",
-    desc: "WHY they work — Values and motivation gaps. A signal worth investigating.",
+    color: "var(--values-individualistic)",
+    desc: "WHY they work -- Values and motivation gaps. A signal worth investigating.",
     signal: "Signal to explore"
   },
   process: {
     label: "Process Signal",
-    color: "#7E57C2",
-    desc: "HOW they think — Attributes and decision-making style. A signal worth exploring.",
+    color: "var(--attr-ext)",
+    desc: "HOW they think -- Attributes and decision-making style. A signal worth exploring.",
     signal: "Signal to explore"
   },
 };
@@ -97,11 +98,11 @@ function CheckInCard({ checkIn, onUpdate }) {
     ? Math.ceil((new Date(nextDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
     : null;
 
-  const urgencyColor = daysUntil === null ? "#9E9E9E"
-    : daysUntil < 0 ? "#C62828"
-    : daysUntil <= 3 ? "#FF7043"
-    : daysUntil <= 7 ? "#FFC107"
-    : "#4CAF50";
+  const urgencyColor = daysUntil === null ? "var(--disc-gray)"
+    : daysUntil < 0 ? "var(--friction-high)"
+    : daysUntil <= 3 ? "var(--alert-warning-accent)"
+    : daysUntil <= 7 ? "var(--disc-i)"
+    : "var(--disc-s)";
 
   function handleSave() {
     onUpdate({ ...checkIn, frequency: freq, nextDate, reminderDaysBefore: reminder, notes });
@@ -128,13 +129,13 @@ function CheckInCard({ checkIn, onUpdate }) {
 
   if (editing) {
     return (
-      <div className="bg-blue-50 rounded-xl p-4 border border-blue-100">
-        <div className="text-xs font-bold uppercase tracking-wide text-[#29B6F6] mb-3">Edit Check-In Schedule</div>
+      <div className="bg-alert-info-bg rounded-xl p-4 border border-alert-info-border">
+        <div className="text-xs font-bold uppercase tracking-wide text-disc-c mb-3">Edit Check-In Schedule</div>
         <div className="grid grid-cols-2 gap-3 mb-3">
           <div>
-            <label className="text-xs text-gray-500 mb-1 block">Frequency</label>
+            <label className="text-xs text-muted mb-1 block">Frequency</label>
             <select value={freq} onChange={e => setFreq(e.target.value)}
-              className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm bg-white focus:outline-none focus:border-[#29B6F6]">
+              className="w-full px-3 py-2 rounded-lg border border-border text-sm bg-card focus:outline-none focus:border-disc-c">
               <option value="weekly">Every week</option>
               <option value="biweekly">Every 2 weeks</option>
               <option value="monthly">Every month</option>
@@ -142,41 +143,41 @@ function CheckInCard({ checkIn, onUpdate }) {
             </select>
           </div>
           <div>
-            <label className="text-xs text-gray-500 mb-1 block">Next Check-In</label>
+            <label className="text-xs text-muted mb-1 block">Next Check-In</label>
             <input type="date" value={nextDate} onChange={e => setNextDate(e.target.value)}
-              className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm bg-white focus:outline-none focus:border-[#29B6F6]" />
+              className="w-full px-3 py-2 rounded-lg border border-border text-sm bg-card focus:outline-none focus:border-disc-c" />
           </div>
         </div>
         <div className="mb-3">
-          <label className="text-xs text-gray-500 mb-1 block">Remind me {reminder} day{reminder !== 1 ? "s" : ""} before</label>
+          <label className="text-xs text-muted mb-1 block">Remind me {reminder} day{reminder !== 1 ? "s" : ""} before</label>
           <input type="range" min={0} max={7} value={reminder} onChange={e => setReminder(Number(e.target.value))}
-            className="w-full accent-[#29B6F6]" />
-          <div className="flex justify-between text-xs text-gray-400 mt-1">
+            className="w-full accent-disc-c" />
+          <div className="flex justify-between text-xs text-muted mt-1">
             <span>Same day</span><span>1 week before</span>
           </div>
         </div>
         <div className="mb-3">
-          <label className="text-xs text-gray-500 mb-1 block">Check-In Notes / Agenda</label>
+          <label className="text-xs text-muted mb-1 block">Check-In Notes / Agenda</label>
           <textarea value={notes} onChange={e => setNotes(e.target.value)} rows={2}
             placeholder="What will you review in this check-in?"
-            className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm bg-white focus:outline-none focus:border-[#29B6F6] resize-none" />
+            className="w-full px-3 py-2 rounded-lg border border-border text-sm bg-card focus:outline-none focus:border-disc-c resize-none" />
         </div>
         <div className="flex gap-2">
-          <button onClick={handleSave} className="lwyl-btn-primary text-sm py-1.5 px-4">Save</button>
-          <button onClick={() => setEditing(false)} className="lwyl-btn-secondary text-sm py-1.5 px-4">Cancel</button>
+          <button onClick={handleSave} className="text-sm py-1.5 px-4 rounded-lg bg-nav text-white font-semibold">Save</button>
+          <button onClick={() => setEditing(false)} className="text-sm py-1.5 px-4 rounded-lg border border-border text-foreground font-semibold">Cancel</button>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="bg-gray-50 rounded-xl p-4 border border-gray-100">
+    <div className="bg-subtle rounded-xl p-4 border border-border">
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
-          <Calendar size={14} className="text-[#29B6F6]" />
-          <span className="text-xs font-bold text-gray-700">Check-In Schedule</span>
+          <Calendar size={14} className="text-disc-c" />
+          <span className="text-xs font-bold text-foreground">Check-In Schedule</span>
         </div>
-        <button onClick={() => setEditing(true)} className="text-gray-400 hover:text-[#29B6F6] transition-colors">
+        <button onClick={() => setEditing(true)} className="text-muted hover:text-disc-c transition-colors">
           <Edit3 size={14} />
         </button>
       </div>
@@ -184,15 +185,15 @@ function CheckInCard({ checkIn, onUpdate }) {
       <div className="grid grid-cols-3 gap-3 mb-3">
         <div className="text-center">
           <div className="flex items-center justify-center gap-1 mb-1">
-            <RefreshCw size={11} className="text-gray-400" />
-            <span className="text-xs text-gray-400">Frequency</span>
+            <RefreshCw size={11} className="text-muted" />
+            <span className="text-xs text-muted">Frequency</span>
           </div>
-          <div className="text-sm font-bold text-gray-900">{freqLabels[checkIn.frequency]}</div>
+          <div className="text-sm font-bold text-foreground">{freqLabels[checkIn.frequency]}</div>
         </div>
         <div className="text-center">
           <div className="flex items-center justify-center gap-1 mb-1">
-            <Clock size={11} className="text-gray-400" />
-            <span className="text-xs text-gray-400">Next Check-In</span>
+            <Clock size={11} className="text-muted" />
+            <span className="text-xs text-muted">Next Check-In</span>
           </div>
           <div className="text-sm font-bold" style={{ color: urgencyColor }}>
             {checkIn.nextDate
@@ -204,25 +205,25 @@ function CheckInCard({ checkIn, onUpdate }) {
         </div>
         <div className="text-center">
           <div className="flex items-center justify-center gap-1 mb-1">
-            <Bell size={11} className="text-gray-400" />
-            <span className="text-xs text-gray-400">Reminder</span>
+            <Bell size={11} className="text-muted" />
+            <span className="text-xs text-muted">Reminder</span>
           </div>
-          <div className="text-sm font-bold text-gray-900">
+          <div className="text-sm font-bold text-foreground">
             {checkIn.reminderDaysBefore === 0 ? "Same day" : `${checkIn.reminderDaysBefore}d before`}
           </div>
         </div>
       </div>
 
       {checkIn.notes && (
-        <div className="text-xs text-gray-500 italic mb-3 px-1">&quot;{checkIn.notes}&quot;</div>
+        <div className="text-xs text-muted italic mb-3 px-1">&quot;{checkIn.notes}&quot;</div>
       )}
 
       <div className="flex items-center justify-between">
-        <div className="text-xs text-gray-400">
+        <div className="text-xs text-muted">
           {checkIn.completedDates.length} check-in{checkIn.completedDates.length !== 1 ? "s" : ""} completed
         </div>
         <button onClick={handleMarkComplete}
-          className="text-xs font-semibold text-[#29B6F6] hover:text-[#0288D1] transition-colors flex items-center gap-1">
+          className="text-xs font-semibold text-disc-c hover:opacity-80 transition-opacity flex items-center gap-1">
           <CheckCircle2 size={12} /> Mark Complete
         </button>
       </div>
@@ -231,7 +232,7 @@ function CheckInCard({ checkIn, onUpdate }) {
 }
 
 export default function AgreementsPage() {
-  const { teamPeople } = useLWYL();
+  const { teamPeople, agreements, saveAgreement, updateAgreement, deleteAgreement } = useLWYL();
   const allPeople = teamPeople.filter(p => p.status !== "pending" && p.disc);
 
   const [step, setStep] = useState("list");
@@ -251,8 +252,6 @@ export default function AgreementsPage() {
   const [checkInNotes, setCheckInNotes] = useState("");
   const [expandedId, setExpandedId] = useState(null);
 
-  const [agreements, setAgreements] = useState([]);
-
   // Framework-based insight generator (no AI needed)
   function generateFrameworkInsight(pA, pB, friction) {
     const aDisc = pA.disc?.natural ? getDominantDisc(pA.disc.natural) : "S";
@@ -265,7 +264,7 @@ export default function AgreementsPage() {
     if (friction === "passion") {
       const aTop = pA.values ? Object.entries(pA.values).sort(([,a],[,b]) => b - a)[0]?.[0] : "their values";
       const bTop = pB.values ? Object.entries(pB.values).sort(([,a],[,b]) => b - a)[0]?.[0] : "their values";
-      return `${pA.name.split(" ")[0]} is most energized by ${aTop}. ${pB.name.split(" ")[0]} is most energized by ${bTop}. This is a Passion signal — not a verdict, but an invitation to understand what fills each person's tank and what drains it.`;
+      return `${pA.name.split(" ")[0]} is most energized by ${aTop}. ${pB.name.split(" ")[0]} is most energized by ${bTop}. This is a Passion signal -- not a verdict, but an invitation to understand what fills each person's tank and what drains it.`;
     }
     return `${pA.name.split(" ")[0]} and ${pB.name.split(" ")[0]} approach decisions from different cognitive lenses. This agreement uses the 3H Protocol to ensure Heart, Hand, and Head perspectives are all represented before decisions are made.`;
   }
@@ -291,18 +290,18 @@ export default function AgreementsPage() {
         completedDates: [],
       },
     };
-    setAgreements(prev => [newAgreement, ...prev]);
+    saveAgreement(newAgreement);
     setStep("complete");
     toast.success("Connection Agreement created!");
   }
 
   function handleDeleteAgreement(id) {
-    setAgreements(prev => prev.filter(a => a.id !== id));
+    deleteAgreement(id);
     toast.success("Agreement deleted");
   }
 
   function handleUpdateCheckIn(id, updated) {
-    setAgreements(prev => prev.map(a => a.id === id ? { ...a, checkIn: updated } : a));
+    updateAgreement(id, { checkIn: updated });
   }
 
   function resetWizard() {
@@ -320,51 +319,61 @@ export default function AgreementsPage() {
   // ── Complete ──────────────────────────────────────────────────
   if (step === "complete") {
     return (
-      <div className="p-8 flex flex-col items-center justify-center min-h-[60vh] animate-fade-in">
-        <div className="w-20 h-20 rounded-full bg-green-100 flex items-center justify-center mb-6">
-          <CheckCircle2 size={40} className="text-green-500" />
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.3 }}
+        className="p-8 flex flex-col items-center justify-center min-h-[60vh]"
+      >
+        <div className="w-20 h-20 rounded-full bg-alert-success-bg flex items-center justify-center mb-6">
+          <CheckCircle2 size={40} className="text-alert-success-accent" />
         </div>
-        <h2 className="text-2xl font-extrabold text-gray-900 mb-3" style={{ letterSpacing: "-0.02em" }}>
+        <h2 className="text-2xl font-extrabold text-foreground mb-3 tracking-tight">
           Agreement Created
         </h2>
-        <p className="text-gray-500 text-center max-w-md mb-3">
+        <p className="text-muted text-center max-w-md mb-3">
           The Connection Agreement between {personA?.name} and {personB?.name} has been documented.
         </p>
-        <p className="text-sm text-gray-400 text-center max-w-md mb-8">
+        <p className="text-sm text-muted text-center max-w-md mb-8">
           Your first check-in is scheduled for <strong>{checkInDate}</strong>. Both people will be reminded {checkInReminder} day{checkInReminder !== 1 ? "s" : ""} before.
         </p>
         <div className="flex gap-4">
-          <button onClick={resetWizard} className="lwyl-btn-secondary">View All Agreements</button>
-          <button onClick={() => { resetWizard(); setStep("select-people"); }} className="lwyl-btn-primary flex items-center gap-2">
+          <button onClick={resetWizard} className="px-4 py-2 rounded-lg border border-border text-foreground font-semibold text-sm">View All Agreements</button>
+          <button onClick={() => { resetWizard(); setStep("select-people"); }} className="px-4 py-2 rounded-lg bg-nav text-white font-semibold text-sm flex items-center gap-2">
             <Plus size={16} /> Create Another
           </button>
         </div>
-      </div>
+      </motion.div>
     );
   }
 
   // ── List ──────────────────────────────────────────────────────
   if (step === "list") {
     return (
-      <div className="p-8 animate-fade-in">
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.3 }}
+        className="p-8"
+      >
         <div className="flex items-start justify-between mb-8">
           <div>
-            <h1 className="text-2xl font-extrabold text-gray-900 mb-1" style={{ letterSpacing: "-0.02em" }}>
+            <h1 className="text-2xl font-extrabold text-foreground mb-1 tracking-tight">
               Connection Agreements
             </h1>
-            <p className="text-gray-500 text-sm">Documented commitments that transform friction into trust</p>
+            <p className="text-muted text-sm">Documented commitments that transform friction into trust</p>
           </div>
-          <button onClick={() => setStep("select-people")} className="lwyl-btn-primary flex items-center gap-2">
+          <button onClick={() => setStep("select-people")} className="px-4 py-2 rounded-lg bg-nav text-white font-semibold text-sm flex items-center gap-2">
             <Plus size={16} /> New Agreement
           </button>
         </div>
 
         {agreements.length === 0 ? (
-          <div className="lwyl-card text-center py-16">
-            <Handshake size={48} className="text-gray-300 mx-auto mb-4" />
-            <h3 className="text-lg font-bold text-gray-900 mb-2">No agreements yet</h3>
-            <p className="text-gray-500 text-sm mb-6">Create your first Connection Agreement to start bridging the gap.</p>
-            <button onClick={() => setStep("select-people")} className="lwyl-btn-primary">Create First Agreement</button>
+          <div className="bg-card rounded-xl p-6 border border-border shadow-sm text-center py-16">
+            <Handshake size={48} className="text-border mx-auto mb-4" />
+            <h3 className="text-lg font-bold text-foreground mb-2">No agreements yet</h3>
+            <p className="text-muted text-sm mb-6">Create your first Connection Agreement to start bridging the gap.</p>
+            <button onClick={() => setStep("select-people")} className="px-4 py-2 rounded-lg bg-nav text-white font-semibold text-sm">Create First Agreement</button>
           </div>
         ) : (
           <div className="space-y-4">
@@ -384,7 +393,7 @@ export default function AgreementsPage() {
               const isDueSoon = daysUntil !== null && daysUntil >= 0 && daysUntil <= 3;
 
               return (
-                <div key={agreement.id} className="lwyl-card">
+                <div key={agreement.id} className="bg-card rounded-xl p-6 border border-border shadow-sm">
                   {/* Header */}
                   <div className="flex items-start justify-between mb-4">
                     <div className="flex items-center gap-3">
@@ -399,22 +408,22 @@ export default function AgreementsPage() {
                         </div>
                       </div>
                       <div>
-                        <h3 className="text-base font-bold text-gray-900">
+                        <h3 className="text-base font-bold text-foreground">
                           {agreement.personAName.split(" ")[0]} & {agreement.personBName.split(" ")[0]}
                         </h3>
                         <div className="flex items-center gap-2 mt-0.5">
                           <span className="text-xs font-semibold px-2 py-0.5 rounded-full"
-                            style={{ background: `${info.color}15`, color: info.color }}>
+                            style={{ background: `color-mix(in srgb, ${info.color} 8%, transparent)`, color: info.color }}>
                             {info.label}
                           </span>
-                          <span className="text-xs text-gray-400">{agreement.createdAt}</span>
+                          <span className="text-xs text-muted">{agreement.createdAt}</span>
                         </div>
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
                       {(isOverdue || isDueSoon) && (
                         <div className={`flex items-center gap-1 text-xs font-semibold px-2 py-1 rounded-full ${
-                          isOverdue ? "bg-red-100 text-red-600" : "bg-orange-100 text-orange-600"
+                          isOverdue ? "bg-alert-critical-bg text-alert-critical-accent" : "bg-alert-warning-bg text-alert-warning-accent"
                         }`}>
                           <Bell size={11} />
                           {isOverdue ? `${Math.abs(daysUntil)}d overdue` : `Due in ${daysUntil}d`}
@@ -422,13 +431,13 @@ export default function AgreementsPage() {
                       )}
                       <button
                         onClick={() => setExpandedId(isExpanded ? null : agreement.id)}
-                        className="text-gray-400 hover:text-gray-600 transition-colors p-1"
+                        className="text-muted hover:text-foreground transition-colors p-1"
                       >
                         {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
                       </button>
                       <button
                         onClick={() => handleDeleteAgreement(agreement.id)}
-                        className="text-gray-300 hover:text-red-400 transition-colors p-1"
+                        className="text-border hover:text-alert-critical-accent transition-colors p-1"
                         title="Delete agreement"
                       >
                         <Trash2 size={16} />
@@ -438,42 +447,42 @@ export default function AgreementsPage() {
 
                   {/* Friction Insight */}
                   {agreement.frictionInsight && (
-                    <div className="bg-gray-50 rounded-xl p-4 mb-4 border-l-4" style={{ borderLeftColor: info.color }}>
-                      <p className="text-sm text-gray-700 italic">{agreement.frictionInsight}</p>
+                    <div className="bg-subtle rounded-xl p-4 mb-4 border-l-4" style={{ borderLeftColor: info.color }}>
+                      <p className="text-sm text-foreground italic">{agreement.frictionInsight}</p>
                     </div>
                   )}
 
                   {/* Commitments summary */}
                   <div className="grid grid-cols-2 gap-4 mb-4">
                     <div>
-                      <div className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-2">
+                      <div className="text-xs font-bold text-muted uppercase tracking-wide mb-2">
                         {agreement.personAName.split(" ")[0]} Commits To
                       </div>
                       <ul className="space-y-1.5">
                         {agreement.personACommitments.slice(0, isExpanded ? undefined : 2).map((c, i) => (
-                          <li key={i} className="flex items-start gap-2 text-sm text-gray-700">
-                            <CheckCircle2 size={13} className="text-[#29B6F6] mt-0.5 flex-shrink-0" />
+                          <li key={i} className="flex items-start gap-2 text-sm text-foreground">
+                            <CheckCircle2 size={13} className="text-disc-c mt-0.5 flex-shrink-0" />
                             {c}
                           </li>
                         ))}
                         {!isExpanded && agreement.personACommitments.length > 2 && (
-                          <li className="text-xs text-gray-400">+{agreement.personACommitments.length - 2} more</li>
+                          <li className="text-xs text-muted">+{agreement.personACommitments.length - 2} more</li>
                         )}
                       </ul>
                     </div>
                     <div>
-                      <div className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-2">
+                      <div className="text-xs font-bold text-muted uppercase tracking-wide mb-2">
                         {agreement.personBName.split(" ")[0]} Commits To
                       </div>
                       <ul className="space-y-1.5">
                         {agreement.personBCommitments.slice(0, isExpanded ? undefined : 2).map((c, i) => (
-                          <li key={i} className="flex items-start gap-2 text-sm text-gray-700">
-                            <CheckCircle2 size={13} className="text-green-500 mt-0.5 flex-shrink-0" />
+                          <li key={i} className="flex items-start gap-2 text-sm text-foreground">
+                            <CheckCircle2 size={13} className="text-alert-success-accent mt-0.5 flex-shrink-0" />
                             {c}
                           </li>
                         ))}
                         {!isExpanded && agreement.personBCommitments.length > 2 && (
-                          <li className="text-xs text-gray-400">+{agreement.personBCommitments.length - 2} more</li>
+                          <li className="text-xs text-muted">+{agreement.personBCommitments.length - 2} more</li>
                         )}
                       </ul>
                     </div>
@@ -489,24 +498,29 @@ export default function AgreementsPage() {
             })}
           </div>
         )}
-      </div>
+      </motion.div>
     );
   }
 
   // ── Select People ─────────────────────────────────────────────
   if (step === "select-people") {
     return (
-      <div className="p-8 animate-fade-in max-w-3xl">
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.3 }}
+        className="p-8 max-w-3xl"
+      >
         <div className="mb-8">
-          <h1 className="text-2xl font-extrabold text-gray-900 mb-1" style={{ letterSpacing: "-0.02em" }}>
+          <h1 className="text-2xl font-extrabold text-foreground mb-1 tracking-tight">
             Who is this agreement between?
           </h1>
-          <p className="text-gray-500 text-sm">Select any two people — leader to staff, staff to staff, any combination.</p>
+          <p className="text-muted text-sm">Select any two people -- leader to staff, staff to staff, any combination.</p>
         </div>
 
         <div className="grid grid-cols-2 gap-6 mb-8">
           <div>
-            <div className="text-xs font-bold uppercase tracking-wide text-[#29B6F6] mb-3">Person A</div>
+            <div className="text-xs font-bold uppercase tracking-wide text-disc-c mb-3">Person A</div>
             <div className="space-y-2">
               {allPeople.map(person => {
                 const dominant = person.disc?.natural ? getDominantDisc(person.disc.natural) : "S";
@@ -517,21 +531,21 @@ export default function AgreementsPage() {
                     onClick={() => !isDisabled && setPersonA(person)}
                     disabled={isDisabled}
                     className={`w-full text-left p-3 rounded-xl border-2 transition-all ${
-                      isSelected ? "border-[#29B6F6] shadow-md" :
-                      isDisabled ? "opacity-40 cursor-not-allowed border-gray-100" :
-                      "border-gray-100 hover:border-gray-200 hover:shadow-sm"
+                      isSelected ? "border-disc-c shadow-md" :
+                      isDisabled ? "opacity-40 cursor-not-allowed border-border" :
+                      "border-border hover:shadow-sm"
                     }`}
-                    style={isSelected ? { background: "rgba(41,182,246,0.05)" } : { background: "white" }}>
+                    style={{ background: isSelected ? "color-mix(in srgb, var(--disc-c) 5%, transparent)" : "var(--bg-card)" }}>
                     <div className="flex items-center gap-2">
                       <div className="w-8 h-8 rounded-lg flex items-center justify-center text-white font-bold text-xs"
                         style={{ background: DISC_COLORS[dominant] }}>
                         {person.name.split(" ").map(n => n[0]).join("").slice(0, 2)}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <div className="font-semibold text-gray-900 text-sm truncate">{person.name}</div>
-                        <div className="text-xs text-gray-400">{person.role}</div>
+                        <div className="font-semibold text-foreground text-sm truncate">{person.name}</div>
+                        <div className="text-xs text-muted">{person.role}</div>
                       </div>
-                      {isSelected && <CheckCircle2 size={15} className="text-[#29B6F6]" />}
+                      {isSelected && <CheckCircle2 size={15} className="text-disc-c" />}
                     </div>
                   </button>
                 );
@@ -539,7 +553,7 @@ export default function AgreementsPage() {
             </div>
           </div>
           <div>
-            <div className="text-xs font-bold uppercase tracking-wide text-green-600 mb-3">Person B</div>
+            <div className="text-xs font-bold uppercase tracking-wide text-alert-success-accent mb-3">Person B</div>
             <div className="space-y-2">
               {allPeople.map(person => {
                 const dominant = person.disc?.natural ? getDominantDisc(person.disc.natural) : "S";
@@ -550,21 +564,21 @@ export default function AgreementsPage() {
                     onClick={() => !isDisabled && setPersonB(person)}
                     disabled={isDisabled}
                     className={`w-full text-left p-3 rounded-xl border-2 transition-all ${
-                      isSelected ? "border-green-500 shadow-md" :
-                      isDisabled ? "opacity-40 cursor-not-allowed border-gray-100" :
-                      "border-gray-100 hover:border-gray-200 hover:shadow-sm"
+                      isSelected ? "border-alert-success-accent shadow-md" :
+                      isDisabled ? "opacity-40 cursor-not-allowed border-border" :
+                      "border-border hover:shadow-sm"
                     }`}
-                    style={isSelected ? { background: "rgba(34,197,94,0.05)" } : { background: "white" }}>
+                    style={{ background: isSelected ? "color-mix(in srgb, var(--alert-success-accent) 5%, transparent)" : "var(--bg-card)" }}>
                     <div className="flex items-center gap-2">
                       <div className="w-8 h-8 rounded-lg flex items-center justify-center text-white font-bold text-xs"
                         style={{ background: DISC_COLORS[dominant] }}>
                         {person.name.split(" ").map(n => n[0]).join("").slice(0, 2)}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <div className="font-semibold text-gray-900 text-sm truncate">{person.name}</div>
-                        <div className="text-xs text-gray-400">{person.role}</div>
+                        <div className="font-semibold text-foreground text-sm truncate">{person.name}</div>
+                        <div className="text-xs text-muted">{person.role}</div>
                       </div>
-                      {isSelected && <CheckCircle2 size={15} className="text-green-500" />}
+                      {isSelected && <CheckCircle2 size={15} className="text-alert-success-accent" />}
                     </div>
                   </button>
                 );
@@ -574,27 +588,32 @@ export default function AgreementsPage() {
         </div>
 
         <div className="flex items-center justify-between">
-          <button onClick={resetWizard} className="lwyl-btn-secondary">Cancel</button>
+          <button onClick={resetWizard} className="px-4 py-2 rounded-lg border border-border text-foreground font-semibold text-sm">Cancel</button>
           <button
             onClick={() => setStep("select-friction")}
             disabled={!personA || !personB || personA.id === personB.id}
-            className="lwyl-btn-primary flex items-center gap-2 disabled:opacity-50">
+            className="px-4 py-2 rounded-lg bg-nav text-white font-semibold text-sm flex items-center gap-2 disabled:opacity-50">
             Continue <ChevronRight size={16} />
           </button>
         </div>
-      </div>
+      </motion.div>
     );
   }
 
   // ── Select Friction ───────────────────────────────────────────
   if (step === "select-friction") {
     return (
-      <div className="p-8 animate-fade-in max-w-3xl">
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.3 }}
+        className="p-8 max-w-3xl"
+      >
         <div className="mb-8">
-          <h1 className="text-2xl font-extrabold text-gray-900 mb-1" style={{ letterSpacing: "-0.02em" }}>
+          <h1 className="text-2xl font-extrabold text-foreground mb-1 tracking-tight">
             What type of friction are you addressing?
           </h1>
-          <p className="text-gray-500 text-sm">Between {personA?.name} and {personB?.name}</p>
+          <p className="text-muted text-sm">Between {personA?.name} and {personB?.name}</p>
         </div>
         <div className="grid grid-cols-3 gap-5 mb-8">
           {Object.entries(FRICTION_INFO).map(([type, info]) => (
@@ -608,19 +627,19 @@ export default function AgreementsPage() {
                 }
                 setStep("build");
               }}
-              className="lwyl-card text-left hover:shadow-md transition-all group cursor-pointer">
+              className="bg-card rounded-xl p-6 border border-border shadow-sm text-left hover:shadow-md transition-all group cursor-pointer">
               <div className="w-12 h-12 rounded-xl flex items-center justify-center text-white font-extrabold text-lg mb-4"
                 style={{ background: info.color }}>
                 {type === "preference" ? "P" : type === "passion" ? "V" : "Pr"}
               </div>
-              <h3 className="text-base font-bold text-gray-900 mb-1">{info.label}</h3>
-              <p className="text-xs text-gray-400 mb-2">{info.signal}</p>
-              <p className="text-sm text-gray-500">{info.desc}</p>
+              <h3 className="text-base font-bold text-foreground mb-1">{info.label}</h3>
+              <p className="text-xs text-muted mb-2">{info.signal}</p>
+              <p className="text-sm text-muted">{info.desc}</p>
             </button>
           ))}
         </div>
-        <button onClick={() => setStep("select-people")} className="lwyl-btn-secondary">Back</button>
-      </div>
+        <button onClick={() => setStep("select-people")} className="px-4 py-2 rounded-lg border border-border text-foreground font-semibold text-sm">Back</button>
+      </motion.div>
     );
   }
 
@@ -630,16 +649,21 @@ export default function AgreementsPage() {
     const prompts = GUIDED_PROMPTS[selectedFriction];
 
     return (
-      <div className="p-8 animate-fade-in max-w-4xl">
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.3 }}
+        className="p-8 max-w-4xl"
+      >
         <div className="flex items-start justify-between mb-6">
           <div>
-            <h1 className="text-2xl font-extrabold text-gray-900 mb-1" style={{ letterSpacing: "-0.02em" }}>
+            <h1 className="text-2xl font-extrabold text-foreground mb-1 tracking-tight">
               Build the Agreement
             </h1>
             <div className="flex items-center gap-2">
-              <span className="text-gray-500 text-sm">{personA.name} & {personB.name} ·</span>
+              <span className="text-muted text-sm">{personA.name} & {personB.name} {"\u00b7"}</span>
               <span className="text-xs font-bold px-2 py-0.5 rounded-full"
-                style={{ background: `${info.color}15`, color: info.color }}>
+                style={{ background: `color-mix(in srgb, ${info.color} 8%, transparent)`, color: info.color }}>
                 {info.label}
               </span>
             </div>
@@ -647,38 +671,39 @@ export default function AgreementsPage() {
         </div>
 
         {/* Framework principle */}
-        <div className="p-4 rounded-xl mb-6 border-l-4" style={{ background: `${info.color}08`, borderLeftColor: info.color }}>
+        <div className="p-4 rounded-xl mb-6 border-l-4"
+          style={{ background: `color-mix(in srgb, ${info.color} 5%, transparent)`, borderLeftColor: info.color }}>
           <div className="text-xs font-bold uppercase tracking-wide mb-1" style={{ color: info.color }}>
-            BTCG Framework — Connection Agreement Principle
+            BTCG Framework -- Connection Agreement Principle
           </div>
-          <p className="text-sm text-gray-700">
+          <p className="text-sm text-foreground">
             A Connection Agreement is not a performance improvement plan. It is a <strong>negotiated commitment</strong> between two people who choose to invest in their working relationship. Both parties own their side. Both parties sign their name to it.
           </p>
         </div>
 
         {frictionInsight && (
-          <div className="rounded-xl p-4 mb-6 bg-gray-50 border border-gray-100">
-            <div className="text-xs font-bold uppercase tracking-wide text-gray-500 mb-1">Friction Insight</div>
-            <p className="text-sm text-gray-700">{frictionInsight}</p>
+          <div className="rounded-xl p-4 mb-6 bg-subtle border border-border">
+            <div className="text-xs font-bold uppercase tracking-wide text-muted mb-1">Friction Insight</div>
+            <p className="text-sm text-foreground">{frictionInsight}</p>
           </div>
         )}
 
         <div className="grid grid-cols-2 gap-6 mb-6">
           {/* Person A Commitments */}
-          <div className="lwyl-card">
+          <div className="bg-card rounded-xl p-6 border border-border shadow-sm">
             <div className="flex items-center gap-2 mb-4">
               <div className="w-8 h-8 rounded-lg flex items-center justify-center text-white font-bold text-xs"
-                style={{ background: personA.disc?.natural ? DISC_COLORS[getDominantDisc(personA.disc.natural)] : "#29B6F6" }}>
+                style={{ background: personA.disc?.natural ? DISC_COLORS[getDominantDisc(personA.disc.natural)] : "var(--disc-c)" }}>
                 {personA.name.split(" ").map(n => n[0]).join("").slice(0, 2)}
               </div>
-              <h3 className="text-sm font-bold text-gray-900">{personA.name.split(" ")[0]} Commits To</h3>
+              <h3 className="text-sm font-bold text-foreground">{personA.name.split(" ")[0]} Commits To</h3>
             </div>
 
-            <div className="text-xs text-gray-400 mb-3">Guided prompts — edit to make them specific:</div>
+            <div className="text-xs text-muted mb-3">Guided prompts -- edit to make them specific:</div>
             <div className="space-y-3">
               {personACommitments.map((commitment, i) => (
                 <div key={i} className="flex items-start gap-2">
-                  <CheckCircle2 size={16} className="text-[#29B6F6] mt-2.5 flex-shrink-0" />
+                  <CheckCircle2 size={16} className="text-disc-c mt-2.5 flex-shrink-0" />
                   <textarea
                     value={commitment}
                     onChange={e => {
@@ -687,37 +712,37 @@ export default function AgreementsPage() {
                       setPersonACommitments(updated);
                     }}
                     placeholder={prompts.leaderPrompts[i % prompts.leaderPrompts.length]}
-                    className="flex-1 text-sm border border-gray-200 rounded-lg px-3 py-2 outline-none focus:border-[#29B6F6] resize-none"
+                    className="flex-1 text-sm border border-border rounded-lg px-3 py-2 outline-none focus:border-disc-c resize-none"
                     rows={2}
                   />
                   <button onClick={() => setPersonACommitments(prev => prev.filter((_, j) => j !== i))}
-                    className="text-gray-300 hover:text-red-400 mt-2 transition-colors">
+                    className="text-border hover:text-alert-critical-accent mt-2 transition-colors">
                     <X size={14} />
                   </button>
                 </div>
               ))}
               <button onClick={() => setPersonACommitments(prev => [...prev, ""])}
-                className="text-sm text-[#29B6F6] font-semibold flex items-center gap-1 hover:text-[#0288D1] transition-colors">
+                className="text-sm text-disc-c font-semibold flex items-center gap-1 hover:opacity-80 transition-opacity">
                 <Plus size={14} /> Add commitment
               </button>
             </div>
           </div>
 
           {/* Person B Commitments */}
-          <div className="lwyl-card">
+          <div className="bg-card rounded-xl p-6 border border-border shadow-sm">
             <div className="flex items-center gap-2 mb-4">
               <div className="w-8 h-8 rounded-lg flex items-center justify-center text-white font-bold text-xs"
-                style={{ background: personB.disc?.natural ? DISC_COLORS[getDominantDisc(personB.disc.natural)] : "#4CAF50" }}>
+                style={{ background: personB.disc?.natural ? DISC_COLORS[getDominantDisc(personB.disc.natural)] : "var(--disc-s)" }}>
                 {personB.name.split(" ").map(n => n[0]).join("").slice(0, 2)}
               </div>
-              <h3 className="text-sm font-bold text-gray-900">{personB.name.split(" ")[0]} Commits To</h3>
+              <h3 className="text-sm font-bold text-foreground">{personB.name.split(" ")[0]} Commits To</h3>
             </div>
 
-            <div className="text-xs text-gray-400 mb-3">Guided prompts — edit to make them specific:</div>
+            <div className="text-xs text-muted mb-3">Guided prompts -- edit to make them specific:</div>
             <div className="space-y-3">
               {personBCommitments.map((commitment, i) => (
                 <div key={i} className="flex items-start gap-2">
-                  <CheckCircle2 size={16} className="text-green-500 mt-2.5 flex-shrink-0" />
+                  <CheckCircle2 size={16} className="text-alert-success-accent mt-2.5 flex-shrink-0" />
                   <textarea
                     value={commitment}
                     onChange={e => {
@@ -726,17 +751,17 @@ export default function AgreementsPage() {
                       setPersonBCommitments(updated);
                     }}
                     placeholder={prompts.memberPrompts[i % prompts.memberPrompts.length]}
-                    className="flex-1 text-sm border border-gray-200 rounded-lg px-3 py-2 outline-none focus:border-[#29B6F6] resize-none"
+                    className="flex-1 text-sm border border-border rounded-lg px-3 py-2 outline-none focus:border-disc-c resize-none"
                     rows={2}
                   />
                   <button onClick={() => setPersonBCommitments(prev => prev.filter((_, j) => j !== i))}
-                    className="text-gray-300 hover:text-red-400 mt-2 transition-colors">
+                    className="text-border hover:text-alert-critical-accent mt-2 transition-colors">
                     <X size={14} />
                   </button>
                 </div>
               ))}
               <button onClick={() => setPersonBCommitments(prev => [...prev, ""])}
-                className="text-sm text-[#29B6F6] font-semibold flex items-center gap-1 hover:text-[#0288D1] transition-colors">
+                className="text-sm text-disc-c font-semibold flex items-center gap-1 hover:opacity-80 transition-opacity">
                 <Plus size={14} /> Add commitment
               </button>
             </div>
@@ -744,14 +769,14 @@ export default function AgreementsPage() {
         </div>
 
         <div className="flex items-center justify-between">
-          <button onClick={() => setStep("select-friction")} className="lwyl-btn-secondary">Back</button>
+          <button onClick={() => setStep("select-friction")} className="px-4 py-2 rounded-lg border border-border text-foreground font-semibold text-sm">Back</button>
           <button onClick={() => setStep("schedule")}
             disabled={personACommitments.filter(c => c.trim()).length === 0}
-            className="lwyl-btn-primary flex items-center gap-2 disabled:opacity-50">
+            className="px-4 py-2 rounded-lg bg-nav text-white font-semibold text-sm flex items-center gap-2 disabled:opacity-50">
             Set Check-In Schedule <ChevronRight size={16} />
           </button>
         </div>
-      </div>
+      </motion.div>
     );
   }
 
@@ -762,32 +787,37 @@ export default function AgreementsPage() {
     };
 
     return (
-      <div className="p-8 animate-fade-in max-w-2xl">
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.3 }}
+        className="p-8 max-w-2xl"
+      >
         <div className="mb-8">
-          <h1 className="text-2xl font-extrabold text-gray-900 mb-1" style={{ letterSpacing: "-0.02em" }}>
+          <h1 className="text-2xl font-extrabold text-foreground mb-1 tracking-tight">
             Schedule Your Check-Ins
           </h1>
-          <p className="text-gray-500 text-sm">
+          <p className="text-muted text-sm">
             Every Connection Agreement needs a check-in cadence. This is how you know if the bridge is holding.
           </p>
         </div>
 
-        <div className="lwyl-card mb-6">
+        <div className="bg-card rounded-xl p-6 border border-border shadow-sm mb-6">
           <div className="flex items-center gap-2 mb-5">
-            <Calendar size={18} className="text-[#29B6F6]" />
-            <h3 className="font-bold text-gray-900">Check-In Cadence</h3>
+            <Calendar size={18} className="text-disc-c" />
+            <h3 className="font-bold text-foreground">Check-In Cadence</h3>
           </div>
 
           <div className="mb-5">
-            <label className="block text-sm font-semibold text-gray-700 mb-3">How often will you check in?</label>
+            <label className="block text-sm font-semibold text-foreground mb-3">How often will you check in?</label>
             <div className="grid grid-cols-2 gap-3">
               {["weekly", "biweekly", "monthly", "quarterly"].map(f => (
                 <button key={f}
                   onClick={() => setCheckInFreq(f)}
                   className={`p-3 rounded-xl border-2 text-sm font-semibold transition-all ${
-                    checkInFreq === f ? "border-[#29B6F6] text-[#29B6F6]" : "border-gray-100 text-gray-600 hover:border-gray-200"
+                    checkInFreq === f ? "border-disc-c text-disc-c" : "border-border text-foreground hover:shadow-sm"
                   }`}
-                  style={checkInFreq === f ? { background: "rgba(41,182,246,0.05)" } : { background: "white" }}>
+                  style={{ background: checkInFreq === f ? "color-mix(in srgb, var(--disc-c) 5%, transparent)" : "var(--bg-card)" }}>
                   {freqLabels[f]}
                 </button>
               ))}
@@ -795,47 +825,47 @@ export default function AgreementsPage() {
           </div>
 
           <div className="mb-5">
-            <label className="block text-sm font-semibold text-gray-700 mb-2">First Check-In Date</label>
+            <label className="block text-sm font-semibold text-foreground mb-2">First Check-In Date</label>
             <input type="date" value={checkInDate} onChange={e => setCheckInDate(e.target.value)}
-              className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm focus:outline-none focus:border-[#29B6F6] bg-white" />
+              className="w-full px-4 py-3 rounded-xl border border-border text-sm focus:outline-none focus:border-disc-c bg-card" />
           </div>
 
           <div className="mb-5">
-            <label className="block text-sm font-semibold text-gray-700 mb-2">
+            <label className="block text-sm font-semibold text-foreground mb-2">
               Remind both people <strong>{checkInReminder}</strong> day{checkInReminder !== 1 ? "s" : ""} before
             </label>
             <input type="range" min={0} max={7} value={checkInReminder} onChange={e => setCheckInReminder(Number(e.target.value))}
-              className="w-full accent-[#29B6F6]" />
-            <div className="flex justify-between text-xs text-gray-400 mt-1">
+              className="w-full accent-disc-c" />
+            <div className="flex justify-between text-xs text-muted mt-1">
               <span>Same day</span><span>1 week before</span>
             </div>
           </div>
 
           <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-2">Check-In Agenda (optional)</label>
+            <label className="block text-sm font-semibold text-foreground mb-2">Check-In Agenda (optional)</label>
             <textarea value={checkInNotes} onChange={e => setCheckInNotes(e.target.value)} rows={3}
               placeholder="What will you review? (e.g., Review commitments, identify new friction, celebrate wins)"
-              className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm focus:outline-none focus:border-[#29B6F6] bg-white resize-none" />
+              className="w-full px-4 py-3 rounded-xl border border-border text-sm focus:outline-none focus:border-disc-c bg-card resize-none" />
           </div>
         </div>
 
-        <div className="p-4 rounded-xl bg-blue-50 border border-blue-100 mb-6">
+        <div className="p-4 rounded-xl bg-alert-info-bg border border-alert-info-border mb-6">
           <div className="flex items-center gap-2 mb-1">
-            <Bell size={14} className="text-[#29B6F6]" />
-            <span className="text-sm font-semibold text-[#0288D1]">What happens at check-in?</span>
+            <Bell size={14} className="text-disc-c" />
+            <span className="text-sm font-semibold text-alert-info-accent">What happens at check-in?</span>
           </div>
-          <p className="text-sm text-gray-600">
-            Review each commitment. Celebrate what&apos;s working. Identify what needs to be amended. The agreement is a living document — it should evolve as the relationship does.
+          <p className="text-sm text-foreground">
+            Review each commitment. Celebrate what&apos;s working. Identify what needs to be amended. The agreement is a living document -- it should evolve as the relationship does.
           </p>
         </div>
 
         <div className="flex items-center justify-between">
-          <button onClick={() => setStep("build")} className="lwyl-btn-secondary">Back</button>
-          <button onClick={handleSaveAgreement} className="lwyl-btn-primary flex items-center gap-2">
+          <button onClick={() => setStep("build")} className="px-4 py-2 rounded-lg border border-border text-foreground font-semibold text-sm">Back</button>
+          <button onClick={handleSaveAgreement} className="px-4 py-2 rounded-lg bg-nav text-white font-semibold text-sm flex items-center gap-2">
             <Handshake size={16} /> Save Agreement
           </button>
         </div>
-      </div>
+      </motion.div>
     );
   }
 

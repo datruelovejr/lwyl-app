@@ -4,8 +4,15 @@ import { useLWYL } from "../../contexts/LWYLContext";
 import { useRouter } from "next/navigation";
 import { calculateFriction } from "../../utils/friction";
 import { getEnvironmentTaxSummary } from "../../knowledge/assessmentInsights";
-
-const discColor = { D: "#C62828", I: "#F59E0B", S: "#16A34A", C: "#2563EB" };
+import { SectionHeader } from "../../components/ui/SectionHeader";
+import { InsightCard } from "../../components/ui/InsightCard";
+import { PersonChip } from "../../components/ui/PersonChip";
+import { StatBlock } from "../../components/ui/StatBlock";
+import { ActionLink } from "../../components/ui/ActionLink";
+import { AlertCard } from "../../components/ui/AlertCard";
+import { Card } from "../../components/ui/Card";
+import { LoadingMoment } from "../../components/ui/LoadingMoment";
+import { motion } from "framer-motion";
 
 function getDom(nat) {
   return Object.entries(nat).sort(([, a], [, b]) => b - a)[0][0];
@@ -69,9 +76,30 @@ function getPairStory(personA, personB, friction) {
   return stories;
 }
 
+function PriorityBanner({ highCount, totalPairs }) {
+  if (highCount === 0) return null;
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.3, delay: 0.15, ease: 'easeOut' }}
+      className="rounded-xl border border-l-4 border-friction-high bg-alert-critical-bg px-5 py-4 mb-8"
+    >
+      <div className="text-sm font-bold text-alert-critical-accent mb-1">
+        {highCount} relationship{highCount !== 1 ? 's' : ''} carrying friction that costs your team energy every day
+      </div>
+      <div className="text-xs text-alert-critical-text leading-relaxed">
+        Out of {totalPairs} total relationships, these are the ones that need you most. Each one has a story, a cost, and a specific step you can take today.
+      </div>
+    </motion.div>
+  );
+}
+
 export default function OrgDashboardPage() {
-  const { org, orgPeople, selTeamId, setSelTeamId } = useLWYL();
+  const { org, orgPeople, selTeamId, setSelTeamId, isLoading } = useLWYL();
   const router = useRouter();
+
+  if (isLoading) return <div className="max-w-3xl mx-auto px-8 py-6"><LoadingMoment message="Loading your team's friction signals..." /></div>;
 
   const teams = org?.teams || [];
   const members = orgPeople.filter(p =>
@@ -88,6 +116,7 @@ export default function OrgDashboardPage() {
   }
   pairs.sort((a, b) => b.friction.totalScore - a.friction.totalScore);
 
+  const highCount = pairs.filter(p => p.friction.tier === "high").length;
   const urgentPairs = pairs.filter(p => p.friction.tier !== "low").slice(0, 5);
 
   const taxData = members.map(p => ({ person: p, tax: getEnvironmentTaxSummary(p) }))
@@ -99,13 +128,10 @@ export default function OrgDashboardPage() {
 
   return (
     <div className="max-w-3xl mx-auto px-8 py-6">
-      {/* Header */}
-      <div className="mb-8">
-        <h1 className="text-2xl font-extrabold text-gray-900 tracking-tight">{org?.name || "Dashboard"}</h1>
-        <p className="text-sm text-gray-400 mt-1">
-          {completePeople.length} assessed · {pendingPeople.length} pending · {teams.length} team{teams.length !== 1 ? "s" : ""}
-        </p>
-      </div>
+      <SectionHeader
+        title={org?.name || "Dashboard"}
+        subtitle={`${completePeople.length} assessed \u00b7 ${pendingPeople.length} pending \u00b7 ${teams.length} team${teams.length !== 1 ? 's' : ''}`}
+      />
 
       {/* Team selector */}
       {teams.length > 1 && (
@@ -113,7 +139,7 @@ export default function OrgDashboardPage() {
           <button
             onClick={() => setSelTeamId(null)}
             className={`px-4 py-2 rounded-full text-sm font-semibold transition-colors ${
-              !selTeamId ? "bg-gray-900 text-white" : "bg-white text-gray-500 border border-gray-200 hover:border-gray-300"
+              !selTeamId ? "bg-nav text-white" : "bg-card text-muted border border-border hover:border-foreground/30"
             }`}>
             All Teams
           </button>
@@ -121,7 +147,7 @@ export default function OrgDashboardPage() {
             <button key={t.id}
               onClick={() => setSelTeamId(t.id)}
               className={`px-4 py-2 rounded-full text-sm font-semibold transition-colors ${
-                selTeamId === t.id ? "bg-gray-900 text-white" : "bg-white text-gray-500 border border-gray-200 hover:border-gray-300"
+                selTeamId === t.id ? "bg-nav text-white" : "bg-card text-muted border border-border hover:border-foreground/30"
               }`}>
               {t.name}
             </button>
@@ -131,119 +157,170 @@ export default function OrgDashboardPage() {
 
       {/* No data */}
       {members.length < 2 && (
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-12 text-center">
-          <p className="text-sm font-semibold text-gray-500">Need at least 2 assessed team members</p>
-          <p className="text-xs text-gray-400 mt-1">Upload assessments to see what needs your attention.</p>
+        <div className="bg-card rounded-2xl border border-border shadow-sm p-12 text-center">
+          <p className="text-sm font-semibold text-muted">Need at least 2 assessed team members</p>
+          <p className="text-xs text-muted mt-1">Once your team completes their assessments, you will see your team's relationship signals here -- the connections, the friction points, and exactly where the bridges need to be built.</p>
         </div>
       )}
+
+      {/* Summary stats */}
+      {members.length >= 2 && pairs.length > 0 && (
+        <div className="flex gap-3 mb-8 flex-wrap">
+          <StatBlock
+            value={highCount}
+            label="High Friction"
+            sublabel="need attention right now"
+            accentColor="friction-high"
+            enterDelay={0}
+          />
+          <StatBlock
+            value={pairs.filter(p => p.friction.tier === "moderate").length}
+            label="Worth Watching"
+            sublabel="moderate friction present"
+            accentColor="friction-moderate"
+            enterDelay={100}
+          />
+          <StatBlock
+            value={pairs.filter(p => p.friction.tier === "low").length}
+            label="Naturally Aligned"
+            sublabel="low friction relationships"
+            accentColor="friction-low"
+            enterDelay={200}
+          />
+        </div>
+      )}
+
+      {/* Priority Alert Banner */}
+      <PriorityBanner highCount={highCount} totalPairs={pairs.length} />
 
       {/* Urgent Relationships */}
       {urgentPairs.length > 0 && (
         <div className="mb-10">
-          <div className="mb-5">
-            <h2 className="text-lg font-bold text-gray-900">What needs your attention</h2>
-            <p className="text-xs text-gray-400 mt-0.5">
-              {pairs.filter(p => p.friction.tier === "high").length} high-friction relationship{pairs.filter(p => p.friction.tier === "high").length !== 1 ? "s" : ""} right now
-            </p>
-          </div>
+          <SectionHeader
+            title="What needs your attention"
+            subtitle={`Top ${urgentPairs.length} friction relationships`}
+          />
 
-          <div className="space-y-4">
-            {urgentPairs.map((pair, i) => {
-              const a = pair.personA.name.split(" ")[0];
-              const b = pair.personB.name.split(" ")[0];
-              const topStory = getPairStory(pair.personA, pair.personB, pair.friction)[0];
-              const isHigh = pair.friction.tier === "high";
-              const tierColor = isHigh ? "#991B1B" : "#C2410C";
-              const aDom = getDom(pair.personA.disc.natural);
-              const bDom = getDom(pair.personB.disc.natural);
+          {urgentPairs.map((pair, i) => {
+            const topStory = getPairStory(pair.personA, pair.personB, pair.friction)[0];
+            const isHigh = pair.friction.tier === "high";
+            const aDom = getDom(pair.personA.disc.natural);
+            const bDom = getDom(pair.personB.disc.natural);
 
-              const taxA = getEnvironmentTaxSummary(pair.personA);
-              const taxB = getEnvironmentTaxSummary(pair.personB);
-              const stressedPerson = taxA.totalGap >= 80 ? pair.personA : taxB.totalGap >= 80 ? pair.personB : null;
+            const taxA = getEnvironmentTaxSummary(pair.personA);
+            const taxB = getEnvironmentTaxSummary(pair.personB);
+            const stressedPerson = taxA.totalGap >= 80 ? pair.personA : taxB.totalGap >= 80 ? pair.personB : null;
+            const stressedGap = stressedPerson === pair.personA ? taxA.totalGap : stressedPerson === pair.personB ? taxB.totalGap : 0;
 
-              return (
-                <div key={i} className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden"
-                  style={{ borderLeft: `4px solid ${tierColor}` }}>
-                  <div className="p-5">
-                    <div className="flex items-center gap-3 mb-3">
-                      <div className="flex -space-x-1.5">
-                        <div className="w-8 h-8 rounded-lg flex items-center justify-center text-white text-xs font-bold ring-2 ring-white"
-                          style={{ background: discColor[aDom] }}>
-                          {pair.personA.name.split(" ").map(n => n[0]).join("").slice(0, 2)}
-                        </div>
-                        <div className="w-8 h-8 rounded-lg flex items-center justify-center text-white text-xs font-bold ring-2 ring-white"
-                          style={{ background: discColor[bDom] }}>
-                          {pair.personB.name.split(" ").map(n => n[0]).join("").slice(0, 2)}
-                        </div>
-                      </div>
-                      <div className="flex-1">
-                        <span className="text-sm font-bold text-gray-900">{a} & {b}</span>
-                      </div>
-                      <span className="text-xs font-semibold px-2.5 py-1 rounded-full"
-                        style={{ background: `${tierColor}10`, color: tierColor }}>
-                        {isHigh ? "High Friction" : "Moderate"}
-                      </span>
+            return (
+              <InsightCard
+                key={i}
+                variant={isHigh ? "priority" : "standard"}
+                enterDelay={i * 80}
+              >
+                {/* Top row: people + severity */}
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <div className="flex -space-x-1">
+                      <PersonChip name={pair.personA.name} disc={aDom} size="sm" />
+                      <PersonChip name={pair.personB.name} disc={bDom} size="sm" />
                     </div>
-
-                    {topStory && (
-                      <p className="text-sm text-gray-600 leading-relaxed mb-3">{topStory.story}</p>
-                    )}
-
-                    {topStory && (
-                      <div className="bg-emerald-50 border border-emerald-100 rounded-xl p-3.5 mb-3">
-                        <div className="text-[11px] font-bold text-emerald-700 uppercase tracking-wide mb-1">What to do about it</div>
-                        <p className="text-xs text-emerald-900 leading-relaxed">{topStory.fix}</p>
-                      </div>
-                    )}
-
-                    {stressedPerson && (
-                      <p className="text-xs text-amber-700 mb-3">
-                        {stressedPerson.name.split(" ")[0]} is carrying {stressedPerson === pair.personA ? taxA.totalGap : taxB.totalGap} gap points of environment tax. This friction may be amplified by stress.
-                      </p>
-                    )}
-
-                    <div className="flex gap-4">
-                      <button onClick={() => router.push("/app/friction")}
-                        className="text-xs font-semibold hover:underline" style={{ color: tierColor }}>
-                        See full analysis →
-                      </button>
-                      <button onClick={() => router.push("/app/bridge")}
-                        className="text-xs font-semibold text-sky-500 hover:underline">
-                        Start Bridge Wizard →
-                      </button>
-                    </div>
+                    <span className="text-sm font-bold text-foreground">
+                      {pair.personA.name.split(" ")[0]} & {pair.personB.name.split(" ")[0]}
+                    </span>
                   </div>
+                  <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${
+                    isHigh
+                      ? 'bg-friction-high/10 text-friction-high'
+                      : 'bg-friction-moderate/10 text-friction-moderate'
+                  }`}>
+                    {isHigh ? "High Friction" : "Moderate"}
+                  </span>
                 </div>
-              );
-            })}
-          </div>
+
+                {/* Story */}
+                {topStory && (
+                  <p className="text-sm text-foreground/80 leading-relaxed mb-1">{topStory.story}</p>
+                )}
+
+                {/* What to do about it */}
+                {topStory && (
+                  <InsightCard.Callout>
+                    <div className="text-[11px] font-bold text-foreground uppercase tracking-wide mb-1">What to do about it</div>
+                    {topStory.fix}
+                  </InsightCard.Callout>
+                )}
+
+                {/* Cost row */}
+                {stressedPerson && (
+                  <InsightCard.CostRow>
+                    <svg className="w-3.5 h-3.5 text-friction-moderate shrink-0" viewBox="0 0 16 16" fill="currentColor">
+                      <path d="M8 1a7 7 0 100 14A7 7 0 008 1zm0 2.5a1 1 0 011 1V8a1 1 0 01-2 0V4.5a1 1 0 011-1zM8 10.5a1 1 0 110 2 1 1 0 010-2z"/>
+                    </svg>
+                    {stressedPerson.name.split(" ")[0]} is carrying {stressedGap} gap points of environment tax. This friction may be amplified by stress.
+                  </InsightCard.CostRow>
+                )}
+
+                {/* Actions */}
+                <InsightCard.Actions>
+                  <ActionLink onClick={() => router.push("/app/friction")}>See full analysis</ActionLink>
+                  <ActionLink onClick={() => router.push("/app/bridge")} variant="subtle">Start Bridge Wizard</ActionLink>
+                </InsightCard.Actions>
+              </InsightCard>
+            );
+          })}
         </div>
       )}
+
+      {/* Next Step CTA -- most urgent pair */}
+      {urgentPairs.length > 0 && (() => {
+        const top = urgentPairs[0];
+        const aName = top.personA.name.split(" ")[0];
+        const bName = top.personB.name.split(" ")[0];
+        return (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.3, delay: 0.2, ease: 'easeOut' }}
+          >
+            <Card className="border-l-4" style={{ borderLeftColor: 'var(--nav-accent)' }}>
+              <h3 className="text-sm font-bold text-foreground mb-1">Start here</h3>
+              <p className="text-sm text-foreground/80 leading-relaxed mb-3">
+                Your most urgent pair is {aName} & {bName} with {top.friction.totalScore} gap points. That is where the most energy is being lost on your team right now.
+              </p>
+              <div className="flex gap-4">
+                <ActionLink onClick={() => router.push("/app/bridge")}>Open Bridge Wizard</ActionLink>
+                <ActionLink onClick={() => router.push("/app/friction")} variant="subtle">See their full friction analysis</ActionLink>
+              </div>
+            </Card>
+          </motion.div>
+        );
+      })()}
 
       {/* Environment Tax Alerts */}
       {taxData.length > 0 && (
         <div className="mb-10">
-          <div className="mb-4">
-            <h2 className="text-lg font-bold text-gray-900">Environment cost</h2>
-            <p className="text-xs text-gray-400 mt-0.5">Team members paying the highest adaptation tax</p>
-          </div>
+          <SectionHeader
+            title="Environment cost"
+            subtitle="Team members paying the highest adaptation tax"
+          />
           <div className="space-y-3">
             {taxData.slice(0, 3).map((t, i) => {
               const name = t.person.name.split(" ")[0];
               const isHigh = t.tax.totalGap >= 80;
+              const topGap = t.tax.costlyGaps[0];
+              const dimNames = { D: "Dominance", I: "Influence", S: "Steadiness", C: "Compliance" };
+              const gapDirection = topGap ? (topGap.gap > 0 ? "amplifying" : "suppressing") : "";
+              const gapDimName = topGap ? dimNames[topGap.dim] : "";
               return (
-                <div key={i} className={`rounded-xl border p-4 ${isHigh ? "bg-amber-50 border-amber-200" : "bg-blue-50 border-blue-100"}`}
-                  style={{ borderLeft: `4px solid ${isHigh ? "#C2410C" : "#1D4ED8"}` }}>
-                  <div className={`text-xs font-bold mb-1 ${isHigh ? "text-amber-800" : "text-blue-800"}`}>
-                    {name}: {t.tax.totalGap} gap points
-                  </div>
-                  <p className={`text-xs leading-relaxed ${isHigh ? "text-amber-700" : "text-blue-700"}`}>
+                <AlertCard key={i} severity={isHigh ? "warning" : "info"} title={name}>
+                  <p className="leading-relaxed">
                     {isHigh
-                      ? `${name} is spending significant energy every day adapting. That cost shows up as fatigue, disengagement, or friction that looks interpersonal but is actually environmental.`
-                      : `${name} is adapting moderately. Worth monitoring but not urgent.`
+                      ? `${name} is adapting hard every day -- and it's costing more than you think. See the full breakdown in their Environment Report.`
+                      : `${name} is adapting moderately. Worth watching -- open their Environment Report for details.`
                     }
                   </p>
-                </div>
+                </AlertCard>
               );
             })}
           </div>
@@ -252,13 +329,13 @@ export default function OrgDashboardPage() {
 
       {/* All clear */}
       {urgentPairs.length === 0 && members.length >= 2 && (
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-10 text-center">
-          <div className="text-base font-bold text-emerald-600 mb-2">No urgent friction right now</div>
-          <p className="text-sm text-gray-400 leading-relaxed mb-4">
+        <div className="bg-card rounded-2xl border border-border shadow-sm p-10 text-center">
+          <div className="text-base font-bold text-friction-low mb-2">No urgent friction right now</div>
+          <p className="text-sm text-muted leading-relaxed mb-4">
             Your team's relationships are in a manageable range. Keep building Connection Agreements to stay ahead.
           </p>
           <button onClick={() => router.push("/app/friction")}
-            className="px-5 py-2.5 rounded-xl bg-sky-500 text-white text-sm font-semibold hover:bg-sky-600 transition-colors">
+            className="px-5 py-2.5 rounded-xl bg-nav text-white text-sm font-semibold hover:opacity-90 transition-opacity">
             View Friction Map
           </button>
         </div>
@@ -266,14 +343,9 @@ export default function OrgDashboardPage() {
 
       {/* Pending assessments */}
       {pendingPeople.length > 0 && (
-        <div className="bg-blue-50 border border-blue-100 rounded-xl p-4" style={{ borderLeft: "4px solid #1D4ED8" }}>
-          <div className="text-xs font-bold text-blue-800 mb-1">
-            {pendingPeople.length} pending assessment{pendingPeople.length !== 1 ? "s" : ""}
-          </div>
-          <p className="text-xs text-blue-700 leading-relaxed">
-            {pendingPeople.map(p => p.name).join(", ")} {pendingPeople.length === 1 ? "hasn't" : "haven't"} completed their assessment. Every missing profile is a blind spot.
-          </p>
-        </div>
+        <AlertCard severity="info" title={`${pendingPeople.length} pending assessment${pendingPeople.length !== 1 ? 's' : ''}`}>
+          {pendingPeople.map(p => p.name).join(", ")} {pendingPeople.length === 1 ? "hasn't" : "haven't"} completed their assessment. Every missing profile is a blind spot in how you see your team.
+        </AlertCard>
       )}
     </div>
   );

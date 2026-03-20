@@ -1,12 +1,15 @@
 'use client';
 
 import { useState } from "react";
+import { motion } from "framer-motion";
 import { useIsMobile } from "../utils/useIsMobile";
+import { resetSetupWizard } from "./SetupWizard";
 
 export function Settings({
   org, orgs, orgPeople, people, selOrgId, setSelOrgId, selTeamId, setSelTeamId,
   leaderId, setLeaderId, openAssessment, copyAssessmentLink,
   addOrg, updateOrg, addTeam, updateTeam, deleteTeam, addPendingPerson, deletePerson,
+  viewMode, toggleViewMode,
 }) {
   const isMobile = useIsMobile();
 
@@ -38,8 +41,43 @@ export function Settings({
       <h1 className="text-2xl font-extrabold text-gray-900 tracking-tight mb-1">Settings</h1>
       <div className="text-xs text-gray-400 mb-7">Manage your organization, teams, and members</div>
 
+      {/* ── View Mode Toggle ── */}
+      <motion.div
+        initial={{ opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.25, ease: 'easeOut' }}
+        className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 mb-5"
+      >
+        <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-4">View Mode</div>
+        <div className="flex items-center justify-between">
+          <div>
+            <div className="text-sm font-semibold text-gray-900">
+              Viewing as: {viewMode === 'admin' ? 'Admin' : 'Team Member'}
+            </div>
+            <div className="text-xs text-gray-400 mt-0.5">
+              {viewMode === 'admin'
+                ? 'You see all admin controls, upload, and org settings.'
+                : 'You see the app as a regular team member would.'}
+            </div>
+          </div>
+          <button
+            onClick={toggleViewMode}
+            className="relative w-12 h-7 rounded-full border-none cursor-pointer transition-colors duration-200 shrink-0"
+            style={{ background: viewMode === 'member' ? 'var(--disc-c)' : 'var(--border-default, #d1d5db)' }}
+            aria-label="Toggle view mode"
+          >
+            <motion.div
+              layout
+              transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+              className="absolute top-0.5 w-6 h-6 rounded-full bg-white shadow"
+              style={{ left: viewMode === 'member' ? 'calc(100% - 1.625rem)' : '0.125rem' }}
+            />
+          </button>
+        </div>
+      </motion.div>
+
       {/* ── Organization ── */}
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 mb-5">
+      {viewMode === 'admin' && <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 mb-5">
         <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-4">Organization</div>
 
         {orgs.length > 1 && (
@@ -77,8 +115,9 @@ export function Settings({
             </>
           )}
         </div>
-      </div>
+      </div>}
 
+      {viewMode === 'admin' && (<>
       {/* ── Teams ── */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 mb-5">
         <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-4">Teams</div>
@@ -148,6 +187,24 @@ export function Settings({
             className="flex-1 w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-sky-200" />
           <button onClick={() => { if (pendingName.trim()) { addPendingPerson(pendingName.trim()); setPendingName(""); } }} className="px-5 py-2.5 rounded-xl bg-sky-500 text-white text-sm font-semibold hover:bg-sky-600 cursor-pointer border-none">Add</button>
         </div>
+      </div>
+      </>)}
+
+      {/* ── Setup Wizard ── */}
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 mb-5">
+        <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-4">Getting Started</div>
+        <p className="text-sm text-gray-600 mb-3 leading-relaxed">
+          Re-run the intro wizard that walks you through what this app does and where to start.
+        </p>
+        <button
+          onClick={() => {
+            resetSetupWizard();
+            window.location.reload();
+          }}
+          className="px-5 py-2.5 rounded-xl border border-gray-200 bg-white text-sm font-semibold text-gray-700 hover:bg-gray-50 cursor-pointer"
+        >
+          Re-run Setup Wizard
+        </button>
       </div>
     </div>
   );

@@ -65,7 +65,7 @@ export function VoiceJournal({ userId, people, teamId, orgId, onClose }) {
       };
 
       recognitionRef.current.onerror = (event) => {
-        console.error("Speech recognition error:", event.error);
+        console.error("Speech recognition error");
         setIsRecording(false);
       };
 

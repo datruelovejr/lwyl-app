@@ -1,6 +1,16 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  compiler: {
+    removeConsole: {
+      exclude: ['warn'],
+    },
+  },
+  turbopack: {
+    resolveAlias: {
+      canvas: { browser: '' },
+    },
+  },
   headers: async () => [
     {
       source: "/:path*",

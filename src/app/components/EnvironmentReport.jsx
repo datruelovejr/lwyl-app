@@ -1,9 +1,11 @@
 'use client';
 import { useState } from 'react';
-import { C } from '../constants/colors';
+import { motion } from 'framer-motion';
 import { discFull, getDom, valLevel, normBias, isEqualExtProfile } from '../constants/data';
 import { Btn } from './Btn';
 import { Bias } from './Bias';
+import { Card } from './ui/Card';
+import { AlertCard } from './ui/AlertCard';
 import {
   discInsights, discGapInsights, valuesInsights,
   attrExtInsights, attrIntInsights, compoundPatterns,
@@ -15,28 +17,49 @@ const discLevel = s => s >= 70 ? "high" : s >= 40 ? "mod" : "low";
 const discLevelLabel = s => s >= 70 ? "High" : s >= 40 ? "Moderate" : "Low";
 const getAttrBand = (score) => score >= 8.0 ? "strong" : score >= 6.0 ? "moderate" : "mild";
 
-function ReportSection({ num, title, children }) {
+function ReportSection({ num, title, children, delay = 0 }) {
   return (
-    <div style={{ marginBottom: 36, pageBreakInside: "avoid" }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14, paddingBottom: 10, borderBottom: `1px solid ${C.border}` }}>
-        <div style={{ width: 4, height: 24, borderRadius: 2, background: "#C8A96E", flexShrink: 0 }} />
-        <div style={{ fontSize: 10, fontWeight: 700, color: "#C8A96E", textTransform: "uppercase", letterSpacing: 1, flexShrink: 0 }}>{String(num).padStart(2, "0")}</div>
-        <div style={{ fontSize: 14, fontWeight: 800, letterSpacing: -0.3, color: C.text }}>{title}</div>
+    <motion.div
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3, delay }}
+      className="mb-9 break-inside-avoid"
+    >
+      <div className="flex items-center gap-2.5 mb-3.5 pb-2.5 border-b border-border">
+        <div className="w-1 h-6 rounded-sm shrink-0" style={{ background: "var(--nav-accent)" }} />
+        <div className="text-[10px] font-bold uppercase tracking-widest shrink-0" style={{ color: "var(--nav-accent)" }}>{String(num).padStart(2, "0")}</div>
+        <h3 className="text-sm font-extrabold tracking-tight text-foreground m-0">{title}</h3>
       </div>
       {children}
-    </div>
+    </motion.div>
   );
 }
 
 function ExpandableInsight({ label, color, children }) {
   const [open, setOpen] = useState(false);
   return (
-    <div style={{ marginTop: 6 }}>
-      <button onClick={() => setOpen(!open)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 10, fontWeight: 600, color, padding: 0, display: "flex", alignItems: "center", gap: 4 }}>
-        <span style={{ transform: open ? "rotate(90deg)" : "rotate(0deg)", transition: "transform 0.15s", display: "inline-block" }}>▸</span>
+    <div className="mt-1.5">
+      <button
+        onClick={() => setOpen(!open)}
+        className="bg-transparent border-none cursor-pointer text-[10px] font-semibold p-0 flex items-center gap-1"
+        style={{ color }}
+      >
+        <span
+          className="inline-block transition-transform duration-150"
+          style={{ transform: open ? "rotate(90deg)" : "rotate(0deg)" }}
+        >
+          &#9654;
+        </span>
         {label}
       </button>
-      {open && <div style={{ fontSize: 11, color: C.text, lineHeight: 1.6, marginTop: 4, paddingLeft: 12, borderLeft: `2px solid ${color}20` }}>{children}</div>}
+      {open && (
+        <div
+          className="text-[11px] text-foreground leading-relaxed mt-1 pl-3 border-l-2"
+          style={{ borderLeftColor: `color-mix(in srgb, ${color} 12%, transparent)` }}
+        >
+          {children}
+        </div>
+      )}
     </div>
   );
 }
@@ -55,7 +78,7 @@ export function EnvironmentReport({ person, onClose }) {
   // Preference Tax
   const prefTax = discRows.reduce((sum, r) => sum + Math.abs(r.gap), 0);
   const prefTaxLabel = prefTax >= 160 ? "Critical" : prefTax >= 120 ? "Heavy" : prefTax >= 80 ? "Significant" : prefTax >= 40 ? "Moderate" : "Aligned";
-  const prefTaxColor = prefTax >= 160 ? "#7F1D1D" : prefTax >= 120 ? "#C62828" : prefTax >= 80 ? "#E65100" : prefTax >= 40 ? "#F59E0B" : C.green;
+  const prefTaxColor = prefTax >= 160 ? "var(--alert-critical-text)" : prefTax >= 120 ? "var(--friction-high)" : prefTax >= 80 ? "var(--alert-warning-accent)" : prefTax >= 40 ? "var(--friction-moderate)" : "var(--alert-success-accent)";
 
   // Values
   const valRows = Object.entries(p.values).sort((a, b) => b[1] - a[1]);
@@ -66,82 +89,126 @@ export function EnvironmentReport({ person, onClose }) {
   const extSorted = [...p.attr.ext].sort((a, b) => b.score - a.score);
   const intRows = p.attr.int;
 
-  // Process Tax (count of "−" on external)
-  const extMinusBiases = p.attr.ext.filter(a => a.bias === "−").length;
+  // Process Tax (count of minus on external)
+  const extMinusBiases = p.attr.ext.filter(a => a.bias === "\u2212").length;
   const processTaxLabel = extMinusBiases === 0 ? "None" : extMinusBiases === 1 ? "Light" : extMinusBiases === 2 ? "Moderate" : "Heavy";
-  const processTaxColor = extMinusBiases === 0 ? C.green : extMinusBiases === 1 ? "#558B2F" : extMinusBiases === 2 ? "#E65100" : "#C62828";
+  const processTaxColor = extMinusBiases === 0 ? "var(--alert-success-accent)" : extMinusBiases === 1 ? "var(--alert-success-accent)" : extMinusBiases === 2 ? "var(--alert-warning-accent)" : "var(--friction-high)";
 
-  // Internal tax (count of "−" on internal)
-  const intMinusBiases = p.attr.int.filter(a => a.bias === "−").length;
+  // Internal tax (count of minus on internal)
+  const intMinusBiases = p.attr.int.filter(a => a.bias === "\u2212").length;
   const intTaxLabel = intMinusBiases === 0 ? "None" : intMinusBiases === 1 ? "Light" : intMinusBiases === 2 ? "Moderate" : "Heavy";
 
   // Environment Tax Summary
   const envTax = getEnvironmentTaxSummary(p);
 
   const taxCard = (label, value, color, note) => (
-    <div style={{ flex: 1, padding: "16px 18px", borderRadius: 10, background: C.card, border: `1px solid ${C.border}`, borderLeft: `4px solid ${color}` }}>
-      <div style={{ fontSize: 10, fontWeight: 700, color: C.muted, textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 6 }}>{label}</div>
-      <div style={{ fontSize: 32, fontWeight: 800, color, lineHeight: 1, marginBottom: 5 }}>{value}</div>
-      {note && <div style={{ fontSize: 11, color: C.muted, lineHeight: 1.4 }}>{note}</div>}
+    <div
+      className="flex-1 px-4.5 py-4 rounded-[10px] bg-card border border-border border-l-4"
+      style={{ borderLeftColor: color }}
+    >
+      <div className="text-[10px] font-bold text-muted uppercase tracking-wider mb-1.5">{label}</div>
+      <div className="text-[32px] font-extrabold leading-none mb-1.5" style={{ color }}>{value}</div>
+      {note && <div className="text-[11px] text-muted leading-snug">{note}</div>}
     </div>
   );
 
   return (
-    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.55)", display: "flex", alignItems: "flex-start", justifyContent: "center", zIndex: 300, overflowY: "auto", padding: "24px 16px" }}>
-      <div className="modal-body" style={{ background: C.card, borderRadius: 12, width: "min(900px, 100%)", boxShadow: "0 20px 25px rgba(0,0,0,0.15)", fontFamily: "Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" }}>
+    <div className="fixed inset-0 flex items-start justify-center z-300 overflow-y-auto px-4 py-6" style={{ background: "color-mix(in srgb, var(--nav-bg) 55%, transparent)" }}>
+      <div className="modal-body rounded-xl shadow-xl w-[min(900px,100%)] font-sans" style={{ background: "var(--bg-card)" }}>
 
         {/* Controls */}
-        <div style={{ background: "#1F2937", color: "#fff", borderRadius: "12px 12px 0 0", padding: "20px 48px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.3 }}
+          className="rounded-t-xl px-12 py-5 flex items-center justify-between"
+          style={{ background: "var(--nav-bg)", color: "var(--bg-card)" }}
+        >
           <div>
-            <div style={{ fontWeight: 700, fontSize: 32, color: "#fff" }}>Environment Report: {p.name}</div>
-            <div style={{ fontSize: 16, color: "rgba(255,255,255,0.65)", marginTop: 4 }}>Natural vs Adaptive · Love Where You Lead</div>
+            <h2 className="font-bold text-[32px] m-0" style={{ color: "var(--bg-card)" }}>Environment Report: {p.name}</h2>
+            <div className="text-base mt-1" style={{ color: "color-mix(in srgb, var(--bg-card) 65%, transparent)" }}>Natural vs Adaptive &middot; Love Where You Lead</div>
           </div>
-          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-            <button onClick={() => window.print()} style={{ padding: "10px 20px", borderRadius: 8, border: "1px solid rgba(255,255,255,0.3)", background: "rgba(255,255,255,0.1)", color: "#fff", fontSize: 14, fontWeight: 600, cursor: "pointer" }}>Print Report</button>
-            <button onClick={onClose} style={{ width: 32, height: 32, borderRadius: "50%", background: "rgba(255,255,255,0.1)", border: "none", cursor: "pointer", fontSize: 18, color: "rgba(255,255,255,0.7)", lineHeight: 1, display: "flex", alignItems: "center", justifyContent: "center" }}>✕</button>
+          <div className="flex gap-2 items-center">
+            <button
+              onClick={() => window.print()}
+              className="px-5 py-2.5 rounded-lg text-sm font-semibold cursor-pointer"
+              style={{ border: "1px solid color-mix(in srgb, var(--bg-card) 30%, transparent)", background: "color-mix(in srgb, var(--bg-card) 10%, transparent)", color: "var(--bg-card)" }}
+            >
+              Print Report
+            </button>
+            <button
+              onClick={onClose}
+              className="w-8 h-8 rounded-full border-none cursor-pointer text-lg leading-none flex items-center justify-center"
+              style={{ background: "color-mix(in srgb, var(--bg-card) 10%, transparent)", color: "color-mix(in srgb, var(--bg-card) 70%, transparent)" }}
+            >
+              &#10005;
+            </button>
           </div>
-        </div>
+        </motion.div>
 
-        <div style={{ padding: 48 }} id="report-content">
+        <div className="p-12" id="report-content">
 
           {/* Cover */}
-          <div style={{ display: "flex", alignItems: "center", gap: 16, padding: "20px 0 28px", borderBottom: `1px solid ${C.border}`, marginBottom: 28 }}>
-            <div style={{ width: 56, height: 56, borderRadius: "50%", background: "#1A1A18", color: "#C8A96E", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: 20, flexShrink: 0 }}>
+          <motion.div
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3, delay: 0.05 }}
+            className="flex items-center gap-4 py-5 pb-7 border-b border-border mb-7"
+          >
+            <div
+              className="w-14 h-14 rounded-full flex items-center justify-center font-extrabold text-xl shrink-0"
+              style={{ background: "var(--nav-bg)", color: "var(--nav-accent)" }}
+            >
               {p.name.split(" ").map(n => n[0]).join("").slice(0, 2)}
             </div>
             <div>
-              <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", marginBottom: 4 }}>
-                <h1 style={{ margin: 0, fontSize: 24, fontWeight: 800, letterSpacing: -0.5 }}>{p.name}</h1>
-                {dims.map(d => <span key={d} style={{ padding: "3px 10px", borderRadius: 4, background: C.disc[d], color: d === "I" ? "#111827" : "#fff", fontWeight: 700, fontSize: 11 }}>{d}:{p.disc.natural[d]}</span>)}
+              <div className="flex items-center gap-2.5 flex-wrap mb-1">
+                <h1 className="m-0 text-2xl font-extrabold tracking-tight">{p.name}</h1>
+                {dims.map(d => (
+                  <span
+                    key={d}
+                    className="px-2.5 py-0.5 rounded font-bold text-[11px]"
+                    style={{
+                      background: `var(--disc-${d.toLowerCase()})`,
+                      color: d === "I" ? "var(--text-primary)" : "var(--bg-card)"
+                    }}
+                  >
+                    {d}:{p.disc.natural[d]}
+                  </span>
+                ))}
               </div>
-              <div style={{ fontSize: 13, color: C.muted }}>Love Where You Lead - Environment Report</div>
-              <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>Generated {new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })}</div>
+              <div className="text-[13px] text-muted">Love Where You Lead - Environment Report</div>
+              <div className="text-[11px] text-muted mt-0.5">Generated {new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })}</div>
             </div>
-          </div>
+          </motion.div>
 
           {/* 1: YOUR PREFERENCE - Natural */}
-          <ReportSection num={1} title="YOUR PREFERENCE: Natural Style">
-            <p style={{ fontSize: 14, color: C.muted, margin: "0 0 16px", lineHeight: 1.6 }}>Your Natural style is how you're built to lead when you're comfortable, off-guard, or under pressure. This is who you are when no one's adjusting for the room.</p>
-            <div style={{ display: "flex", flexDirection: "column", gap: 12, marginBottom: 12 }}>
+          <ReportSection num={1} title="YOUR PREFERENCE: Natural Style" delay={0.1}>
+            <p className="text-sm text-muted m-0 mb-4 leading-relaxed">Your Natural style is how you're built to lead when you're comfortable, off-guard, or under pressure. This is who you are when no one's adjusting for the room.</p>
+            <div className="flex flex-col gap-3 mb-3">
             {discRows.map(({ d, full, nat }) => {
               const level = discLevel(nat);
               const insight = discInsights[d]?.[level];
               return (
-                <div key={d} style={{ display: "flex", alignItems: "flex-start", gap: 20, padding: "16px 20px", borderRadius: 8, background: C.card, border: `1px solid ${C.border}`, borderLeft: `4px solid ${C.disc[d]}` }}>
-                  <div style={{ flexShrink: 0, minWidth: 100 }}>
-                    <div style={{ fontSize: 12, fontWeight: 700, color: C.disc[d], textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 4 }}>{full}</div>
-                    <div style={{ fontSize: 36, fontWeight: 800, color: C.disc[d], lineHeight: 1 }}>{nat}</div>
-                    <div style={{ fontSize: 10, fontWeight: 600, color: C.muted, marginTop: 4 }}>{discLevelLabel(nat)}</div>
+                <div
+                  key={d}
+                  className="flex items-start gap-5 px-5 py-4 rounded-lg bg-card border border-border border-l-4"
+                  style={{ borderLeftColor: `var(--disc-${d.toLowerCase()})` }}
+                >
+                  <div className="shrink-0 min-w-[100px]">
+                    <div className="text-xs font-bold uppercase tracking-wide mb-1" style={{ color: `var(--disc-${d.toLowerCase()})` }}>{full}</div>
+                    <div className="text-4xl font-extrabold leading-none" style={{ color: `var(--disc-${d.toLowerCase()})` }}>{nat}</div>
+                    <div className="text-[10px] font-semibold text-muted mt-1">{discLevelLabel(nat)}</div>
                   </div>
-                  <div style={{ flex: 1, paddingTop: 2 }}>
-                    <div style={{ fontSize: 13, color: C.text, lineHeight: 1.7 }}>{insight?.strength}</div>
+                  <div className="flex-1 pt-0.5">
+                    <div className="text-[13px] text-foreground leading-relaxed">{insight?.strength}</div>
                     {insight?.blindSpot && (
-                      <ExpandableInsight label="Blind Spot" color={C.disc[d]}>
+                      <ExpandableInsight label="Blind Spot" color={`var(--disc-${d.toLowerCase()})`}>
                         {insight.blindSpot}
                       </ExpandableInsight>
                     )}
                     {insight?.toxicUnderStress && (
-                      <ExpandableInsight label="Under Stress" color="#E65100">
+                      <ExpandableInsight label="Under Stress" color="var(--alert-warning-accent)">
                         {insight.toxicUnderStress}
                       </ExpandableInsight>
                     )}
@@ -153,29 +220,39 @@ export function EnvironmentReport({ person, onClose }) {
           </ReportSection>
 
           {/* 2: Adaptive Style */}
-          <ReportSection num={2} title="YOUR PREFERENCE: Adaptive Style">
-            <p style={{ fontSize: 14, color: C.muted, margin: "0 0 16px", lineHeight: 1.6 }}>Your Adaptive style is how you're adjusting to your current environment. When Natural and Adaptive differ significantly, your environment's asking you to be someone you're not. That costs energy every single day.</p>
-            <div style={{ display: "flex", flexDirection: "column", gap: 12, marginBottom: 12 }}>
+          <ReportSection num={2} title="YOUR PREFERENCE: Adaptive Style" delay={0.2}>
+            <p className="text-sm text-muted m-0 mb-4 leading-relaxed">Your Adaptive style is how you're adjusting to your current environment. When Natural and Adaptive differ significantly, your environment's asking you to be someone you're not. That costs energy every single day.</p>
+            <div className="flex flex-col gap-3 mb-3">
             {discRows.map(({ d, full, nat, adp, gap }) => {
               const absgap = Math.abs(gap);
               const costly = absgap >= 20;
               const observable = absgap >= 10;
               const gapInsight = getGapInsight(d, gap);
-              const borderColor = costly ? "#E65100" : observable ? "#F59E0B" : C.disc[d];
+              const borderColor = costly ? "var(--alert-warning-accent)" : observable ? "var(--friction-moderate)" : `var(--disc-${d.toLowerCase()})`;
               return (
-                <div key={d} style={{ display: "flex", alignItems: "flex-start", gap: 20, padding: "16px 20px", borderRadius: 8, background: C.card, border: `1px solid ${C.border}`, borderLeft: `4px solid ${borderColor}` }}>
-                  <div style={{ flexShrink: 0, minWidth: 100 }}>
-                    <div style={{ fontSize: 12, fontWeight: 700, color: borderColor, textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 4 }}>{full}</div>
-                    <div style={{ fontSize: 36, fontWeight: 800, color: borderColor, lineHeight: 1 }}>{adp}</div>
-                    {observable && <div style={{ fontSize: 10, fontWeight: 600, color: borderColor, marginTop: 4 }}>{costly ? "⚠" : "△"} {absgap} from natural</div>}
+                <div
+                  key={d}
+                  className="flex items-start gap-5 px-5 py-4 rounded-lg bg-card border border-border border-l-4"
+                  style={{ borderLeftColor: borderColor }}
+                >
+                  <div className="shrink-0 min-w-[100px]">
+                    <div className="text-xs font-bold uppercase tracking-wide mb-1" style={{ color: borderColor }}>{full}</div>
+                    <div className="text-4xl font-extrabold leading-none" style={{ color: borderColor }}>{adp}</div>
+                    {observable && <div className="text-[10px] font-semibold mt-1" style={{ color: borderColor }}>{costly ? "\u26A0" : "\u25B3"} {absgap} from natural</div>}
                   </div>
-                  <div style={{ flex: 1, paddingTop: 2 }}>
-                    <div style={{ fontSize: 13, color: C.text, lineHeight: 1.7, marginBottom: gapInsight ? 8 : 0 }}>
-                      Natural: <strong>{nat}</strong> → Adaptive: <strong>{adp}</strong>
-                      {!observable && <span style={{ color: C.muted }}> — Aligned</span>}
+                  <div className="flex-1 pt-0.5">
+                    <div className="text-[13px] text-foreground leading-relaxed" style={{ marginBottom: gapInsight ? 8 : 0 }}>
+                      Natural: <strong>{nat}</strong> &rarr; Adaptive: <strong>{adp}</strong>
+                      {!observable && <span className="text-muted"> -- Aligned</span>}
                     </div>
                     {gapInsight && (
-                      <div style={{ fontSize: 12, color: costly ? "#E65100" : "#92400E", lineHeight: 1.6, padding: "8px 12px", background: costly ? "#FFF7ED" : "#FFFBEB", borderRadius: 6 }}>
+                      <div
+                        className="text-xs leading-relaxed px-3 py-2 rounded-md"
+                        style={{
+                          color: costly ? "var(--alert-warning-accent)" : "var(--alert-warning-text)",
+                          background: "var(--alert-warning-bg)"
+                        }}
+                      >
                         {gapInsight}
                       </div>
                     )}
@@ -187,13 +264,13 @@ export function EnvironmentReport({ person, onClose }) {
           </ReportSection>
 
           {/* 3: Preference Tax */}
-          <ReportSection num={3} title="PREFERENCE TAX: The Cost of Adapting">
-            <p style={{ fontSize: 12, color: C.muted, margin: "0 0 12px", lineHeight: 1.6 }}>Your Preference Tax is the total energy you spend each day adapting your natural behavioral style to fit your environment. The higher the number, the more drained you feel at the end of the day. Not because you worked hard. Because you spent the day being someone you're not.</p>
-            <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 12 }}>
+          <ReportSection num={3} title="PREFERENCE TAX: The Cost of Adapting" delay={0.3}>
+            <p className="text-xs text-muted m-0 mb-3 leading-relaxed">Your Preference Tax is the total energy you spend each day adapting your natural behavioral style to fit your environment. The higher the number, the more drained you feel at the end of the day. Not because you worked hard. Because you spent the day being someone you're not.</p>
+            <div className="flex gap-2.5 flex-wrap mb-3">
               {taxCard("Total Gap Points", prefTax, prefTaxColor, `Across all 4 DISC dimensions`)}
               {taxCard("Tax Level", prefTaxLabel, prefTaxColor, prefTax >= 160 ? "Critical daily adaptation cost." : prefTax >= 120 ? "Heavy daily adaptation cost." : prefTax >= 80 ? "Significant daily adaptation cost." : prefTax >= 40 ? "Moderate daily adaptation cost." : "Your environment fits your natural style.")}
             </div>
-            <div style={{ fontSize: 11, color: C.text, lineHeight: 1.7, padding: "10px 14px", background: C.card, borderRadius: 8, border: `1px solid ${C.border}` }}>
+            <div className="text-[11px] text-foreground leading-relaxed px-3.5 py-2.5 bg-card rounded-lg border border-border">
               {prefTaxLabel === "Critical" && "Your environment is demanding near-maximum behavioral adaptation from you right now. This isn't a motivation problem. It's a design problem at a critical level. The gap between who you are and how your environment needs you to show up is unsustainable without intervention."}
               {prefTaxLabel === "Heavy" && "Your environment doesn't fit your natural operating style. You're paying a heavy price for it every day. The fatigue, the frustration, the sense that you're performing a version of yourself you didn't choose. That's not a character flaw. That's a design problem that has a design solution."}
               {prefTaxLabel === "Significant" && "Two to three of your DISC dimensions are under sustained pressure right now. Adaptation isn't occasional. It's constant. You likely feel it most at the end of the day, when you've been managing your style for hours. The Environment Alignment shows you exactly where the cost is highest."}
@@ -202,11 +279,15 @@ export function EnvironmentReport({ person, onClose }) {
             </div>
             {/* Costly gap breakdown */}
             {envTax.costlyGaps.length > 0 && (
-              <div style={{ marginTop: 12 }}>
-                <div style={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5, color: "#E65100", marginBottom: 6 }}>Significant Gaps (20+ points)</div>
+              <div className="mt-3">
+                <div className="text-[10px] font-bold uppercase tracking-wide mb-1.5" style={{ color: "var(--alert-warning-accent)" }}>Significant Gaps (20+ points)</div>
                 {envTax.costlyGaps.map(g => (
-                  <div key={g.dim} style={{ fontSize: 11, color: C.text, lineHeight: 1.6, padding: "8px 12px", marginBottom: 4, borderRadius: 6, background: "#FFF7ED", borderLeft: "3px solid #E65100" }}>
-                    <strong>{discFull[g.dim]}:</strong> {g.natural} → {g.adaptive} (Δ{g.absGap}) — {g.gap > 0 ? "Environment demands more" : "Environment suppresses"}
+                  <div
+                    key={g.dim}
+                    className="text-[11px] text-foreground leading-relaxed px-3 py-2 mb-1 rounded-md border-l-3"
+                    style={{ background: "var(--alert-warning-bg)", borderLeftColor: "var(--alert-warning-accent)" }}
+                  >
+                    <strong>{discFull[g.dim]}:</strong> {g.natural} &rarr; {g.adaptive} (&Delta;{g.absGap}) -- {g.gap > 0 ? "Environment demands more" : "Environment suppresses"}
                   </div>
                 ))}
               </div>
@@ -214,32 +295,45 @@ export function EnvironmentReport({ person, onClose }) {
           </ReportSection>
 
           {/* 4: YOUR PASSION - Values */}
-          <ReportSection num={4} title="YOUR PASSION: What Drives You">
-            <p style={{ fontSize: 12, color: C.muted, margin: "0 0 12px", lineHeight: 1.6 }}>Your Values reveal what you're fundamentally motivated by. What gets you out of bed. What gives your work meaning. What drains you when it's absent. These aren't preferences. They're the fuel your leadership runs on.</p>
+          <ReportSection num={4} title="YOUR PASSION: What Drives You" delay={0.4}>
+            <p className="text-xs text-muted m-0 mb-3 leading-relaxed">Your Values reveal what you're fundamentally motivated by. What gets you out of bed. What gives your work meaning. What drains you when it's absent. These aren't preferences. They're the fuel your leadership runs on.</p>
             {topVals.length > 0 && (
-              <div style={{ marginBottom: 12 }}>
-                <div style={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5, color: C.muted, marginBottom: 6 }}>Top Drivers (Score 60+)</div>
+              <div className="mb-3">
+                <div className="text-[10px] font-bold uppercase tracking-wide text-muted mb-1.5">Top Drivers (Score 60+)</div>
                 {topVals.map(([name, score]) => {
                   const vi = valuesInsights[name]?.high;
                   return (
-                    <div key={name} style={{ marginBottom: 8, padding: "10px 12px", borderRadius: 8, background: C.card, border: `1px solid ${C.border}` }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
-                        <span style={{ width: 8, height: 8, borderRadius: "50%", background: C.values[name], display: "inline-block", flexShrink: 0 }} />
-                        <span style={{ fontSize: 12, fontWeight: 800, color: C.values[name] }}>{name}</span>
-                        <span style={{ marginLeft: "auto", fontSize: 18, fontWeight: 800, color: C.values[name] }}>{score}</span>
-                        <span style={{ fontSize: 10, fontWeight: 600, color: "#2E7D32", background: C.card, border: "1px solid #A5D6A7", borderLeft: "3px solid #2E7D32", borderRadius: 4, padding: "1px 7px" }}>Top Driver</span>
+                    <div key={name} className="mb-2 px-3 py-2.5 rounded-lg bg-card border border-border">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span
+                          className="w-2 h-2 rounded-full inline-block shrink-0"
+                          style={{ background: `var(--values-${name.toLowerCase()})` }}
+                        />
+                        <span className="text-xs font-extrabold" style={{ color: `var(--values-${name.toLowerCase()})` }}>{name}</span>
+                        <span className="ml-auto text-lg font-extrabold" style={{ color: `var(--values-${name.toLowerCase()})` }}>{score}</span>
+                        <span
+                          className="text-[10px] font-semibold rounded px-1.5 py-px border-l-3 border"
+                          style={{
+                            color: "var(--alert-success-accent)",
+                            background: "var(--bg-card)",
+                            borderColor: "var(--alert-success-border)",
+                            borderLeftColor: "var(--alert-success-accent)"
+                          }}
+                        >
+                          Top Driver
+                        </span>
                       </div>
-                      <div style={{ height: 4, background: C.hi, borderRadius: 2, marginBottom: 5, overflow: "hidden" }}>
-                        <div style={{ height: "100%", width: `${score}%`, background: C.values[name], borderRadius: 2 }} />
+                      <div className="h-1 bg-subtle rounded-sm mb-1.5 overflow-hidden">
+                        <div className="h-full rounded-sm" style={{ width: `${score}%`, background: `var(--values-${name.toLowerCase()})` }} />
                       </div>
-                      <div style={{ fontSize: 11, color: C.text, lineHeight: 1.5 }}>{vi?.strength || `${name} at ${score}. This feeds your motivation.`}</div>
+                      <div className="text-[11px] text-foreground leading-snug">{vi?.strength || `${name} at ${score}. This feeds your motivation.`}</div>
                       {vi?.environmentCost && (
-                        <ExpandableInsight label="Environment Cost" color={C.values[name]}>
+                        <ExpandableInsight label="Environment Cost" color={`var(--values-${name.toLowerCase()})`}>
                           {vi.environmentCost}
                         </ExpandableInsight>
                       )}
                       {vi?.toxicUnderStress && (
-                        <ExpandableInsight label="Under Stress" color="#E65100">
+                        <ExpandableInsight label="Under Stress" color="var(--alert-warning-accent)">
                           {vi.toxicUnderStress}
                         </ExpandableInsight>
                       )}
@@ -250,17 +344,20 @@ export function EnvironmentReport({ person, onClose }) {
             )}
             {lowVals.length > 0 && (
               <div>
-                <div style={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5, color: C.muted, marginBottom: 6 }}>Low Drivers (Score under 40)</div>
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                <div className="text-[10px] font-bold uppercase tracking-wide text-muted mb-1.5">Low Drivers (Score under 40)</div>
+                <div className="flex flex-wrap gap-1.5">
                   {lowVals.map(([name, score]) => {
                     const vi = valuesInsights[name]?.low;
                     return (
-                      <div key={name} style={{ flex: "1 1 200px", padding: "8px 10px", borderRadius: 8, background: C.hi, border: `1px solid ${C.border}` }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 3 }}>
-                          <span style={{ width: 6, height: 6, borderRadius: "50%", background: C.values[name], display: "inline-block" }} />
-                          <span style={{ fontSize: 11, fontWeight: 700, color: C.values[name] }}>{name}: {score}</span>
+                      <div key={name} className="flex-[1_1_200px] px-2.5 py-2 rounded-lg bg-subtle border border-border">
+                        <div className="flex items-center gap-1.5 mb-1">
+                          <span
+                            className="w-1.5 h-1.5 rounded-full inline-block"
+                            style={{ background: `var(--values-${name.toLowerCase()})` }}
+                          />
+                          <span className="text-[11px] font-bold" style={{ color: `var(--values-${name.toLowerCase()})` }}>{name}: {score}</span>
                         </div>
-                        <div style={{ fontSize: 10, color: C.muted, lineHeight: 1.4 }}>{vi?.description || "This is not what gets you out of bed."}</div>
+                        <div className="text-[10px] text-muted leading-snug">{vi?.description || "This is not what gets you out of bed."}</div>
                       </div>
                     );
                   })}
@@ -270,27 +367,37 @@ export function EnvironmentReport({ person, onClose }) {
           </ReportSection>
 
           {/* 5: YOUR PROCESS - External */}
-          <ReportSection num={5} title="YOUR PROCESS: External (Heart, Hand, Head)">
+          <ReportSection num={5} title="YOUR PROCESS: External (Heart, Hand, Head)" delay={0.5}>
             {isEqualExtProfile(p.attr.ext) ? (
               <>
-                <p style={{ fontSize: 12, color: C.muted, margin: "0 0 12px", lineHeight: 1.6 }}>Your External Attributes show equal capacity across all three decision-making dimensions. You see People, Results, and Structure with the same clarity. There's no fixed processing sequence. Versatility IS your strength. Your bias indicators reveal your relationship to each lens, not the order you use them.</p>
+                <p className="text-xs text-muted m-0 mb-3 leading-relaxed">Your External Attributes show equal capacity across all three decision-making dimensions. You see People, Results, and Structure with the same clarity. There's no fixed processing sequence. Versatility IS your strength. Your bias indicators reveal your relationship to each lens, not the order you use them.</p>
                 {p.attr.ext.map(a => {
                   const biasInsight = getAttrExtBiasInsight(a.label, a.bias);
                   return (
-                    <div key={a.name} style={{ display: "flex", gap: 10, marginBottom: 8, padding: "10px 12px", borderRadius: 8, background: C.card, border: `1px solid ${C.border}`, borderLeft: `4px solid ${C.attr.ext}` }}>
-                      <div style={{ flexShrink: 0, textAlign: "center", width: 52 }}>
-                        <div style={{ fontSize: 9, fontWeight: 700, color: C.attr.ext, textTransform: "uppercase" }}>=</div>
-                        <div style={{ fontSize: 22, fontWeight: 800, color: C.attr.ext }}>{a.score}</div>
+                    <div key={a.name} className="flex gap-2.5 mb-2 px-3 py-2.5 rounded-lg bg-card border border-border border-l-4" style={{ borderLeftColor: "var(--attr-ext)" }}>
+                      <div className="shrink-0 text-center w-13">
+                        <div className="text-[9px] font-bold uppercase" style={{ color: "var(--attr-ext)" }}>=</div>
+                        <div className="text-[22px] font-extrabold" style={{ color: "var(--attr-ext)" }}>{a.score}</div>
                         <Bias bias={a.bias} />
                       </div>
-                      <div style={{ flex: 1 }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 3 }}>
-                          <span style={{ fontSize: 12, fontWeight: 700, color: C.attr.ext }}>{a.label} - {a.name}</span>
-                          {biasInsight?.label && <span style={{ fontSize: 9, fontWeight: 600, color: a.bias === "−" ? "#E65100" : a.bias === "+" ? "#2E7D32" : "#1565C0", background: a.bias === "−" ? "#FFF7ED" : a.bias === "+" ? "#F0FAF0" : "#F5F9FF", padding: "1px 6px", borderRadius: 3 }}>{biasInsight.label}</span>}
+                      <div className="flex-1">
+                        <div className="flex items-center gap-1.5 mb-1">
+                          <span className="text-xs font-bold" style={{ color: "var(--attr-ext)" }}>{a.label} - {a.name}</span>
+                          {biasInsight?.label && (
+                            <span
+                              className="text-[9px] font-semibold px-1.5 py-px rounded-sm"
+                              style={{
+                                color: a.bias === "\u2212" ? "var(--alert-warning-accent)" : a.bias === "+" ? "var(--alert-success-accent)" : "var(--alert-info-accent)",
+                                background: a.bias === "\u2212" ? "var(--alert-warning-bg)" : a.bias === "+" ? "var(--alert-success-bg)" : "var(--alert-info-bg)"
+                              }}
+                            >
+                              {biasInsight.label}
+                            </span>
+                          )}
                         </div>
-                        <div style={{ fontSize: 11, color: C.text, lineHeight: 1.5 }}>{biasInsight?.insight}</div>
+                        <div className="text-[11px] text-foreground leading-snug">{biasInsight?.insight}</div>
                         {biasInsight?.environmentCost && (
-                          <ExpandableInsight label="Environment Cost" color={a.bias === "−" ? "#E65100" : C.attr.ext}>
+                          <ExpandableInsight label="Environment Cost" color={a.bias === "\u2212" ? "var(--alert-warning-accent)" : "var(--attr-ext)"}>
                             {biasInsight.environmentCost}
                           </ExpandableInsight>
                         )}
@@ -301,24 +408,38 @@ export function EnvironmentReport({ person, onClose }) {
               </>
             ) : (
               <>
-                <p style={{ fontSize: 12, color: C.muted, margin: "0 0 12px", lineHeight: 1.6 }}>Your External Attributes determine what you see first when you look at any situation. This is your decision-making order. The lens through which all information is filtered before you act.</p>
+                <p className="text-xs text-muted m-0 mb-3 leading-relaxed">Your External Attributes determine what you see first when you look at any situation. This is your decision-making order. The lens through which all information is filtered before you act.</p>
                 {extSorted.map((a, i) => {
                   const biasInsight = getAttrExtBiasInsight(a.label, a.bias);
                   return (
-                    <div key={a.name} style={{ display: "flex", gap: 10, marginBottom: 8, padding: "10px 12px", borderRadius: 8, background: C.card, border: `1px solid ${C.border}`, borderLeft: i === 0 ? `4px solid ${C.attr.ext}` : `1px solid ${C.border}` }}>
-                      <div style={{ flexShrink: 0, textAlign: "center", width: 52 }}>
-                        <div style={{ fontSize: 9, fontWeight: 700, color: i === 0 ? C.attr.ext : C.muted, textTransform: "uppercase" }}>{i + 1}.</div>
-                        <div style={{ fontSize: 22, fontWeight: 800, color: C.attr.ext }}>{a.score}</div>
+                    <div
+                      key={a.name}
+                      className="flex gap-2.5 mb-2 px-3 py-2.5 rounded-lg bg-card border border-border border-l-4"
+                      style={{ borderLeftColor: i === 0 ? "var(--attr-ext)" : "var(--border-default)" }}
+                    >
+                      <div className="shrink-0 text-center w-13">
+                        <div className="text-[9px] font-bold uppercase" style={{ color: i === 0 ? "var(--attr-ext)" : "var(--text-muted)" }}>{i + 1}.</div>
+                        <div className="text-[22px] font-extrabold" style={{ color: "var(--attr-ext)" }}>{a.score}</div>
                         <Bias bias={a.bias} />
                       </div>
-                      <div style={{ flex: 1 }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 3 }}>
-                          <span style={{ fontSize: 12, fontWeight: 700, color: i === 0 ? C.attr.ext : C.text }}>{a.label} - {a.name}</span>
-                          {biasInsight?.label && <span style={{ fontSize: 9, fontWeight: 600, color: a.bias === "−" ? "#E65100" : a.bias === "+" ? "#2E7D32" : "#1565C0", background: a.bias === "−" ? "#FFF7ED" : a.bias === "+" ? "#F0FAF0" : "#F5F9FF", padding: "1px 6px", borderRadius: 3 }}>{biasInsight.label}</span>}
+                      <div className="flex-1">
+                        <div className="flex items-center gap-1.5 mb-1">
+                          <span className="text-xs font-bold" style={{ color: i === 0 ? "var(--attr-ext)" : "var(--text-primary)" }}>{a.label} - {a.name}</span>
+                          {biasInsight?.label && (
+                            <span
+                              className="text-[9px] font-semibold px-1.5 py-px rounded-sm"
+                              style={{
+                                color: a.bias === "\u2212" ? "var(--alert-warning-accent)" : a.bias === "+" ? "var(--alert-success-accent)" : "var(--alert-info-accent)",
+                                background: a.bias === "\u2212" ? "var(--alert-warning-bg)" : a.bias === "+" ? "var(--alert-success-bg)" : "var(--alert-info-bg)"
+                              }}
+                            >
+                              {biasInsight.label}
+                            </span>
+                          )}
                         </div>
-                        <div style={{ fontSize: 11, color: C.text, lineHeight: 1.5 }}>{biasInsight?.insight}</div>
+                        <div className="text-[11px] text-foreground leading-snug">{biasInsight?.insight}</div>
                         {biasInsight?.environmentCost && (
-                          <ExpandableInsight label="Environment Cost" color={a.bias === "−" ? "#E65100" : C.attr.ext}>
+                          <ExpandableInsight label="Environment Cost" color={a.bias === "\u2212" ? "var(--alert-warning-accent)" : "var(--attr-ext)"}>
                             {biasInsight.environmentCost}
                           </ExpandableInsight>
                         )}
@@ -331,25 +452,35 @@ export function EnvironmentReport({ person, onClose }) {
           </ReportSection>
 
           {/* 6: Internal Attributes */}
-          <ReportSection num={6} title="YOUR PROCESS: Internal (Leadership Foundation)">
-            <p style={{ fontSize: 12, color: C.muted, margin: "0 0 12px", lineHeight: 1.6 }}>Your Internal Attributes reflect how you see yourself. Your own worth, your purpose, and your capacity to lead yourself. These are the foundation beneath everything else you do.</p>
+          <ReportSection num={6} title="YOUR PROCESS: Internal (Leadership Foundation)" delay={0.6}>
+            <p className="text-xs text-muted m-0 mb-3 leading-relaxed">Your Internal Attributes reflect how you see yourself. Your own worth, your purpose, and your capacity to lead yourself. These are the foundation beneath everything else you do.</p>
             {intRows.map(a => {
               const biasInsight = getAttrIntBiasInsight(a.name, a.bias);
               return (
-                <div key={a.name} style={{ marginBottom: 8, padding: "10px 12px", borderRadius: 8, background: C.card, border: `1px solid ${C.border}` }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
-                    <div style={{ fontSize: 22, fontWeight: 800, color: C.attr.int, flexShrink: 0, width: 40 }}>{a.score}</div>
+                <div key={a.name} className="mb-2 px-3 py-2.5 rounded-lg bg-card border border-border">
+                  <div className="flex items-center gap-2 mb-1">
+                    <div className="text-[22px] font-extrabold shrink-0 w-10" style={{ color: "var(--attr-int)" }}>{a.score}</div>
                     <div>
-                      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                        <span style={{ fontSize: 12, fontWeight: 700 }}>{a.name}</span>
-                        {biasInsight?.label && <span style={{ fontSize: 9, fontWeight: 600, color: a.bias === "−" ? "#E65100" : a.bias === "+" ? "#2E7D32" : "#1565C0", background: a.bias === "−" ? "#FFF7ED" : a.bias === "+" ? "#F0FAF0" : "#F5F9FF", padding: "1px 6px", borderRadius: 3 }}>{biasInsight.label}</span>}
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-xs font-bold">{a.name}</span>
+                        {biasInsight?.label && (
+                          <span
+                            className="text-[9px] font-semibold px-1.5 py-px rounded-sm"
+                            style={{
+                              color: a.bias === "\u2212" ? "var(--alert-warning-accent)" : a.bias === "+" ? "var(--alert-success-accent)" : "var(--alert-info-accent)",
+                              background: a.bias === "\u2212" ? "var(--alert-warning-bg)" : a.bias === "+" ? "var(--alert-success-bg)" : "var(--alert-info-bg)"
+                            }}
+                          >
+                            {biasInsight.label}
+                          </span>
+                        )}
                       </div>
                       <Bias bias={a.bias} />
                     </div>
                   </div>
-                  <div style={{ fontSize: 11, color: C.text, lineHeight: 1.5 }}>{biasInsight?.insight}</div>
+                  <div className="text-[11px] text-foreground leading-snug">{biasInsight?.insight}</div>
                   {biasInsight?.environmentCost && (
-                    <ExpandableInsight label="Environment Cost" color={a.bias === "−" ? "#E65100" : C.attr.int}>
+                    <ExpandableInsight label="Environment Cost" color={a.bias === "\u2212" ? "var(--alert-warning-accent)" : "var(--attr-int)"}>
                       {biasInsight.environmentCost}
                     </ExpandableInsight>
                   )}
@@ -359,20 +490,23 @@ export function EnvironmentReport({ person, onClose }) {
           </ReportSection>
 
           {/* 7: Process Signals */}
-          <ReportSection num={7} title="PROCESS SIGNALS: Patterns Worth Examining">
-            <p style={{ fontSize: 12, color: C.muted, margin: "0 0 12px", lineHeight: 1.6 }}>Your External Attributes show patterns worth paying attention to. A minus bias doesn't mean something's broken. It means there's a lens you're not fully using right now. These are signals — not verdicts. The Environment Alignment is what helps you determine what's driving them.</p>
-            <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 12 }}>
+          <ReportSection num={7} title="PROCESS SIGNALS: Patterns Worth Examining" delay={0.7}>
+            <p className="text-xs text-muted m-0 mb-3 leading-relaxed">Your External Attributes show patterns worth paying attention to. A minus bias doesn't mean something's broken. It means there's a lens you're not fully using right now. These are signals -- not verdicts. The Environment Alignment is what helps you determine what's driving them.</p>
+            <div className="flex gap-2.5 flex-wrap mb-3">
               {taxCard("External Patterns", extMinusBiases === 0 ? "Clear" : `${extMinusBiases} detected`, processTaxColor, extMinusBiases === 0 ? "All external capacities active" : `${extMinusBiases} lens${extMinusBiases > 1 ? "es" : ""} showing bias pattern`)}
-              {taxCard("Internal Impact", intMinusBiases === 0 ? "Clear" : `${intMinusBiases} detected`, intMinusBiases === 0 ? C.green : "#E65100", intMinusBiases === 0 ? "Internal foundation stable" : `${intMinusBiases} dimension${intMinusBiases > 1 ? "s" : ""} showing environment sensitivity`)}
+              {taxCard("Internal Impact", intMinusBiases === 0 ? "Clear" : `${intMinusBiases} detected`, intMinusBiases === 0 ? "var(--alert-success-accent)" : "var(--alert-warning-accent)", intMinusBiases === 0 ? "Internal foundation stable" : `${intMinusBiases} dimension${intMinusBiases > 1 ? "s" : ""} showing environment sensitivity`)}
               {taxCard("Signal Level", extMinusBiases === 0 ? "Clear" : extMinusBiases === 1 ? "Low" : extMinusBiases >= 2 ? "Elevated" : "Clear", processTaxColor, "Based on external bias patterns")}
             </div>
             {envTax.hasFrustratedPT && (
-              <div style={{ fontSize: 11, color: "#7F1D1D", lineHeight: 1.7, padding: "12px 16px", marginBottom: 8, background: "#FEF2F2", borderRadius: 8, border: "1px solid #FECACA", borderLeft: "4px solid #C62828" }}>
-                <strong>Environment Damage Indicator Detected.</strong> Your Practical Thinking shows a Frustrated (−) bias. This is the most telling pattern in the entire Attributes profile. It means your environment has taught you that practical application doesn't pay off — that the results you produce don't matter. This is worth examining closely.
-              </div>
+              <AlertCard severity="critical" title="Environment Damage Indicator Detected.">
+                Your Practical Thinking shows a Frustrated (&minus;) bias. This is the most telling pattern in the entire Attributes profile. It means your environment has taught you that practical application doesn't pay off -- that the results you produce don't matter. This is worth examining closely.
+              </AlertCard>
             )}
             {extMinusBiases > 0 && !envTax.hasFrustratedPT && (
-              <div style={{ fontSize: 11, color: C.text, lineHeight: 1.7, padding: "12px 16px", background: C.card, borderRadius: 8, border: `1px solid ${C.border}`, borderLeft: "4px solid #E65100" }}>
+              <div
+                className="text-[11px] text-foreground leading-relaxed px-4 py-3 bg-card rounded-lg border border-border border-l-4"
+                style={{ borderLeftColor: "var(--alert-warning-accent)" }}
+              >
                 Your data shows decision-making capacity you're not fully using right now. It shows up as second-guessing yourself, ignoring data you know matters, or defaulting to one lens when the situation calls for another. Whether this pattern is environment-driven or experience-driven is exactly what the Environment Alignment is built to clarify.
               </div>
             )}
@@ -380,17 +514,21 @@ export function EnvironmentReport({ person, onClose }) {
 
           {/* 8: Compound Patterns */}
           {envTax.activeCompounds.length > 0 && (
-            <ReportSection num={8} title="COMPOUND PATTERNS: Cross-Dimensional Insights">
-              <p style={{ fontSize: 12, color: C.muted, margin: "0 0 12px", lineHeight: 1.6 }}>When specific dimensions combine, they create patterns greater than the sum of their parts. These compound patterns reveal how your behavioral style, values, and decision-making architecture interact to shape your leadership signature.</p>
+            <ReportSection num={8} title="COMPOUND PATTERNS: Cross-Dimensional Insights" delay={0.8}>
+              <p className="text-xs text-muted m-0 mb-3 leading-relaxed">When specific dimensions combine, they create patterns greater than the sum of their parts. These compound patterns reveal how your behavioral style, values, and decision-making architecture interact to shape your leadership signature.</p>
               {envTax.activeCompounds.map(cp => (
-                <div key={cp.id} style={{ marginBottom: 12, padding: "16px 20px", borderRadius: 10, background: C.card, border: `1px solid ${C.border}`, borderLeft: "4px solid #C8A96E" }}>
-                  <div style={{ fontSize: 14, fontWeight: 800, color: "#C8A96E", marginBottom: 4 }}>{cp.name}</div>
-                  <div style={{ fontSize: 11, color: C.muted, lineHeight: 1.4, marginBottom: 8 }}>{cp.description}</div>
-                  <div style={{ fontSize: 12, color: C.text, lineHeight: 1.6, marginBottom: 6 }}>{cp.strength}</div>
-                  <ExpandableInsight label="Toxic Pattern" color="#E65100">
+                <div
+                  key={cp.id}
+                  className="mb-3 px-5 py-4 rounded-[10px] bg-card border border-border border-l-4"
+                  style={{ borderLeftColor: "var(--nav-accent)" }}
+                >
+                  <div className="text-sm font-extrabold mb-1" style={{ color: "var(--nav-accent)" }}>{cp.name}</div>
+                  <div className="text-[11px] text-muted leading-snug mb-2">{cp.description}</div>
+                  <div className="text-xs text-foreground leading-relaxed mb-1.5">{cp.strength}</div>
+                  <ExpandableInsight label="Toxic Pattern" color="var(--alert-warning-accent)">
                     {cp.toxicPattern}
                   </ExpandableInsight>
-                  <ExpandableInsight label="Recommendation" color="#C8A96E">
+                  <ExpandableInsight label="Recommendation" color="var(--nav-accent)">
                     {cp.recommendation}
                   </ExpandableInsight>
                 </div>
@@ -399,15 +537,15 @@ export function EnvironmentReport({ person, onClose }) {
           )}
 
           {/* 9 (or 8): Compound Bill */}
-          <ReportSection num={envTax.activeCompounds.length > 0 ? 9 : 8} title="THE COMPOUND BILL: Your Environment Picture">
-            <p style={{ fontSize: 12, color: C.muted, margin: "0 0 16px", lineHeight: 1.6 }}>Your Preference Tax is confirmed from your data. It's the behavioral energy cost your environment charges you every day. Your Process Signals identify patterns in your decision-making that are worth digging into. Together, they start to reveal the gap between who you are and how you're showing up.</p>
-            <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 20 }}>
+          <ReportSection num={envTax.activeCompounds.length > 0 ? 9 : 8} title="THE COMPOUND BILL: Your Environment Picture" delay={envTax.activeCompounds.length > 0 ? 0.9 : 0.8}>
+            <p className="text-xs text-muted m-0 mb-4 leading-relaxed">Your Preference Tax is confirmed from your data. It's the behavioral energy cost your environment charges you every day. Your Process Signals identify patterns in your decision-making that are worth digging into. Together, they start to reveal the gap between who you are and how you're showing up.</p>
+            <div className="flex gap-2.5 flex-wrap mb-5">
               {taxCard("Preference Tax", prefTaxLabel, prefTaxColor, `${prefTax} gap points confirmed`)}
               {taxCard("Process Signals", extMinusBiases === 0 ? "Clear" : `${extMinusBiases} pattern${extMinusBiases > 1 ? "s" : ""}`, processTaxColor, extMinusBiases === 0 ? "No patterns detected" : `${extMinusBiases} bias pattern${extMinusBiases > 1 ? "s" : ""} to examine`)}
             </div>
             {/* Peak-End Rule: Compound Bill Verdict */}
             {(() => {
-              const overallColor = prefTaxLabel === "Critical" ? "#7F1D1D" : prefTaxLabel === "Heavy" ? "#C62828" : prefTaxLabel === "Significant" ? "#E65100" : prefTaxLabel === "Moderate" ? "#F59E0B" : C.green;
+              const overallColor = prefTaxLabel === "Critical" ? "var(--alert-critical-text)" : prefTaxLabel === "Heavy" ? "var(--friction-high)" : prefTaxLabel === "Significant" ? "var(--alert-warning-accent)" : prefTaxLabel === "Moderate" ? "var(--friction-moderate)" : "var(--alert-success-accent)";
               const verdictCopy = prefTaxLabel === "Critical"
                 ? `The exhaustion you feel isn't a motivation problem. It's a design problem at a critical level. Your environment is demanding near-maximum adaptation from you right now. That's unsustainable. You deserve to know that, and you deserve a path out of it.`
                 : prefTaxLabel === "Heavy"
@@ -418,18 +556,126 @@ export function EnvironmentReport({ person, onClose }) {
                 ? `Some days feel natural. Others feel like a performance. Knowing which dimensions carry the most cost is how you start negotiating better conditions. Your Process Signals show additional patterns worth exploring.`
                 : `Your behavioral environment largely fits who you are. That's rare. Protect it. Your Process Signals are still worth examining to make sure the full picture holds.`;
               return (
-                <div style={{ padding: "24px 28px", borderRadius: 12, background: C.card, border: `1px solid ${C.border}`, borderLeft: `5px solid ${overallColor}` }}>
-                  <div style={{ fontSize: 10, fontWeight: 700, color: C.muted, textTransform: "uppercase", letterSpacing: 1, marginBottom: 8 }}>Your Compound Bill</div>
-                  <div style={{ fontSize: 40, fontWeight: 800, color: overallColor, lineHeight: 1, marginBottom: 12 }}>Preference: {prefTaxLabel}</div>
-                  <div style={{ fontSize: 13, color: C.text, lineHeight: 1.8, fontWeight: 500 }}>
+                <div
+                  className="px-7 py-6 rounded-xl bg-card border border-border border-l-[5px]"
+                  style={{ borderLeftColor: overallColor }}
+                >
+                  <div className="text-[10px] font-bold text-muted uppercase tracking-widest mb-2">Your Compound Bill</div>
+                  <div className="text-[40px] font-extrabold leading-none mb-3" style={{ color: overallColor }}>Preference: {prefTaxLabel}</div>
+                  <div className="text-[13px] text-foreground leading-loose font-medium">
                     {p.name.split(" ")[0]}, {verdictCopy}
                   </div>
                   {envTax.hasFrustratedPT && (
-                    <div style={{ marginTop: 12, padding: "10px 14px", borderRadius: 8, background: "#FEF2F2", border: "1px solid #FECACA" }}>
-                      <div style={{ fontSize: 11, fontWeight: 700, color: "#C62828", marginBottom: 4 }}>Environment Damage Signal Active</div>
-                      <div style={{ fontSize: 11, color: "#7F1D1D", lineHeight: 1.5 }}>Your Practical Thinking (−) bias indicates your environment may be actively undermining your relationship with results and execution. This pattern deserves priority attention in your Environment Alignment.</div>
+                    <div className="mt-3 px-3.5 py-2.5 rounded-lg bg-alert-critical-bg border border-alert-critical-border">
+                      <div className="text-[11px] font-bold mb-1" style={{ color: "var(--friction-high)" }}>Environment Damage Signal Active</div>
+                      <div className="text-[11px] leading-snug" style={{ color: "var(--alert-critical-text)" }}>Your Practical Thinking (&minus;) bias indicates your environment may be actively undermining your relationship with results and execution. This pattern deserves priority attention in your Environment Alignment.</div>
                     </div>
                   )}
+                </div>
+              );
+            })()}
+          </ReportSection>
+
+          {/* Your Three Priorities */}
+          <ReportSection num={envTax.activeCompounds.length > 0 ? 10 : 9} title="YOUR THREE PRIORITIES: Where to Start" delay={envTax.activeCompounds.length > 0 ? 1.0 : 0.9}>
+            <p className="text-xs text-muted m-0 mb-4 leading-relaxed">Based on everything in this report, here are the three things worth your attention first. Not everything. Not a plan. Just where to look.</p>
+            {(() => {
+              const priorities = [];
+              const firstName = p.name.split(" ")[0];
+
+              // Priority 1: Highest-cost DISC gap
+              const costliestGap = discRows.filter(r => Math.abs(r.gap) >= 20).sort((a, b) => Math.abs(b.gap) - Math.abs(a.gap))[0];
+              if (costliestGap) {
+                const dir = costliestGap.gap > 0 ? "amplifying" : "suppressing";
+                priorities.push({
+                  label: "Biggest Adaptation Cost",
+                  color: "var(--alert-warning-accent)",
+                  text: `${firstName} is ${dir} ${discFull[costliestGap.d]} by ${Math.abs(costliestGap.gap)} points every day. That's the single largest energy drain in this profile. Start here: what in the environment is demanding this shift, and can any of it change?`
+                });
+              } else if (prefTax >= 40) {
+                priorities.push({
+                  label: "Moderate Adaptation",
+                  color: "var(--friction-moderate)",
+                  text: `No single dimension is at critical levels, but the combined ${prefTax}-point tax is real. Ask ${firstName}: which part of your day feels most like performing? That's where the cost lives.`
+                });
+              } else {
+                priorities.push({
+                  label: "Environment Fit",
+                  color: "var(--alert-success-accent)",
+                  text: `${firstName}'s environment fits their natural style well. Protect this. Environments drift -- check in quarterly to make sure alignment holds.`
+                });
+              }
+
+              // Priority 2: Frustrated PT or top minus bias
+              if (envTax.hasFrustratedPT) {
+                priorities.push({
+                  label: "Environment Damage Signal",
+                  color: "var(--friction-high)",
+                  text: `Frustrated Practical Thinking is the strongest damage signal in the assessment. ${firstName}'s environment has taught them that practical results don't matter. Have one direct conversation: "I see you pulling back from execution. What happened that made follow-through feel pointless here?"`
+                });
+              } else if (extMinusBiases > 0) {
+                const minusLens = p.attr.ext.filter(a => a.bias === "\u2212")[0];
+                if (minusLens) {
+                  priorities.push({
+                    label: "Underused Decision Lens",
+                    color: "var(--alert-warning-accent)",
+                    text: `${firstName} is undervaluing their ${minusLens.label} lens. They have the capacity but their environment isn't rewarding it. Ask: "When's the last time using ${minusLens.label === "Heart" ? "empathy" : minusLens.label === "Hand" ? "practical thinking" : "systems analysis"} actually paid off for you here?"`
+                  });
+                }
+              } else {
+                const topVal = topVals[0];
+                if (topVal) {
+                  priorities.push({
+                    label: "Protect What Drives Them",
+                    color: "var(--alert-success-accent)",
+                    text: `${firstName}'s top driver is ${topVal[0]} at ${topVal[1]}. Make sure the environment keeps feeding it. If ${topVal[0] === "Altruistic" ? "the work stops feeling meaningful" : topVal[0] === "Economic" ? "the ROI disappears" : topVal[0] === "Individualistic" ? "autonomy gets restricted" : topVal[0] === "Political" ? "influence gets taken away" : topVal[0] === "Theoretical" ? "learning stops" : topVal[0] === "Regulatory" ? "structure breaks down" : "the environment shifts"}, motivation will follow.`
+                  });
+                }
+              }
+
+              // Priority 3: Internal attribute risk or compound pattern
+              const intAtRisk = p.attr.int.filter(a => a.bias === "\u2212");
+              if (intAtRisk.length > 0) {
+                priorities.push({
+                  label: "Internal Foundation",
+                  color: "var(--alert-critical-text)",
+                  text: `${firstName}'s ${intAtRisk[0].name} is showing an undervaluing bias. That's not a skills gap -- it's a confidence signal. Their environment may be eroding their internal foundation. Address this before it becomes permanent.`
+                });
+              } else if (envTax.activeCompounds.length > 0) {
+                const topCompound = envTax.activeCompounds[0];
+                priorities.push({
+                  label: "Compound Pattern",
+                  color: "var(--nav-accent)",
+                  text: `"${topCompound.name}" is active. ${topCompound.description} This pattern amplifies everything else in the report. Understanding it explains behavior that looks contradictory from the outside.`
+                });
+              } else {
+                priorities.push({
+                  label: "Maintain Awareness",
+                  color: "var(--alert-success-accent)",
+                  text: `${firstName}'s internal foundation is stable. Use this report as a baseline. Revisit in 90 days to see if anything has shifted -- especially after role changes, team changes, or high-stress periods.`
+                });
+              }
+
+              return (
+                <div className="flex flex-col gap-3">
+                  {priorities.map((pri, i) => (
+                    <div
+                      key={i}
+                      className="px-5 py-4 rounded-[10px] bg-card border border-border border-l-[5px]"
+                      style={{ borderLeftColor: pri.color }}
+                    >
+                      <div className="flex items-center gap-2 mb-1.5">
+                        <div
+                          className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-extrabold shrink-0"
+                          style={{ background: pri.color, color: "var(--bg-card)" }}
+                        >
+                          {i + 1}
+                        </div>
+                        <div className="text-xs font-extrabold uppercase tracking-wide" style={{ color: pri.color }}>{pri.label}</div>
+                      </div>
+                      <div className="text-[13px] text-foreground leading-relaxed">{pri.text}</div>
+                    </div>
+                  ))}
                 </div>
               );
             })()}

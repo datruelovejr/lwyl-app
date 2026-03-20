@@ -8,9 +8,9 @@ import { C } from "../constants/colors";
  * The user never leaves LWYL. The header stays. The brand stays.
  *
  * Props:
- *  - assessmentUrl: string — the org's Innermetrix white-label URL
- *  - orgName: string — the org name for display
- *  - onClose: () => void — called when panel is closed
+ *  - assessmentUrl: string -- the org's Innermetrix white-label URL
+ *  - orgName: string -- the org name for display
+ *  - onClose: () => void -- called when panel is closed
  *  - isMobile: boolean
  */
 export function AssessmentPanel({ assessmentUrl, orgName, onClose, isMobile }) {
@@ -44,7 +44,7 @@ export function AssessmentPanel({ assessmentUrl, orgName, onClose, isMobile }) {
           </div>
           <div style={{ width: 1, height: 20, background: "#4B5563" }} />
           <div style={{ fontSize: 13, color: "#9CA3AF" }}>
-            Assessment — <span style={{ color: "#fff", fontWeight: 600 }}>{orgName}</span>
+            Assessment -- <span style={{ color: "#fff", fontWeight: 600 }}>{orgName}</span>
           </div>
         </div>
         <button

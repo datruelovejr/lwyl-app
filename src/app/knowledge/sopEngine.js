@@ -11,8 +11,8 @@ const DISC_SOPS = {
     high: {
       question: "How are we making decisions and solving problems?",
       perspective: "Problems exist to be solved, quickly. Action is better than hesitation.",
-      approach: "Bold, fast, and assertive. Acts before others finish analyzing. Relies on gut and pushes for movement — sometimes before others are ready.",
-      realTime: "What's the goal? Who's slowing us down? Why are we still talking? Scanning for obstacles, inefficiencies, or slow decision-makers. Emotion isn't a factor — results are.",
+      approach: "Bold, fast, and assertive. Acts before others finish analyzing. Relies on gut and pushes for movement -- sometimes before others are ready.",
+      realTime: "What's the goal? Who's slowing us down? Why are we still talking? Scanning for obstacles, inefficiencies, or slow decision-makers. Emotion isn't a factor -- results are.",
       sop: "How quickly problems are solved must be prioritized. When working with others, what would assist with decisions happening sooner? It's your responsibility to ensure others are on board when you decide to drive.",
       caution: "May bulldoze others or overlook input. Risk of solving the wrong problem too quickly or creating unnecessary resistance.",
     },
@@ -29,7 +29,7 @@ const DISC_SOPS = {
       perspective: "People are the priority. Energy and connection drive outcomes.",
       approach: "Relational first. Decisions shaped by how they impact morale, buy-in, and emotional engagement.",
       realTime: "How will this make people feel? Are they with me? Can I get them excited? Focused on enthusiasm, support, and perceived connection.",
-      sop: "Find ways to create the spark, fun, excitement, and social dynamics you need. When working with others, the goal is not for them to do it at your level — they may not be equally excited about your ideas. Find ways to discover what excitement looks like for them. You must understand when you're doing too much.",
+      sop: "Find ways to create the spark, fun, excitement, and social dynamics you need. When working with others, the goal is not for them to do it at your level -- they may not be equally excited about your ideas. Find ways to discover what excitement looks like for them. You must understand when you're doing too much.",
       caution: "May overlook logistics or minimize hard conversations to maintain positivity. Risk of over-promising.",
     },
     low: {
@@ -58,10 +58,10 @@ const DISC_SOPS = {
   C: {
     high: {
       question: "How are we navigating the issues and details that matter most?",
-      perspective: "There's a right way to do things — and we should follow it.",
+      perspective: "There's a right way to do things -- and we should follow it.",
       approach: "Analytical and rules-based. Seeks accuracy and structure. Prefers full information before acting.",
       realTime: "Do we have all the data? Does this align with policy? Are we skipping steps? Focused on thoroughness and minimizing risk of error.",
-      sop: "You need to stay knowledgeable and in the know of the details others miss. When working with others, you can't expect them to be as detail-oriented. Be aware of how others feel about more questions being asked, and find the right time to receive what you need — without holding others up. Help others see the problem it solves for them.",
+      sop: "You need to stay knowledgeable and in the know of the details others miss. When working with others, you can't expect them to be as detail-oriented. Be aware of how others feel about more questions being asked, and find the right time to receive what you need -- without holding others up. Help others see the problem it solves for them.",
       caution: "May stall progress in pursuit of perfection. Can resist experimentation or tolerate ambiguity poorly.",
     },
     low: {
@@ -81,7 +81,7 @@ const VALUES_SOPS = {
   Aesthetic: {
     label: "Harmony-Driven",
     icon: "🎨",
-    definition: "The drive to make sure what we're doing actually means something — not just going through the motions.",
+    definition: "The drive to make sure what we're doing actually means something -- not just going through the motions.",
     perspective: "If we're going to spend time on something, it should matter. I care about whether the work feels real, whether people feel supported, and whether there's some kind of purpose behind what we do. If things feel fake, rushed, or forced, I check out.",
     whatMatters: [
       "A team culture that actually cares about people, not just tasks",
@@ -94,7 +94,7 @@ const VALUES_SOPS = {
       "Creating space for people to connect and be real with each other",
       "Helping make the day-to-day feel less robotic and more human",
       "Finding ways to build trust across teams",
-      "Making sure people feel seen, heard, and respected — not just used",
+      "Making sure people feel seen, heard, and respected -- not just used",
     ],
     irks: [
       "Cold, top-down leadership with no interest in how people feel",
@@ -109,7 +109,7 @@ const VALUES_SOPS = {
     definition: "The drive to get stuff done in a way that actually makes sense. If it's not useful, don't waste time on it.",
     perspective: "Time is valuable. If we're going to do something, it should lead to a real result, not just keep us busy. Why are we doing it this way? If there's a smarter, faster, better way, I want to find it.",
     whatMatters: [
-      "Efficiency — cut the fluff and get to the point",
+      "Efficiency -- cut the fluff and get to the point",
       "Work that leads to clear progress, not just effort",
       "Clear expectations and accountability",
       "Being allowed to improve the system instead of being told to live with it",
@@ -130,10 +130,10 @@ const VALUES_SOPS = {
   Individualistic: {
     label: "Autonomy-Driven",
     icon: "🦋",
-    definition: "The drive to do things their own way and stand out for it. They don't want to blend in — they want to lead, shape, or own something.",
+    definition: "The drive to do things their own way and stand out for it. They don't want to blend in -- they want to lead, shape, or own something.",
     perspective: "I need to feel like I have control over how I work and that my voice matters. I don't want to be micromanaged. I want to leave my mark, do things differently, and have the freedom to do it in a way that makes sense to me. If I'm stuck in a box, I check out.",
     whatMatters: [
-      "Autonomy — don't hover, just trust them to get it done",
+      "Autonomy -- don't hover, just trust them to get it done",
       "Having room to bring their personality and ideas into the work",
       "Being recognized for what they uniquely bring to the table",
       "Opportunities to lead or own something",
@@ -157,7 +157,7 @@ const VALUES_SOPS = {
     definition: "The drive to lead, make decisions, and be the one people look to. They want influence, not just involvement.",
     perspective: "I want to be at the table where the real decisions are made. I like responsibility. I'll step up when others won't. Just don't sideline me and expect me to stay motivated.",
     whatMatters: [
-      "Visibility — they want to be seen, heard, and respected",
+      "Visibility -- they want to be seen, heard, and respected",
       "Real responsibility, not just busy work",
       "Opportunities to lead people or decisions",
       "Clear lanes to step up and stand out",
@@ -177,8 +177,8 @@ const VALUES_SOPS = {
   Altruistic: {
     label: "Service-Driven",
     icon: "🤝",
-    definition: "The drive to help, serve, and support others — especially when no one's keeping score.",
-    perspective: "I'm here to make a difference in people's lives. I care about the human side of the work — whether people are okay, whether they're supported, whether we're doing right by them. I'm not in it for credit. I just want to help where help is needed.",
+    definition: "The drive to help, serve, and support others -- especially when no one's keeping score.",
+    perspective: "I'm here to make a difference in people's lives. I care about the human side of the work -- whether people are okay, whether they're supported, whether we're doing right by them. I'm not in it for credit. I just want to help where help is needed.",
     whatMatters: [
       "Knowing the work helps people in real ways",
       "Being able to support others without red tape or ego games",
@@ -200,10 +200,10 @@ const VALUES_SOPS = {
     label: "Order-Driven",
     icon: "📋",
     definition: "The drive to create structure, consistency, and order. If there's no system, they'll build one.",
-    perspective: "I like knowing what to expect and how things are supposed to work. I believe in rules, routines, and clear standards — not because I'm rigid, but because they keep things fair and functional. If there's chaos, I'm the one trying to clean it up.",
+    perspective: "I like knowing what to expect and how things are supposed to work. I believe in rules, routines, and clear standards -- not because I'm rigid, but because they keep things fair and functional. If there's chaos, I'm the one trying to clean it up.",
     whatMatters: [
       "Clear expectations, rules, and boundaries",
-      "Consistent follow-through — don't say it if you're not going to do it",
+      "Consistent follow-through -- don't say it if you're not going to do it",
       "Being able to rely on systems that work",
       "Room to build order where it's missing",
     ],
@@ -221,7 +221,7 @@ const VALUES_SOPS = {
   Theoretical: {
     label: "Learning-Driven",
     icon: "🔬",
-    definition: "The drive to learn, explore ideas, and understand how things work — because knowing more just feels right.",
+    definition: "The drive to learn, explore ideas, and understand how things work -- because knowing more just feels right.",
     perspective: "I'm always thinking about how we could do things better. I ask questions, dig into ideas, and want to understand the 'why' behind the work. If there's no time or space for learning, I start to feel stuck.",
     whatMatters: [
       "Opportunities to learn, not just do",
@@ -231,7 +231,7 @@ const VALUES_SOPS = {
     ],
     initiatives: [
       "Researching new approaches or tools before rolling them out",
-      "Exploring what's not working and why — then sharing insights",
+      "Exploring what's not working and why -- then sharing insights",
       "Helping others understand the 'why' behind big changes",
     ],
     irks: [
@@ -249,7 +249,7 @@ const VALUES_SOPS = {
 const PROCESS_SOPS = {
   Heart: {
     label: "Empathy",
-    fullLabel: "Empathy (Heart / Personal Style) — People",
+    fullLabel: "Empathy (Heart / Personal Style) -- People",
     icon: "❤️",
     definition: "The ability to understand and care about what others are feeling or experiencing, without needing them to explain it.",
     talents: "Empathy, Understanding Attitude, Sensitivity Towards Others, Developing Others",
@@ -271,11 +271,11 @@ const PROCESS_SOPS = {
   },
   Hand: {
     label: "Practical Thinking",
-    fullLabel: "Practical Thinking (Hand / Practical Style) — Solutions",
+    fullLabel: "Practical Thinking (Hand / Practical Style) -- Solutions",
     icon: "🛠️",
-    definition: "The ability to recognize what will actually work and make sense in the real world — not just in theory.",
+    definition: "The ability to recognize what will actually work and make sense in the real world -- not just in theory.",
     talents: "Execution/Implementation, Results Orientation, Speed of Action, Attention to Details",
-    perspective: "I can quickly tell whether something is realistic or a waste of time. I don't need every detail — I just know what will fly and what won't. I hate when we chase ideas that sound good on paper but clearly won't work in practice.",
+    perspective: "I can quickly tell whether something is realistic or a waste of time. I don't need every detail -- I just know what will fly and what won't. I hate when we chase ideas that sound good on paper but clearly won't work in practice.",
     practicalApplication: [
       "Helps teams avoid overcomplicating problems or wasting time",
       "Offers grounded advice during planning or decision-making",
@@ -293,11 +293,11 @@ const PROCESS_SOPS = {
   },
   Head: {
     label: "Systems Judgment",
-    fullLabel: "Systems Judgment (Head / Analytical Style) — Strategy",
+    fullLabel: "Systems Judgment (Head / Analytical Style) -- Strategy",
     icon: "🧠",
     definition: "The ability to think strategically, see patterns, and understand how different parts of a system fit together.",
     talents: "Strategic Planning, Theoretical Problem Solving, Seeing Potential Problems, Creating Complex Systems",
-    perspective: "I like seeing how all the moving pieces connect. I think beyond the immediate task and look at how things will play out. I don't just want to fix a problem — I want to improve the whole system.",
+    perspective: "I like seeing how all the moving pieces connect. I think beyond the immediate task and look at how things will play out. I don't just want to fix a problem -- I want to improve the whole system.",
     practicalApplication: [
       "Helps anticipate long-term impact of decisions",
       "Connects dots others don't always see",

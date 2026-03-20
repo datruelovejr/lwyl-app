@@ -1,7 +1,7 @@
 /**
- * LWYL SOP Engine — Deterministic Standard Operating Procedures
+ * LWYL SOP Engine -- Deterministic Standard Operating Procedures
  * Adapted for lwyl-app data shape (disc.natural, values, attr.ext[]/int[])
- * Source: 3Ps_SOPs.md — Daniel's complete methodology
+ * Source: 3Ps_SOPs.md -- Daniel's complete methodology
  *
  * All functions are pure, deterministic, no LLM calls.
  */
@@ -36,7 +36,7 @@ const DISC_SOP = {
     coreQuestion: "How are we making decisions and solving problems?",
     high: {
       perspective: "Problems exist to be solved, quickly. Action is better than hesitation.",
-      decisionApproach: "Bold, fast, and assertive. High Ds often act before others finish analyzing. They rely on their gut and push for movement — sometimes before others are ready.",
+      decisionApproach: "Bold, fast, and assertive. High Ds often act before others finish analyzing. They rely on their gut and push for movement -- sometimes before others are ready.",
       realTimeProcessing: "What is the goal? Who is slowing us down? Why are we still talking?",
       sop: "How quickly problems are solved must be prioritized. When working with others, what would assist with decisions happening sooner? It is your responsibility to ensure others are on board when you decide to drive.",
       caution: "May bulldoze others or overlook input. Risk of solving the wrong problem too quickly or creating unnecessary resistance.",
@@ -54,7 +54,7 @@ const DISC_SOP = {
       perspective: "People are the priority. Energy and connection drive outcomes.",
       decisionApproach: "Relational first. Decisions are shaped by how they impact morale, buy-in, and emotional engagement.",
       realTimeProcessing: "How will this make people feel? Are they with me? Can I get them excited?",
-      sop: "Find ways to create the spark, fun, excitement, and social dynamics you need. When working with others, the goal is not for them to do it at the level you do it — they may not be equally as excited about your ideas. Find ways to discover what excitement looks like for them to raise their energy levels. You must understand when you are doing too much.",
+      sop: "Find ways to create the spark, fun, excitement, and social dynamics you need. When working with others, the goal is not for them to do it at the level you do it -- they may not be equally as excited about your ideas. Find ways to discover what excitement looks like for them to raise their energy levels. You must understand when you are doing too much.",
       caution: "May overlook logistics or minimize hard conversations to maintain positivity. Risk of over-promising.",
     },
     low: {
@@ -83,10 +83,10 @@ const DISC_SOP = {
   C: {
     coreQuestion: "How are we navigating the issues and details that matter most?",
     high: {
-      perspective: "There is a right way to do things — and we should follow it.",
+      perspective: "There is a right way to do things -- and we should follow it.",
       decisionApproach: "Analytical and rules-based. Seeks accuracy and structure. Prefers full information before acting.",
       realTimeProcessing: "Do we have all the data? Does this align with policy? Are we skipping steps?",
-      sop: "You need to stay knowledgeable and in the know of the details that others miss. When working with others, you cannot expect them to be as detail-oriented as you are. Be aware of how others feel about more questions being asked, and find the right time and space to receive what you need — without holding others up.",
+      sop: "You need to stay knowledgeable and in the know of the details that others miss. When working with others, you cannot expect them to be as detail-oriented as you are. Be aware of how others feel about more questions being asked, and find the right time and space to receive what you need -- without holding others up.",
       caution: "May stall progress in pursuit of perfection. Can resist experimentation or tolerate ambiguity poorly.",
     },
     low: {
@@ -103,35 +103,35 @@ const DISC_SOP = {
 
 const VALUES_SOP = {
   Aesthetic: {
-    definition: "The drive to make sure what we are doing actually means something — not just going through the motions.",
+    definition: "The drive to make sure what we are doing actually means something -- not just going through the motions.",
     perspective: "If we are going to spend time on something, it should matter. I care about whether the work feels real, whether people feel supported, and whether there is some kind of purpose behind what we do.",
     whatMatters: ["A team culture that actually cares about people, not just tasks", "Leadership that listens, not just dictates", "Space to be themselves without having to fake it", "Emotional safety where people can speak up and not feel punished"],
-    initiatives: ["Creating space for people to connect and be real with each other", "Helping make the day-to-day feel less robotic and more human", "Finding ways to build trust across teams", "Making sure people feel seen, heard, and respected — not just used"],
+    initiatives: ["Creating space for people to connect and be real with each other", "Helping make the day-to-day feel less robotic and more human", "Finding ways to build trust across teams", "Making sure people feel seen, heard, and respected -- not just used"],
     thingsThatIrk: ["Cold, top-down leadership with no interest in how people feel", "Fake positivity and forced team-building", "Work that feels empty or pointless", "Environments where people are burned out but expected to smile through it"],
   },
   Economic: {
     definition: "The drive to get stuff done in a way that actually makes sense. If it is not useful, do not waste time on it.",
     perspective: "Time is valuable. If we are going to do something, it should lead to a real result, not just keep us busy.",
-    whatMatters: ["Efficiency — cut the fluff and get to the point", "Work that leads to clear progress, not just effort", "Clear expectations and accountability", "Being allowed to improve the system instead of being told to live with it"],
+    whatMatters: ["Efficiency -- cut the fluff and get to the point", "Work that leads to clear progress, not just effort", "Clear expectations and accountability", "Being allowed to improve the system instead of being told to live with it"],
     initiatives: ["Figuring out how to do more with less effort", "Getting systems and processes to actually work better", "Helping people spend more time on what matters"],
     thingsThatIrk: ["Long, unproductive meetings with no real outcome", "Doing things because that is how we have always done it", "Vague goals, unclear direction, and endless talking with no action", "Bureaucracy that slows everything down"],
   },
   Individualistic: {
-    definition: "The drive to do things their own way and stand out for it. They do not want to blend in — they want to lead, shape, or own something.",
+    definition: "The drive to do things their own way and stand out for it. They do not want to blend in -- they want to lead, shape, or own something.",
     perspective: "I need to feel like I have control over how I work and that my voice matters. I do not want to be micromanaged.",
-    whatMatters: ["Autonomy — do not hover, just trust them to get it done", "Having room to bring their personality and ideas into the work", "Being recognized for what they uniquely bring to the table", "The freedom to challenge the norm if it is not working"],
+    whatMatters: ["Autonomy -- do not hover, just trust them to get it done", "Having room to bring their personality and ideas into the work", "Being recognized for what they uniquely bring to the table", "The freedom to challenge the norm if it is not working"],
     initiatives: ["Building something from scratch that has their fingerprints all over it", "Pushing boundaries in how the team or school shows up", "Creating space for people to bring more of themselves to the work"],
     thingsThatIrk: ["Micromanagement or having every step dictated", "Just follow the process cultures", "Environments where bold ideas get shut down without a conversation", "Being treated like they are just there to execute someone else's vision"],
   },
   Political: {
     definition: "The drive to lead, make decisions, and be the one people look to. They want influence, not just involvement.",
     perspective: "I want to be at the table where the real decisions are made. I like responsibility. I will step up when others will not.",
-    whatMatters: ["Visibility — they want to be seen, heard, and respected", "Real responsibility, not just busy work", "Opportunities to lead people or decisions", "Clear lanes to step up and stand out"],
+    whatMatters: ["Visibility -- they want to be seen, heard, and respected", "Real responsibility, not just busy work", "Opportunities to lead people or decisions", "Clear lanes to step up and stand out"],
     initiatives: ["Taking charge of something high-stakes and showing what they can do", "Rallying others around a shared goal or challenge", "Owning something with real impact and responsibility"],
     thingsThatIrk: ["Being left out of decisions that affect their work", "Leaders who expect compliance, not collaboration", "Environments where ambition is seen as arrogance"],
   },
   Altruistic: {
-    definition: "The drive to help, serve, and support others — especially when no one is keeping score.",
+    definition: "The drive to help, serve, and support others -- especially when no one is keeping score.",
     perspective: "I am here to make a difference in people's lives. I care about the human side of the work.",
     whatMatters: ["Knowing the work helps people in real ways", "Being able to support others without red tape or ego games", "Working with leaders who actually care, not just pretend to", "A culture that values kindness, not just performance"],
     initiatives: ["Supporting students or staff who are slipping through the cracks", "Coaching, mentoring, or guiding people behind the scenes", "Creating safe spaces where people can ask for help without shame"],
@@ -140,15 +140,15 @@ const VALUES_SOP = {
   Regulatory: {
     definition: "The drive to create structure, consistency, and order. If there is no system, they will build one.",
     perspective: "I like knowing what to expect and how things are supposed to work. I believe in rules, routines, and clear standards.",
-    whatMatters: ["Clear expectations, rules, and boundaries", "Consistent follow-through — do not say it if you are not going to do it", "Being able to rely on systems that work", "Room to build order where it is missing"],
+    whatMatters: ["Clear expectations, rules, and boundaries", "Consistent follow-through -- do not say it if you are not going to do it", "Being able to rely on systems that work", "Room to build order where it is missing"],
     initiatives: ["Fixing things that feel scattered or unclear", "Setting up processes that help people know what to do and when", "Documenting how things work so others do not have to guess"],
     thingsThatIrk: ["Constant last-minute changes with no warning", "Vague roles, loose expectations, and shifting priorities", "Leadership that ignores or breaks its own rules"],
   },
   Theoretical: {
-    definition: "The drive to learn, explore ideas, and understand how things work — because knowing more just feels right.",
+    definition: "The drive to learn, explore ideas, and understand how things work -- because knowing more just feels right.",
     perspective: "I am always thinking about how we could do things better. I ask questions, dig into ideas, and want to understand the why behind the work.",
     whatMatters: ["Opportunities to learn, not just do", "Space to think through problems instead of rushing to fix them", "Being challenged intellectually, not just kept busy", "Leaders who value curiosity, not just compliance"],
-    initiatives: ["Researching new approaches or tools before rolling them out", "Exploring what is not working and why — then sharing insights", "Helping others understand the why behind big changes"],
+    initiatives: ["Researching new approaches or tools before rolling them out", "Exploring what is not working and why -- then sharing insights", "Helping others understand the why behind big changes"],
     thingsThatIrk: ["Just do it cultures with no time to think or ask questions", "Teams that keep doing things without knowing why", "Being forced to follow plans that do not make sense without explanation"],
   },
 };
@@ -177,9 +177,9 @@ const PROCESS_SOP = {
     ],
   },
   Hand: {
-    definition: "The ability to recognize what will actually work and make sense in the real world — not just in theory.",
+    definition: "The ability to recognize what will actually work and make sense in the real world -- not just in theory.",
     talents: "Execution/Implementation, Results Orientation, Speed of Action, Attention to Details",
-    perspective: "I can quickly tell whether something is realistic or a waste of time. I do not need every detail — I just know what will fly and what will not.",
+    perspective: "I can quickly tell whether something is realistic or a waste of time. I do not need every detail -- I just know what will fly and what will not.",
     practicalApplication: [
       "Helps teams avoid overcomplicating problems or wasting time",
       "Offers grounded advice during planning or decision-making",
@@ -190,7 +190,7 @@ const PROCESS_SOP = {
     sopQuestions: [
       "What is the fastest path to results?",
       "What is actionable now?",
-      "Incorporate SMART goals — be realistic about what we can and cannot do",
+      "Incorporate SMART goals -- be realistic about what we can and cannot do",
       "How do we ensure that the problems we discuss are actually solved?",
       "What role does everyone play in execution?",
     ],

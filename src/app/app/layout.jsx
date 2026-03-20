@@ -3,12 +3,20 @@
 import { LWYLProvider, useLWYL } from "../contexts/LWYLContext";
 import { LoginPage } from "../components/LoginPage";
 import { WelcomeSequence } from "../components/WelcomeSequence";
+import { SetupWizard, getHasCompletedSetup, setSetupComplete } from "../components/SetupWizard";
 import { AssessmentPanel } from "../components/AssessmentPanel";
+import ConnectionStatus from "../components/ConnectionStatus";
+import { LoadingMoment } from "../components/ui/LoadingMoment";
 import { useIsMobile } from "../utils/useIsMobile";
+import { usePathname, useRouter } from "next/navigation";
+import { useState, useEffect } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { getDom } from "../constants/data";
 
 export default function AppLayout({ children }) {
   return (
     <LWYLProvider>
+      <ConnectionStatus />
       <AppShell>{children}</AppShell>
     </LWYLProvider>
   );
@@ -19,43 +27,79 @@ function AppShell({ children }) {
     authChecking, user, isLoading, onboardingDone,
     handleOnboardingComplete, people, leaderId,
     showAssessment, org, closeAssessment,
+    viewMode, toggleViewMode,
   } = useLWYL();
   const isMobile = useIsMobile();
+  const currentPath = usePathname();
 
-  // Loading states
+  // Setup wizard state (localStorage-driven, checked after auth resolves)
+  const [setupChecked, setSetupChecked] = useState(false);
+  const [showSetupWizard, setShowSetupWizard] = useState(false);
+
+  useEffect(() => {
+    if (!user) return;
+    const completed = getHasCompletedSetup();
+    setShowSetupWizard(!completed);
+    setSetupChecked(true);
+  }, [user]);
+
   if (authChecking || isLoading) {
     return (
-      <div style={{ fontFamily: "Inter, -apple-system, sans-serif", background: "#F9FAFB", minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center" }}>
-        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 16 }}>
-          <div style={{ width: 36, height: 36, border: "3px solid #E5E7EB", borderTopColor: "#29B6F6", borderRadius: "50%", animation: "lwyl-spin 0.8s linear infinite" }} />
-          <p style={{ fontSize: 14, color: "#6B7280", fontWeight: 500 }}>Loading your leadership lens...</p>
-          <style>{`@keyframes lwyl-spin { to { transform: rotate(360deg); } }`}</style>
-        </div>
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <LoadingMoment message="Loading your leadership lens..." />
       </div>
     );
   }
 
-  // Auth gate
   if (!user) return <LoginPage onLogin={() => {}} />;
 
-  // Onboarding
+  if (setupChecked && showSetupWizard) {
+    return (
+      <SetupWizard
+        onComplete={() => {
+          setShowSetupWizard(false);
+        }}
+      />
+    );
+  }
+
   if (onboardingDone === false) {
     return <WelcomeSequence user={user} people={people} leaderId={leaderId} onComplete={handleOnboardingComplete} />;
   }
 
-  // Hide sidebar on consultant dashboard (/app)
-  const { usePathname: getPath } = require("next/navigation");
-  const currentPath = getPath();
   const isConsultantView = currentPath === "/app";
 
   return (
-    <div style={{ fontFamily: "Inter, -apple-system, sans-serif", minHeight: "100vh", display: "flex", background: "#F9FAFB" }}>
+    <div className="min-h-screen flex bg-background">
       {!isConsultantView && <LWYLSidebar isMobile={isMobile} />}
-      <main style={{ flex: 1, minWidth: 0, overflowY: "auto", maxHeight: "100vh" }}>
-        {children}
-      </main>
-
-      {/* Assessment iFrame Panel */}
+      <div className="flex-1 min-w-0 flex flex-col max-h-screen">
+        <AnimatePresence>
+          {viewMode === 'member' && (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: 'auto', opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.25, ease: 'easeOut' }}
+              className="overflow-hidden"
+            >
+              <div className="flex items-center justify-between px-5 py-2.5 bg-card border-b border-border">
+                <span className="text-xs font-semibold text-muted">
+                  Viewing as team member -- switch back in Settings
+                </span>
+                <button
+                  onClick={toggleViewMode}
+                  className="text-xs font-semibold text-disc-c bg-transparent border-none cursor-pointer hover:underline"
+                >
+                  Switch to Admin
+                </button>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+        <main className="flex-1 min-w-0 overflow-y-auto">
+          {children}
+        </main>
+      </div>
       {showAssessment && org?.assessmentUrl && (
         <AssessmentPanel assessmentUrl={org.assessmentUrl} orgName={org.name} onClose={closeAssessment} isMobile={isMobile} />
       )}
@@ -63,25 +107,19 @@ function AppShell({ children }) {
   );
 }
 
-// ── Sidebar ─────────────────────────────────────────────────────────
-
 function LWYLSidebar({ isMobile }) {
-  const { user, handleLogout, org, orgPeople, leaderId } = useLWYL();
-
-  const { useState: useLocalState } = require("react");
-  const { usePathname, useRouter } = require("next/navigation");
-  const { getDom } = require("../constants/data");
-  const { C } = require("../constants/colors");
-
+  const { user, handleLogout, org, orgPeople, leaderId, viewMode } = useLWYL();
   const pathname = usePathname();
   const router = useRouter();
-
-  const [sidebarOpen, setSidebarOpen] = useLocalState(!isMobile);
+  const [sidebarOpen, setSidebarOpen] = useState(!isMobile);
 
   const domColor = (p) => {
-    if (!p.disc) return C.border;
+    if (!p.disc) return 'var(--border-default)';
     const dom = getDom(p.disc.natural);
-    return dom.includes("D") ? C.disc.D : dom.includes("I") ? C.disc.I : dom.includes("S") ? C.disc.S : C.disc.C;
+    if (dom.includes('D')) return 'var(--disc-d)';
+    if (dom.includes('I')) return 'var(--disc-i)';
+    if (dom.includes('S')) return 'var(--disc-s)';
+    return 'var(--disc-c)';
   };
 
   const navItems = [
@@ -106,26 +144,21 @@ function LWYLSidebar({ isMobile }) {
     return (
       <button
         onClick={() => router.push(item.path)}
-        style={{
-          width: "100%", textAlign: "left", padding: "8px 12px", borderRadius: 8, border: "none",
-          background: isActive ? "rgba(41,182,246,0.1)" : "transparent",
-          color: isActive ? "#29B6F6" : "#374151",
-          fontSize: 13, fontWeight: isActive ? 600 : 500, cursor: "pointer",
-          display: "flex", alignItems: "center", gap: 10, transition: "all 0.15s",
-        }}
+        className={`w-full text-left px-3 py-2 rounded-lg border-none text-sm cursor-pointer flex items-center gap-2.5 transition-all duration-150 ${
+          isActive ? 'bg-disc-c/10 text-disc-c font-semibold' : 'bg-transparent text-foreground font-medium hover:bg-subtle'
+        }`}
       >
-        <span style={{ fontSize: 16, width: 20, textAlign: "center" }}>{item.icon}</span>
+        <span className="text-base w-5 text-center">{item.icon}</span>
         {item.label}
       </button>
     );
   };
 
-  // Mobile toggle
   if (isMobile && !sidebarOpen) {
     return (
       <button
         onClick={() => setSidebarOpen(true)}
-        style={{ position: "fixed", top: 12, left: 12, zIndex: 60, background: "#1A1A18", border: "none", color: "#C8A96E", fontSize: 22, cursor: "pointer", padding: "6px 10px", borderRadius: 8 }}
+        className="fixed top-3 left-3 z-60 bg-nav border-none text-nav-accent text-xl cursor-pointer px-2.5 py-1.5 rounded-lg"
       >
         ☰
       </button>
@@ -134,27 +167,23 @@ function LWYLSidebar({ isMobile }) {
 
   return (
     <>
-      {/* Mobile backdrop */}
       {isMobile && sidebarOpen && (
-        <div onClick={() => setSidebarOpen(false)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", zIndex: 40 }} />
+        <div onClick={() => setSidebarOpen(false)} className="fixed inset-0 z-40" style={{ background: 'rgba(0,0,0,0.4)' }} />
       )}
 
-      {/* Sidebar */}
-      <aside style={{
-        width: 264, flexShrink: 0, background: "#fff", borderRight: "1px solid #F3F4F6",
-        display: "flex", flexDirection: "column", maxHeight: "100vh", overflow: "hidden",
-        ...(isMobile ? { position: "fixed", top: 0, left: 0, bottom: 0, zIndex: 50, boxShadow: "4px 0 24px rgba(0,0,0,0.15)" } : {}),
-      }}>
+      <aside className={`w-[264px] shrink-0 bg-card border-r border-border flex flex-col max-h-screen overflow-hidden ${
+        isMobile ? 'fixed top-0 left-0 bottom-0 z-50 shadow-2xl' : ''
+      }`}>
 
         {/* Logo */}
-        <div style={{ padding: "20px 24px 16px", borderBottom: "1px solid #F3F4F6" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <div style={{ width: 32, height: 32, borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center", background: "linear-gradient(135deg, #29B6F6, #0288D1)", color: "#fff", fontSize: 14 }}>
+        <div className="px-6 pt-5 pb-4 border-b border-border">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-nav text-white text-sm">
               ♥
             </div>
             <div>
-              <div style={{ fontSize: 14, fontWeight: 800, color: "#111827", lineHeight: 1.1 }}>Love Where</div>
-              <div style={{ fontSize: 12, fontWeight: 600, color: "#29B6F6", lineHeight: 1.1 }}>You Lead</div>
+              <div className="text-sm font-extrabold text-foreground leading-tight">Love Where</div>
+              <div className="text-xs font-semibold text-disc-c leading-tight">You Lead</div>
             </div>
           </div>
         </div>
@@ -162,74 +191,75 @@ function LWYLSidebar({ isMobile }) {
         {/* Back to all orgs */}
         <button
           onClick={() => router.push("/app")}
-          style={{ width: "100%", textAlign: "left", padding: "8px 16px", border: "none", background: "transparent", cursor: "pointer", fontSize: 12, fontWeight: 600, color: "#29B6F6", display: "flex", alignItems: "center", gap: 6, borderBottom: "1px solid #F3F4F6" }}>
+          className="w-full text-left px-4 py-2 border-none bg-transparent cursor-pointer text-xs font-semibold text-disc-c flex items-center gap-1.5 border-b border-border"
+        >
           ← All Organizations
         </button>
 
-        {/* Org Context — display only */}
-        <div style={{ padding: "12px 16px", borderBottom: "1px solid #F3F4F6" }}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        {/* Org Context */}
+        <div className="px-4 py-3 border-b border-border">
+          <div className="flex items-center justify-between">
             <div>
-              <div style={{ fontSize: 10, color: "#9CA3AF", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em" }}>Organization</div>
-              <div style={{ fontSize: 13, fontWeight: 600, color: "#111827", marginTop: 2, maxWidth: 160, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+              <div className="text-[10px] text-muted font-semibold uppercase tracking-wider">Organization</div>
+              <div className="text-sm font-semibold text-foreground mt-0.5 max-w-[160px] truncate">
                 {org?.name || "No organization"}
               </div>
             </div>
-            <button
-              onClick={() => router.push("/app/settings")}
-              title="Settings"
-              style={{ padding: "6px 8px", borderRadius: 6, border: "1px solid #E5E7EB", background: "#fff", color: "#9CA3AF", fontSize: 13, cursor: "pointer", flexShrink: 0 }}
-            >
-              ⚙️
-            </button>
+            {viewMode === 'admin' && (
+              <button
+                onClick={() => router.push("/app/settings")}
+                title="Settings"
+                className="p-1.5 rounded-md border border-border bg-card text-muted text-sm cursor-pointer shrink-0 hover:bg-subtle transition-colors"
+              >
+                ⚙️
+              </button>
+            )}
           </div>
         </div>
 
         {/* Navigation */}
-        <nav style={{ flex: 1, overflowY: "auto", padding: "8px 12px" }}>
-          {/* Platform */}
-          <div style={{ fontSize: 10, fontWeight: 600, color: "#9CA3AF", textTransform: "uppercase", letterSpacing: "0.05em", padding: "8px 12px 4px" }}>Platform</div>
+        <nav className="flex-1 overflow-y-auto px-3 py-2">
+          <div className="text-[10px] font-semibold text-muted uppercase tracking-wider px-3 pt-2 pb-1">Platform</div>
           {navItems.map(item => <NavButton key={item.path} item={item} />)}
 
-          {/* Tools */}
-          <div style={{ fontSize: 10, fontWeight: 600, color: "#9CA3AF", textTransform: "uppercase", letterSpacing: "0.05em", padding: "16px 12px 4px" }}>Tools</div>
+          <div className="text-[10px] font-semibold text-muted uppercase tracking-wider px-3 pt-4 pb-1">Tools</div>
           {toolItems.map(item => <NavButton key={item.path} item={item} />)}
 
-          {/* Assessments */}
-          <div style={{ fontSize: 10, fontWeight: 600, color: "#9CA3AF", textTransform: "uppercase", letterSpacing: "0.05em", padding: "16px 12px 4px" }}>Assessments</div>
-          {assessmentItems.map(item => <NavButton key={item.path} item={item} />)}
+          {viewMode === 'admin' && (
+            <>
+              <div className="text-[10px] font-semibold text-muted uppercase tracking-wider px-3 pt-4 pb-1">Assessments</div>
+              {assessmentItems.map(item => <NavButton key={item.path} item={item} />)}
+            </>
+          )}
 
-          {/* Team Members */}
-          <div style={{ fontSize: 10, fontWeight: 600, color: "#9CA3AF", textTransform: "uppercase", letterSpacing: "0.05em", padding: "16px 12px 4px" }}>
-            Team Members
-          </div>
+          <div className="text-[10px] font-semibold text-muted uppercase tracking-wider px-3 pt-4 pb-1">Team Members</div>
           {orgPeople.map(p => {
             const isPending = p.status === "pending";
             const isLeader = p.id === leaderId;
             const isActive = pathname === `/app/profile/${p.id}`;
             const initials = p.name.split(" ").map(n => n[0]).join("").slice(0, 2);
-            const avatarColor = isPending ? "#9E9E9E" : domColor(p);
+            const avatarColor = isPending ? 'var(--disc-gray)' : domColor(p);
 
             return (
               <button
                 key={p.id}
                 onClick={() => { if (!isPending) router.push(`/app/profile/${p.id}`); }}
-                style={{
-                  width: "100%", textAlign: "left", padding: "6px 12px", borderRadius: 8, border: "none",
-                  background: isActive ? "rgba(41,182,246,0.1)" : "transparent",
-                  cursor: isPending ? "default" : "pointer", display: "flex", alignItems: "center", gap: 10,
-                  opacity: isPending ? 0.5 : 1, transition: "all 0.15s", marginBottom: 2,
-                }}
+                className={`w-full text-left px-3 py-1.5 rounded-lg border-none flex items-center gap-2.5 transition-all duration-150 mb-0.5 ${
+                  isActive ? 'bg-disc-c/10' : 'bg-transparent'
+                } ${isPending ? 'opacity-50 cursor-default' : 'cursor-pointer'}`}
               >
-                <div style={{ width: 28, height: 28, borderRadius: 6, display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 10, fontWeight: 700, flexShrink: 0, background: avatarColor }}>
+                <div
+                  className="w-7 h-7 rounded-md flex items-center justify-center text-white text-[10px] font-bold shrink-0"
+                  style={{ background: avatarColor }}
+                >
                   {initials}
                 </div>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 13, fontWeight: isActive ? 600 : 500, color: "#111827", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                <div className="flex-1 min-w-0">
+                  <div className={`text-sm text-foreground truncate ${isActive ? 'font-semibold' : 'font-medium'}`}>
                     {p.name}
                   </div>
-                  {isLeader && <div style={{ fontSize: 10, color: "#29B6F6" }}>★ Leader</div>}
-                  {isPending && <div style={{ fontSize: 10, color: "#9CA3AF" }}>Pending</div>}
+                  {isLeader && <div className="text-[10px] text-disc-c">★ Leader</div>}
+                  {isPending && <div className="text-[10px] text-muted">Pending</div>}
                 </div>
               </button>
             );
@@ -237,18 +267,18 @@ function LWYLSidebar({ isMobile }) {
         </nav>
 
         {/* User Profile + Sign Out */}
-        <div style={{ padding: "12px 16px", borderTop: "1px solid #F3F4F6" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
-            <div style={{ width: 32, height: 32, borderRadius: "50%", background: "#29B6F6", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 12, fontWeight: 700 }}>
+        <div className="px-4 py-3 border-t border-border">
+          <div className="flex items-center gap-2.5 mb-2.5">
+            <div className="w-8 h-8 rounded-full bg-disc-c flex items-center justify-center text-white text-xs font-bold">
               {(user?.user_metadata?.full_name || user?.email || "U").charAt(0).toUpperCase()}
             </div>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: 13, fontWeight: 600, color: "#111827", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{user?.user_metadata?.full_name || "Leader"}</div>
-              <div style={{ fontSize: 11, color: "#9CA3AF", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{user?.email || ""}</div>
+            <div className="flex-1 min-w-0">
+              <div className="text-sm font-semibold text-foreground truncate">{user?.user_metadata?.full_name || "Leader"}</div>
+              <div className="text-xs text-muted truncate">{user?.email || ""}</div>
             </div>
           </div>
           <button onClick={handleLogout}
-            style={{ width: "100%", textAlign: "left", padding: "8px 12px", borderRadius: 8, border: "none", background: "transparent", color: "#EF4444", fontSize: 13, fontWeight: 500, cursor: "pointer", display: "flex", alignItems: "center", gap: 8 }}>
+            className="w-full text-left px-3 py-2 rounded-lg border-none bg-transparent text-friction-high text-sm font-medium cursor-pointer flex items-center gap-2 hover:bg-alert-critical-bg transition-colors">
             Sign out
           </button>
         </div>

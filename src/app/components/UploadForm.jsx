@@ -43,7 +43,7 @@ export function UploadForm({ orgs, selOrgId, selTeamId: parentTeamId, onAdd, onC
       try {
         pdfResult = await extractTextFromPDF(arrayBuffer);
       } catch (e) {
-        return { success: false, error: `PDF parsing failed: ${e.message}`, fileName };
+        return { success: false, error: 'PDF parsing failed. Please try a different file or try a different file.', fileName };
       }
 
       const page2 = pdfResult.pageTexts[2] || "";
@@ -88,7 +88,7 @@ export function UploadForm({ orgs, selOrgId, selTeamId: parentTeamId, onAdd, onC
         return { success: false, error: `Missing required: ${missing.join(", ")}`, fileName, data: extracted };
       }
     } catch (e) {
-      return { success: false, error: `Unexpected error: ${e.message}`, fileName };
+      return { success: false, error: 'Unexpected error processing file. Please try again or try a different file.', fileName };
     }
   };
 
@@ -187,7 +187,7 @@ export function UploadForm({ orgs, selOrgId, selTeamId: parentTeamId, onAdd, onC
         setFileName(file.name);
         setStep("entry");
         setExtractStatus("failed");
-        setExtractLog(`ZIP extraction failed: ${e.message}. Enter scores manually.`);
+        setExtractLog('ZIP extraction failed. Please try a different file or try a different file.');
         return;
       }
 
@@ -244,13 +244,13 @@ export function UploadForm({ orgs, selOrgId, selTeamId: parentTeamId, onAdd, onC
         let JSZip;
         try { JSZip = await loadJSZip(); } catch (e) {
           setExtractStatus("cdn-blocked");
-          setExtractLog("Could not load JSZip library. Enter scores manually.");
+          setExtractLog("Could not load JSZip library. Please try a different file.");
           return;
         }
         let zip;
         try { zip = await JSZip.loadAsync(arrayBuffer); } catch (e) {
           setExtractStatus("failed");
-          setExtractLog(`ZIP extraction failed: ${e.message}. Enter scores manually.`);
+          setExtractLog('ZIP extraction failed. Please try a different file or try a different file.');
           return;
         }
         try { page2 = await zip.file("2.txt")?.async("string") || ""; } catch (e) { logs.push("Could not read 2.txt"); }
@@ -264,7 +264,7 @@ export function UploadForm({ orgs, selOrgId, selTeamId: parentTeamId, onAdd, onC
           pdfResult = await extractTextFromPDF(arrayBuffer);
         } catch (e) {
           setExtractStatus("failed");
-          setExtractLog(`PDF parsing failed: ${e.message}. Enter scores manually.`);
+          setExtractLog('PDF parsing failed. Please try a different file or try a different file.');
           return;
         }
         page2 = pdfResult.pageTexts[2] || "";
@@ -275,13 +275,13 @@ export function UploadForm({ orgs, selOrgId, selTeamId: parentTeamId, onAdd, onC
       } else {
         setExtractStatus("failed");
         const hex = Array.from(headerBytes).map(b => b.toString(16).padStart(2, "0")).join(" ");
-        setExtractLog(`Unrecognized file format (first bytes: ${hex}). Expected PDF or ZIP. Enter scores manually.`);
+        setExtractLog(`Unrecognized file format (first bytes: ${hex}). Expected PDF or ZIP. Please try a different file.`);
         return;
       }
 
       if (!page2 && !page3 && !page4) {
         setExtractStatus("failed");
-        setExtractLog(`File was read but no text found on pages 2-4. ${logs.join(". ")}. Enter scores manually.`);
+        setExtractLog(`File was read but no text found on pages 2-4. ${logs.join(". ")}. Please try a different file.`);
         return;
       }
 
@@ -312,19 +312,27 @@ export function UploadForm({ orgs, selOrgId, selTeamId: parentTeamId, onAdd, onC
       const scoreFieldsFilled = [...filled].filter(f => !f.endsWith("B")).length;
 
       if (scoreFieldsFilled >= 20) {
+        // Full extraction -- auto-add without manual review
+        const autoForm = { ...form, ...extracted, teamId: form.teamId || parentTeamId || "" };
+        if (autoForm.name && autoForm.teamId && autoForm.dN_D && autoForm.dN_I && autoForm.dN_S && autoForm.dN_C) {
+          const person = createPersonFromData(autoForm, autoForm.teamId);
+          onAdd(person);
+          return;
+        }
+        // Missing name or team -- fall through to review
         setExtractStatus("success");
-        setExtractLog(`Extracted ${scoreFieldsFilled} of ${totalScoreFields} fields. ${logs.join(". ")}. Review all values before submitting.`);
+        setExtractLog(`Extracted ${scoreFieldsFilled} of ${totalScoreFields} fields. ${logs.join(". ")}. Confirm name and team to add.`);
       } else if (scoreFieldsFilled > 0) {
         setExtractStatus("partial");
         setExtractLog(`Extracted ${scoreFieldsFilled} of ${totalScoreFields} fields. ${totalScoreFields - scoreFieldsFilled} need manual entry. ${logs.join(". ")}.`);
       } else {
         setExtractStatus("failed");
-        setExtractLog(`File was parsed but no scores matched expected patterns. ${logs.join(". ")}. Enter scores manually.`);
+        setExtractLog(`File was parsed but no scores matched expected patterns. ${logs.join(". ")}. Please try a different file.`);
       }
 
     } catch (e) {
       setExtractStatus("failed");
-      setExtractLog(`Unexpected error: ${e.message}. Enter scores manually.`);
+      setExtractLog('Unexpected error processing file. Please try again or try a different file.');
     }
   };
 
@@ -527,10 +535,7 @@ export function UploadForm({ orgs, selOrgId, selTeamId: parentTeamId, onAdd, onC
       <button onClick={() => document.getElementById('bulkFileInput')?.click()} style={{ width: "100%", padding: "14px 24px", borderRadius: 8, border: "none", background: "#29B6F6", color: "#fff", fontSize: 16, fontWeight: 600, cursor: "pointer", marginBottom: 16 }}>
         Select Files to Upload
       </button>
-      <div style={{ display: "flex", gap: 8 }}>
-        <Btn onClick={() => setStep("entry")} style={{ flex: 1 }}>Skip - Enter Scores Manually</Btn>
-        <Btn onClick={onCancel}>Cancel</Btn>
-      </div>
+      <Btn onClick={onCancel} style={{ width: "100%" }}>Cancel</Btn>
     </div>
   );
 
@@ -553,8 +558,8 @@ export function UploadForm({ orgs, selOrgId, selTeamId: parentTeamId, onAdd, onC
               {extractStatus === "extracting" && "Extracting scores from file..."}
               {extractStatus === "success" && "Extraction successful"}
               {extractStatus === "partial" && "Partial extraction. Review highlighted fields."}
-              {extractStatus === "failed" && "Extraction failed. Enter scores manually."}
-              {extractStatus === "cdn-blocked" && "Library unavailable. Enter scores manually."}
+              {extractStatus === "failed" && "Extraction failed. Please try a different file."}
+              {extractStatus === "cdn-blocked" && "Library unavailable. Please try a different file."}
             </div>
             {extractLog && <div style={{ fontSize: 11, color: sc.text, marginTop: 2, opacity: 0.85 }}>{extractLog}</div>}
             {filledFields.size > 0 && (

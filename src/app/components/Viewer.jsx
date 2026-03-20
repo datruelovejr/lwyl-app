@@ -1,25 +1,28 @@
 'use client';
 
 import { useState, useEffect } from "react";
+import dynamic from "next/dynamic";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, LabelList
 } from "recharts";
-import { C } from "../constants/colors";
+import { motion } from 'framer-motion';
 import { discFull, getDom } from "../constants/data";
 import { useIsMobile } from "../utils/useIsMobile";
 import { Btn } from "./Btn";
 import { PhotoAvatar } from "./PhotoAvatar";
 import { CircleProgress } from "./CircleProgress";
-import { Sec } from "./Sec";
 import { DTip, VTip } from "./Tooltips";
 import { IndividualComparison } from "./IndividualComparison";
-import { BridgeWizard } from "./BridgeWizard";
-import { EnvironmentReport } from "./EnvironmentReport";
-import { LeadershipTips } from "./LeadershipTips";
-import { CompareWithOthers } from "./CompareWithOthers";
 import { ConnectionSOPs } from "./ConnectionSOPs";
-import { EnvironmentAlignment } from "./EnvironmentAlignment";
-import { MeetingRoom } from "./MeetingRoom";
+import { Card } from './ui/Card';
+
+// Lazy-load heavy modals -- only parsed when user opens them
+const BridgeWizard = dynamic(() => import("./BridgeWizard").then(m => m.BridgeWizard), { ssr: false });
+const EnvironmentReport = dynamic(() => import("./EnvironmentReport").then(m => m.EnvironmentReport), { ssr: false });
+const LeadershipTips = dynamic(() => import("./LeadershipTips").then(m => m.LeadershipTips), { ssr: false });
+const CompareWithOthers = dynamic(() => import("./CompareWithOthers").then(m => m.CompareWithOthers), { ssr: false });
+const EnvironmentAlignment = dynamic(() => import("./EnvironmentAlignment").then(m => m.EnvironmentAlignment), { ssr: false });
+const MeetingRoom = dynamic(() => import("./MeetingRoom").then(m => m.MeetingRoom), { ssr: false });
 
 export function Viewer({ person, leader, agreements, setAgreements, photos = {}, onUploadPhoto, initialTab = "profile", initialShowTips = false, initialShowCompare = false, onClearShowTips, onClearShowCompare, team = [] }) {
   const isMobile = useIsMobile();
@@ -32,7 +35,6 @@ export function Viewer({ person, leader, agreements, setAgreements, photos = {},
   const [showAlignment, setShowAlignment] = useState(false);
   const [showMeeting, setShowMeeting] = useState(false);
 
-  // Handle external triggers for showing tips
   useEffect(() => {
     if (initialShowTips) {
       setShowTips(true);
@@ -40,7 +42,6 @@ export function Viewer({ person, leader, agreements, setAgreements, photos = {},
     }
   }, [initialShowTips, onClearShowTips]);
 
-  // Handle external triggers for showing compare
   useEffect(() => {
     if (initialShowCompare) {
       setShowCompare(true);
@@ -48,14 +49,24 @@ export function Viewer({ person, leader, agreements, setAgreements, photos = {},
     }
   }, [initialShowCompare, onClearShowCompare]);
 
-  // Sync tab when initialTab changes
   useEffect(() => {
     setTab(initialTab);
   }, [initialTab]);
+
   const sel = person;
   const canCompare = leader && leader.id !== person.id && leader.disc;
-  const discD = ["D", "I", "S", "C"].map(d => ({ dim: d, full: discFull[d], Natural: sel.disc.natural[d], Adaptive: sel.disc.adaptive[d], gap: sel.disc.adaptive[d] - sel.disc.natural[d] }));
-  const valD = Object.entries(sel.values).map(([n, s]) => ({ name: n, score: s, color: C.values[n] })).sort((a, b) => b.score - a.score);
+  const domStyle = getDom(sel.disc.natural);
+  const primaryDim = domStyle.split("/")[0];
+  const discD = ["D", "I", "S", "C"].map(d => ({
+    dim: d,
+    full: discFull[d],
+    Natural: sel.disc.natural[d],
+    Adaptive: sel.disc.adaptive[d],
+    gap: sel.disc.adaptive[d] - sel.disc.natural[d]
+  }));
+  const valD = Object.entries(sel.values)
+    .map(([n, s]) => ({ name: n, score: s, color: `var(--values-${n.toLowerCase()})` }))
+    .sort((a, b) => b.score - a.score);
 
   return (
     <div>
@@ -78,31 +89,61 @@ export function Viewer({ person, leader, agreements, setAgreements, photos = {},
         <CompareWithOthers person={sel} team={team} onClose={() => setShowCompare(false)} photos={photos} />
       )}
 
-      <div style={{ marginBottom: 20, display: "flex", flexDirection: isMobile ? "column" : "row", alignItems: isMobile ? "stretch" : "flex-start", justifyContent: "space-between", gap: isMobile ? 12 : 0 }}>
-        <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
-          <PhotoAvatar personId={sel.id} name={sel.name} bgColor={C.disc[getDom(sel.disc.natural).split("/")[0]] || C.accent} photo={photos[sel.id]} onUpload={onUploadPhoto} size={isMobile ? 56 : 72} square={true} />
+      {/* Header */}
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.3 }}
+        className={`mb-5 flex ${isMobile ? 'flex-col items-stretch gap-3' : 'flex-row items-start justify-between'}`}
+      >
+        <div className="flex gap-3 items-center">
+          <PhotoAvatar
+            personId={sel.id}
+            name={sel.name}
+            bgColor={`var(--disc-${primaryDim.toLowerCase()})`}
+            photo={photos[sel.id]}
+            onUpload={onUploadPhoto}
+            size={isMobile ? 56 : 72}
+            square={true}
+          />
           <div>
-            <h1 style={{ margin: 0, fontSize: isMobile ? 20 : 24, fontWeight: 800, letterSpacing: -0.5 }}>{sel.name}</h1>
-            <div style={{ fontSize: 12, color: C.muted, marginTop: 2 }}>{isMobile ? "LWYL Profile" : "Love Where You Lead Profile · click photo to update"}</div>
+            <h1 className={`m-0 font-extrabold tracking-tight ${isMobile ? 'text-xl' : 'text-2xl'}`}>{sel.name}</h1>
+            <div className="text-xs text-muted mt-0.5">
+              {isMobile ? "LWYL Profile" : "Love Where You Lead Profile \u00b7 click photo to update"}
+            </div>
           </div>
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", justifyContent: isMobile ? "flex-start" : "flex-end" }}>
-          <Btn onClick={() => setShowMeeting(true)} style={{ fontSize: 11 }}>{isMobile ? "🤝 Prep" : "🤝 Meeting Room"}</Btn>
-          <Btn onClick={() => setShowAlignment(true)} style={{ fontSize: 11 }}>{isMobile ? "🎯 Align" : "🎯 Env. Alignment"}</Btn>
-          <Btn onClick={() => setShowReport(true)} style={{ fontSize: 11 }}>{isMobile ? "📄 Report" : "📄 Environment Report"}</Btn>
+        <div className={`flex items-center gap-2 flex-wrap ${isMobile ? 'justify-start' : 'justify-end'}`}>
+          <Btn onClick={() => setShowMeeting(true)} style={{ fontSize: 11 }}>
+            {isMobile ? "\ud83e\udd1d Prep" : "\ud83e\udd1d Meeting Room"}
+          </Btn>
+          <Btn onClick={() => setShowAlignment(true)} style={{ fontSize: 11 }}>
+            {isMobile ? "\ud83c\udfaf Align" : "\ud83c\udfaf Env. Alignment"}
+          </Btn>
+          <Btn onClick={() => setShowReport(true)} style={{ fontSize: 11 }}>
+            {isMobile ? "\ud83d\udcc4 Report" : "\ud83d\udcc4 Environment Report"}
+          </Btn>
           {canCompare && (
-            <div style={{ display: "flex", background: C.hi, borderRadius: 8, border: `1px solid ${C.border}`, overflow: "hidden" }}>
+            <div className="flex bg-subtle rounded-lg border border-border overflow-hidden">
               {["profile", "compare"].map(t => (
-                <button key={t} onClick={() => setTab(t)} style={{ padding: "6px 14px", background: tab === t ? C.accent : "transparent", color: tab === t ? "#fff" : C.text, border: "none", fontSize: 11, fontWeight: 600, cursor: "pointer", textTransform: "capitalize" }}>{t === "compare" ? "Compare to Leader" : "Profile"}</button>
+                <button
+                  key={t}
+                  onClick={() => setTab(t)}
+                  className={`px-3.5 py-1.5 border-none text-[11px] font-semibold cursor-pointer capitalize ${
+                    tab === t ? 'bg-nav text-white' : 'bg-transparent text-foreground'
+                  }`}
+                >
+                  {t === "compare" ? "Compare to Leader" : "Profile"}
+                </button>
               ))}
             </div>
           )}
-          <div style={{ padding: "6px 14px", background: C.hi, borderRadius: 8, border: `1px solid ${C.border}`, textAlign: "center" }}>
-            <div style={{ fontSize: 9, fontWeight: 700, color: C.muted, textTransform: "uppercase", letterSpacing: 0.5 }}>Leadership Style</div>
-            <div style={{ fontSize: 16, fontWeight: 800, marginTop: 2 }}>{getDom(sel.disc.natural)}</div>
+          <div className="px-3.5 py-1.5 bg-subtle rounded-lg border border-border text-center">
+            <div className="text-[9px] font-bold text-muted uppercase tracking-wider">Leadership Style</div>
+            <div className="text-base font-extrabold mt-0.5">{domStyle}</div>
           </div>
         </div>
-      </div>
+      </motion.div>
 
       {/* Tab content */}
       {tab === "compare" && canCompare ? (
@@ -110,87 +151,141 @@ export function Viewer({ person, leader, agreements, setAgreements, photos = {},
       ) : (<div>
 
       {/* DISC */}
-      <div style={{ background: C.card, borderRadius: 12, padding: 24, border: `1px solid ${C.border}`, marginBottom: 32, boxShadow: "0 1px 3px rgba(0,0,0,0.1)" }}>
-        <Sec title="DISC Profile" sub={"How your environment shaped your leadership"} color={C.disc[getDom(sel.disc.natural).split("/")[0]] || C.accent} />
-        <div style={{ display: "flex", gap: 4, marginBottom: 12 }}>
-          {["both", "natural", "adaptive"].map(v => (
-            <button key={v} onClick={() => setDv(v)} style={{ padding: "4px 12px", borderRadius: 6, border: `1px solid ${dv === v ? C.accent : C.border}`, background: dv === v ? C.accent : "transparent", color: dv === v ? "#fff" : C.text, fontSize: 10, fontWeight: 600, cursor: "pointer", textTransform: "capitalize" }}>{v}</button>
-          ))}
-        </div>
-        <ResponsiveContainer width="100%" height={220}>
-          <BarChart data={discD} barGap={8}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#eee" vertical={false} />
-            <XAxis dataKey="dim" tick={{ fontSize: 12, fontWeight: 600, fill: C.text }} axisLine={false} tickLine={false} />
-            <YAxis domain={[0, 100]} tick={{ fontSize: 11, fill: C.muted }} axisLine={false} tickLine={false} />
-            <Tooltip content={<DTip />} />
-            {(dv === "both" || dv === "natural") && (
-              <Bar dataKey="Natural" barSize={40} radius={[4, 4, 0, 0]}>
-                {discD.map((e, i) => <Cell key={i} fill={C.disc[e.dim]} />)}
-                <LabelList dataKey="Natural" position="center" style={{ fontSize: 13, fontWeight: 700, fill: "#fff" }} />
-              </Bar>
-            )}
-            {(dv === "both" || dv === "adaptive") && (
-              <Bar dataKey="Adaptive" barSize={40} radius={[4, 4, 0, 0]} fill={C.disc.gray}>
-                <LabelList dataKey="Adaptive" position="center" style={{ fontSize: 13, fontWeight: 700, fill: "#fff" }} />
-              </Bar>
-            )}
-          </BarChart>
-        </ResponsiveContainer>
-        <div style={{ display: "grid", gridTemplateColumns: isMobile ? "repeat(2, 1fr)" : "repeat(4, 1fr)", gap: 6, marginTop: 8 }}>
-          {discD.map(d => {
-            const g = Math.abs(d.gap);
-            return (
-              <div key={d.dim} style={{ padding: "6px 8px", borderRadius: 7, background: C.hi, border: `1px solid ${C.border}`, textAlign: "center" }}>
-                <div style={{ fontSize: 9, fontWeight: 700, color: C.disc[d.dim] }}>{d.full}</div>
-                <div style={{ fontSize: 16, fontWeight: 800, marginTop: 2 }}>{d.Natural}</div>
-                <div style={{ fontSize: 10, color: C.muted }}>A: {d.Adaptive}</div>
-                <div style={{ fontSize: 10, fontWeight: 700, color: g >= 10 ? "#C62828" : C.muted, marginTop: 2 }}>
-                  {g >= 10 ? `⚡ Gap: ${d.gap > 0 ? "+" : ""}${d.gap}` : `Gap: ${d.gap > 0 ? "+" : ""}${d.gap}`}
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.3, delay: 0.1 }}
+      >
+        <Card>
+          <div className="mb-4">
+            <h2 className="text-2xl font-semibold text-foreground leading-tight m-0 mb-1">DISC Profile</h2>
+            <p className="text-sm text-muted m-0">How your environment shaped your leadership</p>
+          </div>
+          <div className="flex gap-1 mb-3">
+            {["both", "natural", "adaptive"].map(v => (
+              <button
+                key={v}
+                onClick={() => setDv(v)}
+                className={`px-3 py-1 rounded-md text-[10px] font-semibold cursor-pointer capitalize border ${
+                  dv === v ? 'bg-nav text-white border-nav' : 'bg-transparent text-foreground border-border'
+                }`}
+              >
+                {v}
+              </button>
+            ))}
+          </div>
+          <ResponsiveContainer width="100%" height={220}>
+            <BarChart data={discD} barGap={8}>
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--border-default)" vertical={false} />
+              <XAxis dataKey="dim" tick={{ fontSize: 12, fontWeight: 600, fill: "var(--text-primary)" }} axisLine={false} tickLine={false} />
+              <YAxis domain={[0, 100]} tick={{ fontSize: 11, fill: "var(--text-muted)" }} axisLine={false} tickLine={false} />
+              <Tooltip content={<DTip />} />
+              {(dv === "both" || dv === "natural") && (
+                <Bar dataKey="Natural" barSize={40} radius={[4, 4, 0, 0]}>
+                  {discD.map((e, i) => <Cell key={i} fill={`var(--disc-${e.dim.toLowerCase()})`} />)}
+                  <LabelList dataKey="Natural" position="center" style={{ fontSize: 13, fontWeight: 700, fill: "var(--bg-card)" }} />
+                </Bar>
+              )}
+              {(dv === "both" || dv === "adaptive") && (
+                <Bar dataKey="Adaptive" barSize={40} radius={[4, 4, 0, 0]} fill="var(--disc-gray)">
+                  <LabelList dataKey="Adaptive" position="center" style={{ fontSize: 13, fontWeight: 700, fill: "var(--bg-card)" }} />
+                </Bar>
+              )}
+            </BarChart>
+          </ResponsiveContainer>
+          <div className={`grid ${isMobile ? 'grid-cols-2' : 'grid-cols-4'} gap-1.5 mt-2`}>
+            {discD.map(d => {
+              const g = Math.abs(d.gap);
+              return (
+                <div key={d.dim} className="py-1.5 px-2 rounded-lg bg-subtle border border-border text-center">
+                  <div className="text-[9px] font-bold" style={{ color: `var(--disc-${d.dim.toLowerCase()})` }}>{d.full}</div>
+                  <div className="text-base font-extrabold mt-0.5">{d.Natural}</div>
+                  <div className="text-[10px] text-muted">A: {d.Adaptive}</div>
+                  <div
+                    className="text-[10px] font-bold mt-0.5"
+                    style={{ color: g >= 10 ? "var(--friction-high)" : "var(--text-muted)" }}
+                  >
+                    {g >= 10 ? `\u26a1 Gap: ${d.gap > 0 ? "+" : ""}${d.gap}` : `Gap: ${d.gap > 0 ? "+" : ""}${d.gap}`}
+                  </div>
                 </div>
-              </div>
-            );
-          })}
-        </div>
-      </div>
+              );
+            })}
+          </div>
+        </Card>
+      </motion.div>
 
       {/* VALUES */}
-      <div style={{ background: C.card, borderRadius: 12, padding: 24, border: `1px solid ${C.border}`, marginBottom: 32, boxShadow: "0 1px 3px rgba(0,0,0,0.1)" }}>
-        <Sec title="Values &amp; Passion" sub={"The fuel your leadership runs on"} color={C.values.Altruistic} />
-        <ResponsiveContainer width="100%" height={280}>
-          <BarChart data={valD} layout="vertical" barSize={32} barCategoryGap="30%">
-            <CartesianGrid strokeDasharray="3 3" stroke="#eee" horizontal={false} />
-            <XAxis type="number" domain={[0, 100]} tick={{ fontSize: 11, fill: C.muted }} axisLine={false} tickLine={false} />
-            <YAxis type="category" dataKey="name" width={isMobile ? 80 : 110} tick={{ fontSize: isMobile ? 11 : 13, fontWeight: 500, fill: C.text }} axisLine={false} tickLine={false} />
-            <Tooltip content={<VTip />} />
-            <Bar dataKey="score" radius={[0, 4, 4, 0]}>
-              {valD.map((e, i) => <Cell key={i} fill={e.color} />)}
-              <LabelList dataKey="score" position="insideRight" style={{ fontSize: 14, fontWeight: 700, fill: "#fff" }} offset={12} />
-            </Bar>
-          </BarChart>
-        </ResponsiveContainer>
-      </div>
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.3, delay: 0.2 }}
+      >
+        <Card>
+          <div className="mb-4">
+            <h2 className="text-2xl font-semibold text-foreground leading-tight m-0 mb-1">Values &amp; Passion</h2>
+            <p className="text-sm text-muted m-0">The fuel your leadership runs on</p>
+          </div>
+          <ResponsiveContainer width="100%" height={280}>
+            <BarChart data={valD} layout="vertical" barSize={32} barCategoryGap="30%">
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--border-default)" horizontal={false} />
+              <XAxis type="number" domain={[0, 100]} tick={{ fontSize: 11, fill: "var(--text-muted)" }} axisLine={false} tickLine={false} />
+              <YAxis type="category" dataKey="name" width={isMobile ? 80 : 110} tick={{ fontSize: isMobile ? 11 : 13, fontWeight: 500, fill: "var(--text-primary)" }} axisLine={false} tickLine={false} />
+              <Tooltip content={<VTip />} />
+              <Bar dataKey="score" radius={[0, 4, 4, 0]}>
+                {valD.map((e, i) => <Cell key={i} fill={e.color} />)}
+                <LabelList dataKey="score" position="insideRight" style={{ fontSize: 14, fontWeight: 700, fill: "var(--bg-card)" }} offset={12} />
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        </Card>
+      </motion.div>
 
       {/* ATTRIBUTES */}
-      <div style={{ background: C.card, borderRadius: 12, padding: 24, border: `1px solid ${C.border}`, marginBottom: 32, boxShadow: "0 1px 3px rgba(0,0,0,0.1)" }}>
-        <Sec title="Process &amp; Attributes" sub={"How your mind works best"} color={C.attr.ext} />
-        <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: isMobile ? 24 : 32 }}>
-          {[{ label: "External", subtitle: "Heart · Hand · Head", color: C.attr.ext, data: sel.attr.ext, useLabel: true }, { label: "Internal", subtitle: "Foundation", color: C.attr.int, data: sel.attr.int, useLabel: false }].map(section => (
-            <div key={section.label}>
-              <div style={{ fontSize: 16, fontWeight: 600, color: section.color, marginBottom: 4 }}>{section.label}</div>
-              <div style={{ fontSize: 13, color: C.muted, marginBottom: 16 }}>{section.subtitle}</div>
-              <div style={{ display: "flex", gap: 8, justifyContent: "space-around" }}>
-                {section.data.map(a => (
-                  <CircleProgress key={a.name} value={a.score} max={10} color={section.color}
-                    label={section.useLabel ? a.label : a.name} name={section.useLabel ? a.name : ""} bias={a.bias} />
-                ))}
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.3, delay: 0.3 }}
+      >
+        <Card>
+          <div className="mb-4">
+            <h2 className="text-2xl font-semibold text-foreground leading-tight m-0 mb-1">Process &amp; Attributes</h2>
+            <p className="text-sm text-muted m-0">How your mind works best</p>
+          </div>
+          <div className={`grid ${isMobile ? 'grid-cols-1' : 'grid-cols-2'} ${isMobile ? 'gap-6' : 'gap-8'}`}>
+            {[
+              { label: "External", subtitle: "Heart \u00b7 Hand \u00b7 Head", color: "var(--attr-ext)", data: sel.attr.ext, useLabel: true },
+              { label: "Internal", subtitle: "Foundation", color: "var(--attr-int)", data: sel.attr.int, useLabel: false }
+            ].map(section => (
+              <div key={section.label}>
+                <div className="text-base font-semibold mb-1" style={{ color: section.color }}>{section.label}</div>
+                <div className="text-[13px] text-muted mb-4">{section.subtitle}</div>
+                <div className="flex gap-2 justify-around">
+                  {section.data.map(a => (
+                    <CircleProgress
+                      key={a.name}
+                      value={a.score}
+                      max={10}
+                      color={section.color}
+                      label={section.useLabel ? a.label : a.name}
+                      name={section.useLabel ? a.name : ""}
+                      bias={a.bias}
+                    />
+                  ))}
+                </div>
               </div>
-            </div>
-          ))}
-        </div>
-      </div>
+            ))}
+          </div>
+        </Card>
+      </motion.div>
 
       {/* CONNECTION SOPs */}
-      <ConnectionSOPs person={sel} />
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.3, delay: 0.4 }}
+      >
+        <ConnectionSOPs person={sel} />
+      </motion.div>
 
       </div>)}
     </div>

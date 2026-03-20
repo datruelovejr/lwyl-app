@@ -1,11 +1,12 @@
 'use client';
 
 import { useState } from "react";
-import { C } from "../constants/colors";
+import { motion } from "framer-motion";
 import { discFull, getDom } from "../constants/data";
 import { calculateFriction } from "../utils/friction";
 import { Btn } from "./Btn";
 import { Bias } from "./Bias";
+import { Card } from "./ui/Card";
 
 // ────── COMPARE WITH OTHERS MODAL ──────
 export function CompareWithOthers({ person, team, onClose, photos = {} }) {
@@ -58,56 +59,56 @@ export function CompareWithOthers({ person, team, onClose, photos = {} }) {
   const SideBySide = ({ member }) => {
     if (!member) return null;
     return (
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+      <div className="grid grid-cols-2 gap-4">
         {/* Person */}
-        <div style={{ background: C.card, borderRadius: 8, border: `1px solid ${C.border}`, overflow: "hidden" }}>
-          <div style={{ background: "#1F2937", padding: "10px 14px", color: "#fff", fontWeight: 600, fontSize: 13 }}>{p.name}</div>
-          <div style={{ padding: 14 }}>
-            <div style={{ fontSize: 10, fontWeight: 700, color: C.muted, marginBottom: 6 }}>DISC</div>
-            <div style={{ display: "flex", gap: 6, marginBottom: 12 }}>
+        <div className="bg-card rounded-lg border border-border overflow-hidden">
+          <div className="bg-nav px-3.5 py-2.5 text-white font-semibold text-[13px]">{p.name}</div>
+          <div className="p-3.5">
+            <div className="text-[10px] font-bold text-muted mb-1.5">DISC</div>
+            <div className="flex gap-1.5 mb-3">
               {["D","I","S","C"].map(d => (
-                <span key={d} style={{ padding: "4px 8px", borderRadius: 4, fontSize: 11, fontWeight: 700, background: C.disc[d], color: d === "I" ? "#111" : "#fff" }}>{d}:{p.disc.natural[d]}</span>
+                <span key={d} className="px-2 py-1 rounded text-[11px] font-bold" style={{ background: `var(--disc-${d.toLowerCase()})`, color: d === "I" ? "var(--text-primary)" : "var(--bg-card)" }}>{d}:{p.disc.natural[d]}</span>
               ))}
             </div>
-            <div style={{ fontSize: 10, fontWeight: 700, color: C.muted, marginBottom: 6 }}>TOP VALUES</div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 4, marginBottom: 12 }}>
+            <div className="text-[10px] font-bold text-muted mb-1.5">TOP VALUES</div>
+            <div className="flex flex-col gap-1 mb-3">
               {Object.entries(p.values).filter(([,s]) => s >= 60).sort((a,b) => b[1]-a[1]).slice(0,3).map(([v, score]) => (
-                <div key={v} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11 }}>
-                  <span style={{ width: 6, height: 6, borderRadius: "50%", background: C.values[v] }} />
+                <div key={v} className="flex items-center gap-1.5 text-[11px]">
+                  <span className="w-1.5 h-1.5 rounded-full" style={{ background: `var(--values-${v.toLowerCase()})` }} />
                   <span>{v}</span>
-                  <span style={{ marginLeft: "auto", fontWeight: 600 }}>{score}</span>
+                  <span className="ml-auto font-semibold">{score}</span>
                 </div>
               ))}
             </div>
-            <div style={{ fontSize: 10, fontWeight: 700, color: C.muted, marginBottom: 6 }}>DECISION STYLE</div>
+            <div className="text-[10px] font-bold text-muted mb-1.5">DECISION STYLE</div>
             {[...p.attr.ext].sort((a,b) => b.score - a.score).map((a, i) => (
-              <div key={a.label} style={{ fontSize: 11, marginBottom: 2 }}>{i+1}. {a.label} ({a.score})</div>
+              <div key={a.label} className="text-[11px] mb-0.5">{i+1}. {a.label} ({a.score})</div>
             ))}
           </div>
         </div>
         {/* Selected member */}
-        <div style={{ background: C.card, borderRadius: 8, border: `1px solid ${C.border}`, overflow: "hidden" }}>
-          <div style={{ background: C.blue, padding: "10px 14px", color: "#fff", fontWeight: 600, fontSize: 13 }}>{member.name}</div>
-          <div style={{ padding: 14 }}>
-            <div style={{ fontSize: 10, fontWeight: 700, color: C.muted, marginBottom: 6 }}>DISC</div>
-            <div style={{ display: "flex", gap: 6, marginBottom: 12 }}>
+        <div className="bg-card rounded-lg border border-border overflow-hidden">
+          <div className="px-3.5 py-2.5 text-white font-semibold text-[13px]" style={{ background: "var(--disc-c)" }}>{member.name}</div>
+          <div className="p-3.5">
+            <div className="text-[10px] font-bold text-muted mb-1.5">DISC</div>
+            <div className="flex gap-1.5 mb-3">
               {["D","I","S","C"].map(d => (
-                <span key={d} style={{ padding: "4px 8px", borderRadius: 4, fontSize: 11, fontWeight: 700, background: C.disc[d], color: d === "I" ? "#111" : "#fff" }}>{d}:{member.disc.natural[d]}</span>
+                <span key={d} className="px-2 py-1 rounded text-[11px] font-bold" style={{ background: `var(--disc-${d.toLowerCase()})`, color: d === "I" ? "var(--text-primary)" : "var(--bg-card)" }}>{d}:{member.disc.natural[d]}</span>
               ))}
             </div>
-            <div style={{ fontSize: 10, fontWeight: 700, color: C.muted, marginBottom: 6 }}>TOP VALUES</div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 4, marginBottom: 12 }}>
+            <div className="text-[10px] font-bold text-muted mb-1.5">TOP VALUES</div>
+            <div className="flex flex-col gap-1 mb-3">
               {Object.entries(member.values).filter(([,s]) => s >= 60).sort((a,b) => b[1]-a[1]).slice(0,3).map(([v, score]) => (
-                <div key={v} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11 }}>
-                  <span style={{ width: 6, height: 6, borderRadius: "50%", background: C.values[v] }} />
+                <div key={v} className="flex items-center gap-1.5 text-[11px]">
+                  <span className="w-1.5 h-1.5 rounded-full" style={{ background: `var(--values-${v.toLowerCase()})` }} />
                   <span>{v}</span>
-                  <span style={{ marginLeft: "auto", fontWeight: 600 }}>{score}</span>
+                  <span className="ml-auto font-semibold">{score}</span>
                 </div>
               ))}
             </div>
-            <div style={{ fontSize: 10, fontWeight: 700, color: C.muted, marginBottom: 6 }}>DECISION STYLE</div>
+            <div className="text-[10px] font-bold text-muted mb-1.5">DECISION STYLE</div>
             {[...member.attr.ext].sort((a,b) => b.score - a.score).map((a, i) => (
-              <div key={a.label} style={{ fontSize: 11, marginBottom: 2 }}>{i+1}. {a.label} ({a.score})</div>
+              <div key={a.label} className="text-[11px] mb-0.5">{i+1}. {a.label} ({a.score})</div>
             ))}
           </div>
         </div>
@@ -116,36 +117,41 @@ export function CompareWithOthers({ person, team, onClose, photos = {} }) {
   };
 
   return (
-    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.55)", display: "flex", alignItems: "flex-start", justifyContent: "center", zIndex: 300, overflowY: "auto", padding: "24px 16px" }}>
-      <div className="modal-body" style={{ background: C.card, borderRadius: 12, width: "min(900px, 100%)", boxShadow: "0 20px 25px rgba(0,0,0,0.15)" }}>
+    <div className="fixed inset-0 flex items-start justify-center z-300 overflow-y-auto px-4 py-6" style={{ background: "rgba(0,0,0,0.55)" }}>
+      <div className="modal-body bg-card rounded-xl w-full max-w-[900px] shadow-xl">
         {/* Header */}
-        <div style={{ background: "#1F2937", color: "#fff", borderRadius: "12px 12px 0 0", padding: "20px 24px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        <div className="bg-nav text-white rounded-t-xl px-6 py-5 flex items-center justify-between">
           <div>
-            <div style={{ fontWeight: 700, fontSize: 20, color: "#fff" }}>Compare {p.name} with Others</div>
-            <div style={{ fontSize: 12, color: "rgba(255,255,255,0.65)", marginTop: 2 }}>{otherMembers.length} team members available for comparison</div>
+            <h2 className="font-bold text-xl text-white">Compare {p.name} with Others</h2>
+            <div className="text-xs mt-0.5" style={{ color: "rgba(255,255,255,0.65)" }}>{otherMembers.length} team members available for comparison</div>
           </div>
-          <button onClick={onClose} style={{ width: 32, height: 32, borderRadius: "50%", background: "rgba(255,255,255,0.1)", border: "none", cursor: "pointer", fontSize: 18, color: "rgba(255,255,255,0.7)" }}>✕</button>
+          <button onClick={onClose} className="w-8 h-8 rounded-full border-none cursor-pointer text-lg" style={{ background: "rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.7)" }}>{"\u2715"}</button>
         </div>
 
-        <div style={{ padding: 24, maxHeight: "70vh", overflowY: "auto" }}>
+        <div className="p-6 max-h-[70vh] overflow-y-auto">
 
           {/* Member Selector - Always visible */}
-          <div style={{ marginBottom: 20 }}>
-            <label style={{ fontSize: 12, color: C.text, marginBottom: 6, display: "block" }}>Select a team member to compare with {p.name.split(" ")[0]}:</label>
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.3 }}
+            className="mb-5"
+          >
+            <label className="text-xs text-foreground mb-1.5 block">Select a team member to compare with {p.name.split(" ")[0]}:</label>
             <select
               value={selectedMemberId || ""}
               onChange={e => setSelectedMemberId(e.target.value || null)}
-              style={{ padding: "10px 14px", borderRadius: 8, border: `1px solid ${C.border}`, fontSize: 14, minWidth: 250 }}
+              className="px-3.5 py-2.5 rounded-lg border border-border text-sm min-w-[250px]"
             >
               <option value="">Choose a person...</option>
               {otherMembers.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
             </select>
             {selectedMember && (
-              <button onClick={() => setSelectedMemberId(null)} style={{ marginLeft: 12, padding: "10px 16px", borderRadius: 8, border: `1px solid ${C.border}`, background: C.card, fontSize: 13, cursor: "pointer" }}>
-                ← Back to Team View
+              <button onClick={() => setSelectedMemberId(null)} className="ml-3 px-4 py-2.5 rounded-lg border border-border bg-card text-[13px] cursor-pointer">
+                {"\u2190"} Back to Team View
               </button>
             )}
-          </div>
+          </motion.div>
 
           {selectedMember ? (
             /* ===== INDIVIDUAL COMPARISON VIEW (Conflict Report) ===== */
@@ -181,17 +187,17 @@ export function CompareWithOthers({ person, team, onClose, photos = {} }) {
               });
 
               const tierStyle = {
-                high: { borderColor: "#B71C1C", label: "HIGH", labelColor: "#B71C1C" },
-                moderate: { borderColor: "#E65100", label: "MODERATE", labelColor: "#E65100" },
-                low: { borderColor: "#2E7D32", label: "LOW", labelColor: "#2E7D32" },
+                high:     { accent: "var(--friction-high)",        label: "HIGH" },
+                moderate: { accent: "var(--alert-warning-accent)", label: "MODERATE" },
+                low:      { accent: "var(--alert-success-accent)", label: "LOW" },
               };
 
-              const tierColors = {
-                high: { bg: "#FFEBEE", border: "#EF9A9A", text: "#B71C1C" },
-                moderate: { bg: "#FFF3E0", border: "#FFCC80", text: "#E65100" },
-                low: { bg: "#E8F5E9", border: "#A5D6A7", text: "#2E7D32" }
+              const tierBg = {
+                high: { bg: "var(--alert-critical-bg)", border: "var(--alert-critical-border)", text: "var(--alert-critical-accent)" },
+                moderate: { bg: "var(--alert-warning-bg)", border: "var(--alert-warning-border)", text: "var(--alert-warning-accent)" },
+                low: { bg: "var(--alert-success-bg)", border: "var(--alert-success-border)", text: "var(--alert-success-accent)" }
               };
-              const frictionTier = tierColors[friction.tier];
+              const frictionTier = tierBg[friction.tier];
 
               // Values comparison
               const pTopVals = Object.entries(p.values).filter(([, s]) => s >= 60).map(([k]) => k);
@@ -202,150 +208,239 @@ export function CompareWithOthers({ person, team, onClose, photos = {} }) {
 
               // Process bias comparison
               const processBiasResult = (pBias, mBias) => {
-                if ((pBias === "+" && mBias === "−") || (pBias === "−" && mBias === "+")) return { label: "CONFLICT", color: "#B71C1C" };
-                if (pBias === mBias) return { label: "ALIGNED", color: "#2E7D32" };
-                return { label: "TENSION", color: "#E65100" };
+                if ((pBias === "+" && mBias === "\u2212") || (pBias === "\u2212" && mBias === "+")) return { label: "CONFLICT", accent: "var(--friction-high)" };
+                if (pBias === mBias) return { label: "ALIGNED", accent: "var(--alert-success-accent)" };
+                return { label: "TENSION", accent: "var(--alert-warning-accent)" };
               };
 
               return (
                 <div className="conflict-report">
                   {/* Print-friendly header with overall friction score */}
-                  <div style={{ marginBottom: 16, padding: "16px 20px", background: frictionTier.bg, borderRadius: 10, border: `1px solid ${frictionTier.border}`, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                  <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ duration: 0.3 }}
+                    className="mb-4 px-5 py-4 rounded-[10px] flex items-center justify-between"
+                    style={{ background: frictionTier.bg, border: `1px solid ${frictionTier.border}` }}
+                  >
                     <div>
-                      <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: frictionTier.text, marginBottom: 4 }}>CONFLICT REPORT</div>
-                      <div style={{ fontSize: 16, fontWeight: 700, color: C.text }}>{p.name} & {m.name}</div>
-                      <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>Friction analysis across Preference, Passion, and Process</div>
+                      <div className="text-[10px] font-bold tracking-wider uppercase mb-1" style={{ color: frictionTier.text }}>CONFLICT REPORT</div>
+                      <div className="text-base font-bold text-foreground">{p.name} & {m.name}</div>
+                      <div className="text-[11px] text-muted mt-0.5">Friction analysis across Preference, Passion, and Process</div>
                     </div>
-                    <div style={{ textAlign: "center", minWidth: 100 }}>
-                      <div style={{ fontSize: 36, fontWeight: 800, color: frictionTier.text, lineHeight: 1 }}>{friction.totalScore}</div>
-                      <div style={{ fontSize: 10, fontWeight: 700, color: frictionTier.text, marginTop: 4 }}>{friction.tier.toUpperCase()} FRICTION</div>
+                    <div className="text-center min-w-[100px]">
+                      <div className="text-4xl font-extrabold leading-none" style={{ color: frictionTier.text }}>{friction.totalScore}</div>
+                      <div className="text-[10px] font-bold mt-1" style={{ color: frictionTier.text }}>{friction.tier.toUpperCase()} FRICTION</div>
                     </div>
-                  </div>
+                  </motion.div>
 
                   {/* Three pillars breakdown */}
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10, marginBottom: 16 }}>
+                  <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ duration: 0.3, delay: 0.1 }}
+                    className="grid grid-cols-3 gap-2.5 mb-4"
+                  >
                     {[
-                      { label: "Preference", sub: "DISC Style", score: friction.preferenceScore, max: 12, color: C.disc.D },
-                      { label: "Passion", sub: "Values", score: friction.passionScore, max: 14, color: C.values.Altruistic },
-                      { label: "Process", sub: "Attributes", score: friction.processScore, max: 9, color: C.attr.ext }
+                      { label: "Preference", sub: "DISC Style", score: friction.preferenceScore, max: 12, colorVar: "var(--disc-d)" },
+                      { label: "Passion", sub: "Values", score: friction.passionScore, max: 14, colorVar: "var(--values-altruistic)" },
+                      { label: "Process", sub: "Attributes", score: friction.processScore, max: 9, colorVar: "var(--attr-ext)" }
                     ].map(pillar => (
-                      <div key={pillar.label} style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: 12, textAlign: "center" }}>
-                        <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: C.muted }}>{pillar.label}</div>
-                        <div style={{ fontSize: 24, fontWeight: 800, color: pillar.score >= pillar.max * 0.5 ? "#C62828" : pillar.score >= pillar.max * 0.25 ? "#E65100" : "#2E7D32", lineHeight: 1.2 }}>{pillar.score}</div>
-                        <div style={{ fontSize: 9, color: C.muted }}>{pillar.sub}</div>
+                      <div key={pillar.label} className="bg-card border border-border rounded-lg p-3 text-center">
+                        <div className="text-[9px] font-bold tracking-wider uppercase text-muted">{pillar.label}</div>
+                        <div
+                          className="text-2xl font-extrabold leading-tight"
+                          style={{ color: pillar.score >= pillar.max * 0.5 ? "var(--friction-high)" : pillar.score >= pillar.max * 0.25 ? "var(--alert-warning-accent)" : "var(--alert-success-accent)" }}
+                        >
+                          {pillar.score}
+                        </div>
+                        <div className="text-[9px] text-muted">{pillar.sub}</div>
                       </div>
                     ))}
-                  </div>
+                  </motion.div>
 
                   {/* Print Report button */}
-                  <div style={{ marginBottom: 16, textAlign: "right" }} className="no-print">
+                  <div className="mb-4 text-right no-print">
                     <button
                       onClick={() => window.print()}
-                      style={{ padding: "8px 16px", borderRadius: 6, border: `1px solid ${C.border}`, background: C.card, fontSize: 12, fontWeight: 600, cursor: "pointer", color: C.text }}
+                      className="px-4 py-2 rounded-md border border-border bg-card text-xs font-semibold cursor-pointer text-foreground"
                     >
-                      🖨️ Print Report
+                      {"\ud83d\udda8\ufe0f"} Print Report
                     </button>
                   </div>
 
                   {/* PREFERENCE GAP - DISC */}
-                  <div style={{ background: C.card, borderRadius: 12, padding: "20px 24px", border: `1px solid ${C.border}`, marginBottom: 14, boxShadow: "0 1px 3px rgba(0,0,0,0.04)" }}>
-                    <div style={{ marginBottom: 14 }}>
-                      <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.07em", textTransform: "uppercase", color: C.muted, marginBottom: 4 }}>PREFERENCE GAP</div>
-                      <div style={{ fontSize: 13, color: C.muted }}>How behavioral styles differ across D, I, S, C</div>
+                  <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ duration: 0.3, delay: 0.2 }}
+                    className="bg-card rounded-xl px-6 py-5 border border-border mb-3.5 shadow-sm"
+                  >
+                    <div className="mb-3.5">
+                      <div className="text-[10px] font-bold tracking-wider uppercase text-muted mb-1">PREFERENCE GAP</div>
+                      <div className="text-[13px] text-muted">How behavioral styles differ across D, I, S, C</div>
                     </div>
                     {/* Score comparison panel */}
-                    <div style={{ display: "flex", borderRadius: 10, overflow: "hidden", border: `1px solid ${C.border}`, marginBottom: 14 }}>
-                      <div style={{ flex: 1, padding: "12px 16px", background: C.card, borderLeft: "3px solid #C8A96E" }}>
-                        <div style={{ fontSize: 9, fontWeight: 700, color: "#9A7A42", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 6 }}>{p.name}</div>
-                        <div style={{ display: "flex", gap: 8 }}>
-                          {dims.map(d => <span key={d} style={{ fontSize: 13, fontWeight: 800, color: C.disc[d] }}>{d}:{p.disc.natural[d]}</span>)}
+                    <div className="flex rounded-[10px] overflow-hidden border border-border mb-3.5">
+                      <div className="flex-1 px-4 py-3 bg-card border-l-3" style={{ borderLeftColor: "var(--nav-accent)" }}>
+                        <div className="text-[9px] font-bold uppercase tracking-wider mb-1.5" style={{ color: "var(--nav-accent)" }}>{p.name}</div>
+                        <div className="flex gap-2">
+                          {dims.map(d => <span key={d} className="text-[13px] font-extrabold" style={{ color: `var(--disc-${d.toLowerCase()})` }}>{d}:{p.disc.natural[d]}</span>)}
                         </div>
                       </div>
-                      <div style={{ width: 1, background: C.border, flexShrink: 0 }} />
-                      <div style={{ flex: 1, padding: "12px 16px", background: C.card }}>
-                        <div style={{ fontSize: 9, fontWeight: 700, color: C.muted, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 6 }}>{m.name}</div>
-                        <div style={{ display: "flex", gap: 8 }}>
-                          {dims.map(d => <span key={d} style={{ fontSize: 13, fontWeight: 800, color: C.disc[d] }}>{d}:{m.disc.natural[d]}</span>)}
+                      <div className="w-px bg-border shrink-0" />
+                      <div className="flex-1 px-4 py-3 bg-card">
+                        <div className="text-[9px] font-bold text-muted uppercase tracking-wider mb-1.5">{m.name}</div>
+                        <div className="flex gap-2">
+                          {dims.map(d => <span key={d} className="text-[13px] font-extrabold" style={{ color: `var(--disc-${d.toLowerCase()})` }}>{d}:{m.disc.natural[d]}</span>)}
                         </div>
                       </div>
                     </div>
                     {/* Per-dimension gap cards */}
-                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                    <div className="grid grid-cols-2 gap-2">
                       {discGaps.map(({ d, pScore, mScore, gap, tier, text }) => {
                         const ts = tierStyle[tier];
                         return (
-                          <div key={d} style={{ padding: "12px 14px", borderRadius: 8, background: C.card, border: `1px solid ${C.border}`, borderLeft: `3px solid ${ts.borderColor}` }}>
-                            <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }}>
-                              <div style={{ width: 8, height: 8, borderRadius: "50%", background: C.disc[d], flexShrink: 0 }} />
-                              <span style={{ fontSize: 11, fontWeight: 800, color: C.disc[d] }}>{discFull[d]}</span>
-                              <span style={{ marginLeft: "auto", fontSize: 9, fontWeight: 700, color: ts.labelColor, background: ts.labelColor + "10", border: `1px solid ${ts.labelColor}25`, borderRadius: 8, padding: "2px 8px" }}>{ts.label}</span>
+                          <div key={d} className="px-3.5 py-3 rounded-lg bg-card border border-border border-l-3" style={{ borderLeftColor: ts.accent }}>
+                            <div className="flex items-center gap-1.5 mb-2">
+                              <div className="w-2 h-2 rounded-full shrink-0" style={{ background: `var(--disc-${d.toLowerCase()})` }} />
+                              <span className="text-[11px] font-extrabold" style={{ color: `var(--disc-${d.toLowerCase()})` }}>{discFull[d]}</span>
+                              <span
+                                className="ml-auto text-[9px] font-bold rounded-lg px-2 py-0.5 border"
+                                style={{
+                                  color: ts.accent,
+                                  backgroundColor: `color-mix(in srgb, ${ts.accent} 8%, transparent)`,
+                                  borderColor: `color-mix(in srgb, ${ts.accent} 15%, transparent)`
+                                }}
+                              >
+                                {ts.label}
+                              </span>
                             </div>
-                            <div style={{ display: "flex", gap: 6, alignItems: "center", marginBottom: 8 }}>
-                              <div style={{ flex: 1, textAlign: "center", padding: "6px 0", borderRadius: 6, background: C.hi, border: `1px solid ${C.border}` }}>
-                                <div style={{ fontSize: 9, color: "#9A7A42", fontWeight: 700, marginBottom: 2 }}>{p.name.split(" ")[0]}</div>
-                                <div style={{ fontSize: 18, fontWeight: 800, color: C.text, lineHeight: 1 }}>{pScore}</div>
+                            <div className="flex gap-1.5 items-center mb-2">
+                              <div className="flex-1 text-center py-1.5 rounded-md bg-subtle border border-border">
+                                <div className="text-[9px] font-bold mb-0.5" style={{ color: "var(--nav-accent)" }}>{p.name.split(" ")[0]}</div>
+                                <div className="text-lg font-extrabold text-foreground leading-none">{pScore}</div>
                               </div>
-                              <div style={{ fontSize: 11, color: tier === "high" ? ts.labelColor : C.muted, fontWeight: 800 }}>Δ{gap}</div>
-                              <div style={{ flex: 1, textAlign: "center", padding: "6px 0", borderRadius: 6, background: C.hi, border: `1px solid ${C.border}` }}>
-                                <div style={{ fontSize: 9, color: C.muted, fontWeight: 700, marginBottom: 2 }}>{m.name.split(" ")[0]}</div>
-                                <div style={{ fontSize: 18, fontWeight: 800, color: C.text, lineHeight: 1 }}>{mScore}</div>
+                              <div className="text-[11px] font-extrabold" style={{ color: tier === "high" ? ts.accent : "var(--text-muted)" }}>{"\u0394"}{gap}</div>
+                              <div className="flex-1 text-center py-1.5 rounded-md bg-subtle border border-border">
+                                <div className="text-[9px] font-bold text-muted mb-0.5">{m.name.split(" ")[0]}</div>
+                                <div className="text-lg font-extrabold text-foreground leading-none">{mScore}</div>
                               </div>
                             </div>
-                            {tier !== "low" && <div style={{ fontSize: 10, color: C.text, lineHeight: 1.55 }}>{text}</div>}
+                            {tier !== "low" && <div className="text-[10px] text-foreground leading-relaxed">{text}</div>}
                           </div>
                         );
                       })}
                     </div>
-                  </div>
+                  </motion.div>
 
                   {/* PASSION GAP - Values */}
-                  <div style={{ background: C.card, borderRadius: 12, padding: "20px 24px", border: `1px solid ${C.border}`, marginBottom: 14, boxShadow: "0 1px 3px rgba(0,0,0,0.04)" }}>
-                    <div style={{ marginBottom: 14 }}>
-                      <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.07em", textTransform: "uppercase", color: C.muted, marginBottom: 4 }}>PASSION GAP</div>
-                      <div style={{ fontSize: 13, color: C.muted }}>Motivational driver differences - what energizes each person</div>
+                  <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ duration: 0.3, delay: 0.3 }}
+                    className="bg-card rounded-xl px-6 py-5 border border-border mb-3.5 shadow-sm"
+                  >
+                    <div className="mb-3.5">
+                      <div className="text-[10px] font-bold tracking-wider uppercase text-muted mb-1">PASSION GAP</div>
+                      <div className="text-[13px] text-muted">Motivational driver differences -- what energizes each person</div>
                     </div>
-                    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                      <div style={{ padding: "10px 16px", borderRadius: 8, background: C.card, border: `1px solid ${C.border}`, borderLeft: "3px solid #C8A96E" }}>
-                        <div style={{ fontSize: 9, fontWeight: 700, color: "#9A7A42", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 6 }}>Shared Drivers</div>
-                        <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
-                          {sharedVals.length > 0 ? sharedVals.map(v => <span key={v} style={{ fontSize: 10, padding: "2px 10px", borderRadius: 10, background: C.values[v] + "15", color: C.values[v], fontWeight: 600, border: `1px solid ${C.values[v]}30` }}>{v}</span>) : <span style={{ fontSize: 10, color: C.muted }}>No shared top drivers</span>}
+                    <div className="flex flex-col gap-2">
+                      <div className="px-4 py-2.5 rounded-lg bg-card border border-border border-l-3" style={{ borderLeftColor: "var(--nav-accent)" }}>
+                        <div className="text-[9px] font-bold uppercase tracking-wider mb-1.5" style={{ color: "var(--nav-accent)" }}>Shared Drivers</div>
+                        <div className="flex gap-1 flex-wrap">
+                          {sharedVals.length > 0 ? sharedVals.map(v => (
+                            <span
+                              key={v}
+                              className="text-[10px] font-semibold px-2.5 py-0.5 rounded-full border"
+                              style={{
+                                color: `var(--values-${v.toLowerCase()})`,
+                                borderColor: `color-mix(in srgb, var(--values-${v.toLowerCase()}) 20%, transparent)`,
+                                backgroundColor: `color-mix(in srgb, var(--values-${v.toLowerCase()}) 10%, transparent)`
+                              }}
+                            >
+                              {v}
+                            </span>
+                          )) : <span className="text-[10px] text-muted">No shared top drivers</span>}
                         </div>
                       </div>
-                      <div style={{ padding: "10px 16px", borderRadius: 8, background: C.card, border: `1px solid ${C.border}`, borderLeft: "3px solid #E65100" }}>
-                        <div style={{ fontSize: 9, fontWeight: 700, color: "#A83A00", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 2 }}>{p.name.split(" ")[0]}&apos;s Unique Drivers</div>
-                        <div style={{ fontSize: 9, color: C.muted, marginBottom: 6 }}>{p.name.split(" ")[0]} cares about these. {m.name.split(" ")[0]} may not share them</div>
-                        <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
-                          {pOnly.length > 0 ? pOnly.map(v => <span key={v} style={{ fontSize: 10, padding: "2px 10px", borderRadius: 10, background: C.values[v] + "15", color: C.values[v], fontWeight: 600, border: `1px solid ${C.values[v]}30` }}>{v}</span>) : <span style={{ fontSize: 10, color: C.muted }}>No unique drivers</span>}
+                      <div className="px-4 py-2.5 rounded-lg bg-card border border-border border-l-3" style={{ borderLeftColor: "var(--alert-warning-accent)" }}>
+                        <div className="text-[9px] font-bold uppercase tracking-wider mb-0.5" style={{ color: "var(--alert-warning-accent)" }}>{p.name.split(" ")[0]}&apos;s Unique Drivers</div>
+                        <div className="text-[9px] text-muted mb-1.5">{p.name.split(" ")[0]} cares about these. {m.name.split(" ")[0]} may not share them</div>
+                        <div className="flex gap-1 flex-wrap">
+                          {pOnly.length > 0 ? pOnly.map(v => (
+                            <span
+                              key={v}
+                              className="text-[10px] font-semibold px-2.5 py-0.5 rounded-full border"
+                              style={{
+                                color: `var(--values-${v.toLowerCase()})`,
+                                borderColor: `color-mix(in srgb, var(--values-${v.toLowerCase()}) 20%, transparent)`,
+                                backgroundColor: `color-mix(in srgb, var(--values-${v.toLowerCase()}) 10%, transparent)`
+                              }}
+                            >
+                              {v}
+                            </span>
+                          )) : <span className="text-[10px] text-muted">No unique drivers</span>}
                         </div>
                       </div>
-                      <div style={{ padding: "10px 16px", borderRadius: 8, background: C.card, border: `1px solid ${C.border}`, borderLeft: "3px solid #1565C0" }}>
-                        <div style={{ fontSize: 9, fontWeight: 700, color: "#0D4880", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 2 }}>{m.name.split(" ")[0]}&apos;s Unique Drivers</div>
-                        <div style={{ fontSize: 9, color: C.muted, marginBottom: 6 }}>{m.name.split(" ")[0]} cares about these. {p.name.split(" ")[0]} may not share them</div>
-                        <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
-                          {mOnly.length > 0 ? mOnly.map(v => <span key={v} style={{ fontSize: 10, padding: "2px 10px", borderRadius: 10, background: C.values[v] + "15", color: C.values[v], fontWeight: 600, border: `1px solid ${C.values[v]}30` }}>{v}</span>) : <span style={{ fontSize: 10, color: C.muted }}>No unique drivers</span>}
+                      <div className="px-4 py-2.5 rounded-lg bg-card border border-border border-l-3" style={{ borderLeftColor: "var(--alert-info-accent)" }}>
+                        <div className="text-[9px] font-bold uppercase tracking-wider mb-0.5" style={{ color: "var(--alert-info-accent)" }}>{m.name.split(" ")[0]}&apos;s Unique Drivers</div>
+                        <div className="text-[9px] text-muted mb-1.5">{m.name.split(" ")[0]} cares about these. {p.name.split(" ")[0]} may not share them</div>
+                        <div className="flex gap-1 flex-wrap">
+                          {mOnly.length > 0 ? mOnly.map(v => (
+                            <span
+                              key={v}
+                              className="text-[10px] font-semibold px-2.5 py-0.5 rounded-full border"
+                              style={{
+                                color: `var(--values-${v.toLowerCase()})`,
+                                borderColor: `color-mix(in srgb, var(--values-${v.toLowerCase()}) 20%, transparent)`,
+                                backgroundColor: `color-mix(in srgb, var(--values-${v.toLowerCase()}) 10%, transparent)`
+                              }}
+                            >
+                              {v}
+                            </span>
+                          )) : <span className="text-[10px] text-muted">No unique drivers</span>}
                         </div>
                       </div>
                     </div>
-                  </div>
+                  </motion.div>
 
                   {/* PROCESS GAP - Attributes */}
-                  <div style={{ background: C.card, borderRadius: 12, padding: "20px 24px", border: `1px solid ${C.border}`, marginBottom: 14, boxShadow: "0 1px 3px rgba(0,0,0,0.04)" }}>
-                    <div style={{ marginBottom: 14 }}>
-                      <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.07em", textTransform: "uppercase", color: C.muted, marginBottom: 4 }}>PROCESS GAP</div>
-                      <div style={{ fontSize: 13, color: C.muted }}>Decision-making style - bias comparison per Heart · Hand · Head</div>
+                  <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ duration: 0.3, delay: 0.4 }}
+                    className="bg-card rounded-xl px-6 py-5 border border-border mb-3.5 shadow-sm"
+                  >
+                    <div className="mb-3.5">
+                      <div className="text-[10px] font-bold tracking-wider uppercase text-muted mb-1">PROCESS GAP</div>
+                      <div className="text-[13px] text-muted">Decision-making style -- bias comparison per Heart {"\u00b7"} Hand {"\u00b7"} Head</div>
                     </div>
                     {/* Side-by-side attribute profiles */}
-                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 12 }}>
+                    <div className="grid grid-cols-2 gap-2.5 mb-3">
                       {[{ label: p.name, data: p.attr.ext, isPrimary: true }, { label: m.name, data: m.attr.ext, isPrimary: false }].map(({ label, data, isPrimary }) => {
                         const sorted = [...data].sort((a, b) => b.score - a.score);
                         return (
-                          <div key={label} style={{ padding: "12px 14px", borderRadius: 8, background: C.card, border: `1px solid ${C.border}`, borderLeft: isPrimary ? "3px solid #C8A96E" : `1px solid ${C.border}` }}>
-                            <div style={{ fontSize: 10, fontWeight: 700, color: isPrimary ? "#9A7A42" : C.muted, marginBottom: 8 }}>{label}</div>
+                          <div
+                            key={label}
+                            className={`px-3.5 py-3 rounded-lg bg-card border border-border ${isPrimary ? 'border-l-3' : ''}`}
+                            style={isPrimary ? { borderLeftColor: "var(--nav-accent)" } : undefined}
+                          >
+                            <div className="text-[10px] font-bold mb-2" style={{ color: isPrimary ? "var(--nav-accent)" : "var(--text-muted)" }}>{label}</div>
                             {sorted.map((a, i) => (
-                              <div key={a.name} style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 5 }}>
-                                <span style={{ width: 16, height: 16, borderRadius: "50%", background: i === 0 ? C.attr.ext : C.hi, color: i === 0 ? "#fff" : C.muted, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 9, fontWeight: 800, flexShrink: 0, border: `1px solid ${i === 0 ? "transparent" : C.border}` }}>{i + 1}</span>
-                                <span style={{ fontSize: 11, fontWeight: i === 0 ? 700 : 400, color: i === 0 ? C.text : C.muted }}>{a.label}</span>
-                                <span style={{ fontSize: 10, color: C.muted, marginLeft: "auto" }}>{a.score}</span>
+                              <div key={a.name} className="flex items-center gap-1.5 mb-1.5">
+                                <span
+                                  className="w-4 h-4 rounded-full flex items-center justify-center text-[9px] font-extrabold shrink-0 border"
+                                  style={{
+                                    background: i === 0 ? "var(--attr-ext)" : "var(--bg-subtle)",
+                                    color: i === 0 ? "var(--bg-card)" : "var(--text-muted)",
+                                    borderColor: i === 0 ? "transparent" : "var(--border-default)"
+                                  }}
+                                >
+                                  {i + 1}
+                                </span>
+                                <span className={`text-[11px] ${i === 0 ? 'font-bold text-foreground' : 'font-normal text-muted'}`}>{a.label}</span>
+                                <span className="text-[10px] text-muted ml-auto">{a.score}</span>
                                 <Bias bias={a.bias} />
                               </div>
                             ))}
@@ -354,25 +449,37 @@ export function CompareWithOthers({ person, team, onClose, photos = {} }) {
                       })}
                     </div>
                     {/* Bias-based friction analysis */}
-                    <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                    <div className="flex flex-col gap-1.5">
                       {["Heart", "Hand", "Head"].map(label => {
                         const pAttr = p.attr.ext.find(a => a.label === label);
                         const mAttr = m.attr.ext.find(a => a.label === label);
                         if (!pAttr || !mAttr) return null;
                         const result = processBiasResult(pAttr.bias, mAttr.bias);
-                        const borderColors = { CONFLICT: "#B71C1C", TENSION: "#E65100", ALIGNED: "#2E7D32" };
                         return (
-                          <div key={label} style={{ padding: "10px 14px", borderRadius: 8, background: C.card, border: `1px solid ${C.border}`, borderLeft: `3px solid ${borderColors[result.label]}`, display: "flex", alignItems: "center", gap: 12 }}>
-                            <div style={{ flex: 1 }}>
-                              <span style={{ fontSize: 12, fontWeight: 700, color: C.text }}>{label}</span>
-                              <span style={{ fontSize: 10, color: C.muted, marginLeft: 8 }}>{pAttr.bias} vs. {mAttr.bias}</span>
+                          <div
+                            key={label}
+                            className="px-3.5 py-2.5 rounded-lg bg-card border border-border border-l-3 flex items-center gap-3"
+                            style={{ borderLeftColor: result.accent }}
+                          >
+                            <div className="flex-1">
+                              <span className="text-xs font-bold text-foreground">{label}</span>
+                              <span className="text-[10px] text-muted ml-2">{pAttr.bias} vs. {mAttr.bias}</span>
                             </div>
-                            <span style={{ fontSize: 9, fontWeight: 700, color: result.color, background: result.color + "10", border: `1px solid ${result.color}25`, borderRadius: 8, padding: "2px 10px" }}>{result.label}</span>
+                            <span
+                              className="text-[9px] font-bold rounded-lg px-2.5 py-0.5 border"
+                              style={{
+                                color: result.accent,
+                                backgroundColor: `color-mix(in srgb, ${result.accent} 8%, transparent)`,
+                                borderColor: `color-mix(in srgb, ${result.accent} 15%, transparent)`
+                              }}
+                            >
+                              {result.label}
+                            </span>
                           </div>
                         );
                       })}
                     </div>
-                  </div>
+                  </motion.div>
                 </div>
               );
             })()
@@ -380,106 +487,133 @@ export function CompareWithOthers({ person, team, onClose, photos = {} }) {
             /* ===== TEAM OVERVIEW (when no member selected) ===== */
             <div>
               {/* Team Comparison Matrix */}
-              <div style={{ marginBottom: 28 }}>
-                <div style={{ fontSize: 12, fontWeight: 700, color: C.muted, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 12 }}>TEAM COMPARISON MATRIX</div>
-                <div style={{ overflowX: "auto" }}>
-                  <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ duration: 0.3, delay: 0.1 }}
+                className="mb-7"
+              >
+                <h3 className="text-xs font-bold text-muted uppercase tracking-wider mb-3">TEAM COMPARISON MATRIX</h3>
+                <div className="overflow-x-auto">
+                  <table className="w-full border-collapse text-xs">
                     <thead>
-                      <tr style={{ background: C.hi }}>
-                        <th style={{ padding: "10px 12px", textAlign: "left", borderBottom: `1px solid ${C.border}`, fontWeight: 600 }}>Team Member</th>
-                        <th style={{ padding: "10px 8px", textAlign: "center", borderBottom: `1px solid ${C.border}`, fontWeight: 600, color: C.disc.D }}>D</th>
-                        <th style={{ padding: "10px 8px", textAlign: "center", borderBottom: `1px solid ${C.border}`, fontWeight: 600, color: C.disc.I }}>I</th>
-                        <th style={{ padding: "10px 8px", textAlign: "center", borderBottom: `1px solid ${C.border}`, fontWeight: 600, color: C.disc.S }}>S</th>
-                        <th style={{ padding: "10px 8px", textAlign: "center", borderBottom: `1px solid ${C.border}`, fontWeight: 600, color: C.disc.C }}>C</th>
-                        <th style={{ padding: "10px 8px", textAlign: "center", borderBottom: `1px solid ${C.border}`, fontWeight: 600 }}>Style</th>
-                        <th style={{ padding: "10px 8px", textAlign: "center", borderBottom: `1px solid ${C.border}`, fontWeight: 600 }}>Top Value</th>
-                        <th style={{ padding: "10px 8px", textAlign: "center", borderBottom: `1px solid ${C.border}`, fontWeight: 600 }}>Leads With</th>
+                      <tr className="bg-subtle">
+                        <th className="px-3 py-2.5 text-left border-b border-border font-semibold">Team Member</th>
+                        <th className="px-2 py-2.5 text-center border-b border-border font-semibold" style={{ color: "var(--disc-d)" }}>D</th>
+                        <th className="px-2 py-2.5 text-center border-b border-border font-semibold" style={{ color: "var(--disc-i)" }}>I</th>
+                        <th className="px-2 py-2.5 text-center border-b border-border font-semibold" style={{ color: "var(--disc-s)" }}>S</th>
+                        <th className="px-2 py-2.5 text-center border-b border-border font-semibold" style={{ color: "var(--disc-c)" }}>C</th>
+                        <th className="px-2 py-2.5 text-center border-b border-border font-semibold">Style</th>
+                        <th className="px-2 py-2.5 text-center border-b border-border font-semibold">Top Value</th>
+                        <th className="px-2 py-2.5 text-center border-b border-border font-semibold">Leads With</th>
                       </tr>
                     </thead>
                     <tbody>
-                      <tr style={{ background: "#FFFDE7" }}>
-                        <td style={{ padding: "10px 12px", borderBottom: `1px solid ${C.border}`, fontWeight: 700 }}>★ {p.name}</td>
+                      <tr style={{ background: "var(--alert-warning-bg)" }}>
+                        <td className="px-3 py-2.5 border-b border-border font-bold">{"\u2605"} {p.name}</td>
                         {["D","I","S","C"].map(d => (
-                          <td key={d} style={{ padding: "10px 8px", textAlign: "center", borderBottom: `1px solid ${C.border}`, fontWeight: 600 }}>{p.disc.natural[d]}</td>
+                          <td key={d} className="px-2 py-2.5 text-center border-b border-border font-semibold">{p.disc.natural[d]}</td>
                         ))}
-                        <td style={{ padding: "10px 8px", textAlign: "center", borderBottom: `1px solid ${C.border}` }}>{getDom(p.disc.natural)}</td>
-                        <td style={{ padding: "10px 8px", textAlign: "center", borderBottom: `1px solid ${C.border}` }}>{Object.entries(p.values).sort((a,b) => b[1]-a[1])[0]?.[0] || "-"}</td>
-                        <td style={{ padding: "10px 8px", textAlign: "center", borderBottom: `1px solid ${C.border}` }}>{[...p.attr.ext].sort((a,b) => b.score - a.score)[0]?.label || "-"}</td>
+                        <td className="px-2 py-2.5 text-center border-b border-border">{getDom(p.disc.natural)}</td>
+                        <td className="px-2 py-2.5 text-center border-b border-border">{Object.entries(p.values).sort((a,b) => b[1]-a[1])[0]?.[0] || "-"}</td>
+                        <td className="px-2 py-2.5 text-center border-b border-border">{[...p.attr.ext].sort((a,b) => b.score - a.score)[0]?.label || "-"}</td>
                       </tr>
-                      {otherMembers.map(m => (
-                        <tr key={m.id} style={{ background: C.card, cursor: "pointer" }} onClick={() => setSelectedMemberId(m.id)}>
-                          <td style={{ padding: "10px 12px", borderBottom: `1px solid ${C.border}`, color: C.blue }}>{m.name}</td>
+                      {otherMembers.map(om => (
+                        <tr key={om.id} className="bg-card cursor-pointer hover:bg-subtle" onClick={() => setSelectedMemberId(om.id)}>
+                          <td className="px-3 py-2.5 border-b border-border" style={{ color: "var(--disc-c)" }}>{om.name}</td>
                           {["D","I","S","C"].map(d => {
-                            const diff = m.disc.natural[d] - p.disc.natural[d];
+                            const diff = om.disc.natural[d] - p.disc.natural[d];
                             const highlight = Math.abs(diff) >= 20;
                             return (
-                              <td key={d} style={{ padding: "10px 8px", textAlign: "center", borderBottom: `1px solid ${C.border}`, background: highlight ? (diff > 0 ? "#E3F7E3" : "#FFE8E8") : "transparent", fontWeight: highlight ? 600 : 400 }}>
-                                {m.disc.natural[d]}
+                              <td
+                                key={d}
+                                className={`px-2 py-2.5 text-center border-b border-border ${highlight ? 'font-semibold' : ''}`}
+                                style={{ background: highlight ? (diff > 0 ? "var(--alert-success-bg)" : "var(--alert-critical-bg)") : "transparent" }}
+                              >
+                                {om.disc.natural[d]}
                               </td>
                             );
                           })}
-                          <td style={{ padding: "10px 8px", textAlign: "center", borderBottom: `1px solid ${C.border}` }}>{getDom(m.disc.natural)}</td>
-                          <td style={{ padding: "10px 8px", textAlign: "center", borderBottom: `1px solid ${C.border}` }}>{Object.entries(m.values).sort((a,b) => b[1]-a[1])[0]?.[0] || "-"}</td>
-                          <td style={{ padding: "10px 8px", textAlign: "center", borderBottom: `1px solid ${C.border}` }}>{[...m.attr.ext].sort((a,b) => b.score - a.score)[0]?.label || "-"}</td>
+                          <td className="px-2 py-2.5 text-center border-b border-border">{getDom(om.disc.natural)}</td>
+                          <td className="px-2 py-2.5 text-center border-b border-border">{Object.entries(om.values).sort((a,b) => b[1]-a[1])[0]?.[0] || "-"}</td>
+                          <td className="px-2 py-2.5 text-center border-b border-border">{[...om.attr.ext].sort((a,b) => b.score - a.score)[0]?.label || "-"}</td>
                         </tr>
                       ))}
                     </tbody>
                   </table>
                 </div>
-                <div style={{ fontSize: 10, color: C.muted, marginTop: 8 }}>
-                  Click any row to compare directly ·
-                  <span style={{ display: "inline-block", width: 12, height: 12, background: "#E3F7E3", marginLeft: 8, marginRight: 4, verticalAlign: "middle", borderRadius: 2 }}></span> Higher by 20+
-                  <span style={{ display: "inline-block", width: 12, height: 12, background: "#FFE8E8", marginLeft: 8, marginRight: 4, verticalAlign: "middle", borderRadius: 2 }}></span> Lower by 20+
+                <div className="text-[10px] text-muted mt-2 flex items-center gap-2 flex-wrap">
+                  <span>Click any row to compare directly</span>
+                  <span>{"\u00b7"}</span>
+                  <span className="inline-flex items-center gap-1"><span className="inline-block w-3 h-3 rounded-sm" style={{ background: "var(--alert-success-bg)" }} /> Higher by 20+</span>
+                  <span className="inline-flex items-center gap-1"><span className="inline-block w-3 h-3 rounded-sm" style={{ background: "var(--alert-critical-bg)" }} /> Lower by 20+</span>
                 </div>
-              </div>
+              </motion.div>
 
               {/* Difference from Team Averages */}
-              <div style={{ marginBottom: 16 }}>
-                <div style={{ fontSize: 12, fontWeight: 700, color: C.muted, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 12 }}>{p.name.split(" ")[0]} vs TEAM AVERAGES</div>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 16 }}>
-                  <div style={{ background: C.card, borderRadius: 8, border: `1px solid ${C.border}`, padding: 14 }}>
-                    <div style={{ fontSize: 11, fontWeight: 700, color: C.muted, marginBottom: 10 }}>DISC vs Team Avg</div>
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ duration: 0.3, delay: 0.2 }}
+                className="mb-4"
+              >
+                <h3 className="text-xs font-bold text-muted uppercase tracking-wider mb-3">{p.name.split(" ")[0]} vs TEAM AVERAGES</h3>
+                <div className="grid grid-cols-3 gap-4">
+                  <div className="bg-card rounded-lg border border-border p-3.5">
+                    <div className="text-[11px] font-bold text-muted mb-2.5">DISC vs Team Avg</div>
                     {discDiffs.map(({ dim, person: pScore, avg, diff }) => {
                       const significant = Math.abs(diff) >= 15;
                       return (
-                        <div key={dim} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8, padding: "6px 8px", borderRadius: 6, background: significant ? (diff > 0 ? "#E3F7E3" : "#FFE8E8") : C.hi }}>
-                          <span style={{ fontWeight: 700, color: C.disc[dim], width: 16 }}>{dim}</span>
-                          <span style={{ fontSize: 12 }}>{pScore}</span>
-                          <span style={{ fontSize: 10, color: C.muted }}>vs</span>
-                          <span style={{ fontSize: 12, color: C.muted }}>{avg}</span>
-                          <span style={{ marginLeft: "auto", fontSize: 11, fontWeight: 600, color: diff > 0 ? "#2E7D32" : diff < 0 ? "#C62828" : C.muted }}>
+                        <div
+                          key={dim}
+                          className="flex items-center gap-2 mb-2 px-2 py-1.5 rounded-md"
+                          style={{ background: significant ? (diff > 0 ? "var(--alert-success-bg)" : "var(--alert-critical-bg)") : "var(--bg-subtle)" }}
+                        >
+                          <span className="font-bold w-4" style={{ color: `var(--disc-${dim.toLowerCase()})` }}>{dim}</span>
+                          <span className="text-xs">{pScore}</span>
+                          <span className="text-[10px] text-muted">vs</span>
+                          <span className="text-xs text-muted">{avg}</span>
+                          <span className="ml-auto text-[11px] font-semibold" style={{ color: diff > 0 ? "var(--alert-success-accent)" : diff < 0 ? "var(--friction-high)" : "var(--text-muted)" }}>
                             {diff > 0 ? "+" : ""}{diff}
                           </span>
                         </div>
                       );
                     })}
                   </div>
-                  <div style={{ background: C.card, borderRadius: 8, border: `1px solid ${C.border}`, padding: 14 }}>
-                    <div style={{ fontSize: 11, fontWeight: 700, color: C.muted, marginBottom: 10 }}>Values vs Team Avg</div>
+                  <div className="bg-card rounded-lg border border-border p-3.5">
+                    <div className="text-[11px] font-bold text-muted mb-2.5">Values vs Team Avg</div>
                     {valuesDiffs.slice(0, 4).map(({ name, person: pScore, avg, diff }) => {
                       const significant = Math.abs(diff) >= 10;
                       return (
-                        <div key={name} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8, padding: "6px 8px", borderRadius: 6, background: significant ? (diff > 0 ? "#E3F7E3" : "#FFE8E8") : C.hi }}>
-                          <span style={{ width: 6, height: 6, borderRadius: "50%", background: C.values[name] }} />
-                          <span style={{ fontSize: 11, flex: 1 }}>{name}</span>
-                          <span style={{ fontSize: 11, fontWeight: 600, color: diff > 0 ? "#2E7D32" : diff < 0 ? "#C62828" : C.muted }}>
+                        <div
+                          key={name}
+                          className="flex items-center gap-2 mb-2 px-2 py-1.5 rounded-md"
+                          style={{ background: significant ? (diff > 0 ? "var(--alert-success-bg)" : "var(--alert-critical-bg)") : "var(--bg-subtle)" }}
+                        >
+                          <span className="w-1.5 h-1.5 rounded-full" style={{ background: `var(--values-${name.toLowerCase()})` }} />
+                          <span className="text-[11px] flex-1">{name}</span>
+                          <span className="text-[11px] font-semibold" style={{ color: diff > 0 ? "var(--alert-success-accent)" : diff < 0 ? "var(--friction-high)" : "var(--text-muted)" }}>
                             {diff > 0 ? "+" : ""}{diff}
                           </span>
                         </div>
                       );
                     })}
                   </div>
-                  <div style={{ background: C.card, borderRadius: 8, border: `1px solid ${C.border}`, padding: 14 }}>
-                    <div style={{ fontSize: 11, fontWeight: 700, color: C.muted, marginBottom: 10 }}>Decision Style vs Team Avg</div>
+                  <div className="bg-card rounded-lg border border-border p-3.5">
+                    <div className="text-[11px] font-bold text-muted mb-2.5">Decision Style vs Team Avg</div>
                     {attrDiffs.map(({ label, person: pScore, avg, diff }) => {
                       const significant = Math.abs(diff) >= 1;
                       return (
-                        <div key={label} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8, padding: "6px 8px", borderRadius: 6, background: significant ? (diff > 0 ? "#E3F7E3" : "#FFE8E8") : C.hi }}>
-                          <span style={{ fontSize: 11, flex: 1 }}>{label}</span>
-                          <span style={{ fontSize: 12 }}>{pScore}</span>
-                          <span style={{ fontSize: 10, color: C.muted }}>vs</span>
-                          <span style={{ fontSize: 12, color: C.muted }}>{avg}</span>
-                          <span style={{ marginLeft: "auto", fontSize: 11, fontWeight: 600, color: diff > 0 ? "#2E7D32" : diff < 0 ? "#C62828" : C.muted }}>
+                        <div
+                          key={label}
+                          className="flex items-center gap-2 mb-2 px-2 py-1.5 rounded-md"
+                          style={{ background: significant ? (diff > 0 ? "var(--alert-success-bg)" : "var(--alert-critical-bg)") : "var(--bg-subtle)" }}
+                        >
+                          <span className="text-[11px] flex-1">{label}</span>
+                          <span className="text-xs">{pScore}</span>
+                          <span className="text-[10px] text-muted">vs</span>
+                          <span className="text-xs text-muted">{avg}</span>
+                          <span className="ml-auto text-[11px] font-semibold" style={{ color: diff > 0 ? "var(--alert-success-accent)" : diff < 0 ? "var(--friction-high)" : "var(--text-muted)" }}>
                             {diff > 0 ? "+" : ""}{diff.toFixed(1)}
                           </span>
                         </div>
@@ -487,21 +621,21 @@ export function CompareWithOthers({ person, team, onClose, photos = {} }) {
                     })}
                   </div>
                 </div>
-                <div style={{ marginTop: 12, padding: "12px 14px", borderRadius: 8, background: "#FFFDE7", border: "1px solid #FFF59D" }}>
-                  <div style={{ fontSize: 11, fontWeight: 700, color: "#9A7A42", marginBottom: 4 }}>KEY INSIGHT</div>
-                  <div style={{ fontSize: 12, color: C.text, lineHeight: 1.6 }}>
+                <div className="mt-3 px-3.5 py-3 rounded-lg border" style={{ background: "var(--alert-warning-bg)", borderColor: "var(--alert-warning-border)" }}>
+                  <div className="text-[11px] font-bold mb-1" style={{ color: "var(--nav-accent)" }}>KEY INSIGHT</div>
+                  <div className="text-xs text-foreground leading-relaxed">
                     {discDiffs[0] && Math.abs(discDiffs[0].diff) >= 15
                       ? `${p.name.split(" ")[0]}'s ${discFull[discDiffs[0].dim]} (${discDiffs[0].person}) is ${Math.abs(discDiffs[0].diff)} points ${discDiffs[0].diff > 0 ? "higher" : "lower"} than the team average (${discDiffs[0].avg}). This is the biggest behavioral difference from the team.`
                       : `${p.name.split(" ")[0]}'s DISC profile is relatively aligned with team averages. Look to Values and Decision Style for differentiation.`
                     }
                   </div>
                 </div>
-              </div>
+              </motion.div>
             </div>
           )}
         </div>
 
-        <div style={{ padding: "16px 24px", borderTop: `1px solid ${C.border}`, display: "flex", justifyContent: "flex-end" }}>
+        <div className="px-6 py-4 border-t border-border flex justify-end">
           <Btn primary onClick={onClose}>Done</Btn>
         </div>
       </div>

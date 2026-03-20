@@ -11,6 +11,49 @@
   --text-primary: #1A1A1A;
   --text-muted: #777777;
 
+  /* DISC profile tokens */
+  --disc-d: #C62828;
+  --disc-i: #FFC107;
+  --disc-s: #4CAF50;
+  --disc-c: #29B6F6;
+  --disc-gray: #9E9E9E;
+
+  /* Values tokens */
+  --values-aesthetic: #7CB342;
+  --values-economic: #5C8DC4;
+  --values-individualistic: #F28C4E;
+  --values-political: #E05252;
+  --values-altruistic: #FFB74D;
+  --values-regulatory: #757575;
+  --values-theoretical: #B8864A;
+
+  /* Attribute tokens */
+  --attr-ext: #4f92cf;
+  --attr-int: #C62828;
+
+  /* Friction tokens */
+  --friction-high: #C62828;
+  --friction-moderate: #FFC107;
+  --friction-low: #4CAF50;
+
+  /* Alert severity tokens */
+  --alert-critical-bg: #FEF2F2;
+  --alert-critical-border: #FECACA;
+  --alert-critical-accent: #991B1B;
+  --alert-critical-text: #7F1D1D;
+  --alert-warning-bg: #FFF7ED;
+  --alert-warning-border: #FED7AA;
+  --alert-warning-accent: #C2410C;
+  --alert-warning-text: #7C2D12;
+  --alert-info-bg: #EFF6FF;
+  --alert-info-border: #BFDBFE;
+  --alert-info-accent: #1D4ED8;
+  --alert-info-text: #1E3A5A;
+  --alert-success-bg: #F0FDF4;
+  --alert-success-border: #BBF7D0;
+  --alert-success-accent: #15803D;
+  --alert-success-text: #14532D;
+
   /* Spacing scale (8px base) */
   --space-1: 8px;
   --space-2: 16px;
@@ -24,6 +67,58 @@
   --color-background: var(--bg-primary);
   --color-foreground: var(--text-primary);
   --font-sans: var(--font-dm-sans);
+  --font-display: var(--font-display);
+
+  /* UI surface tokens */
+  --color-card: var(--bg-card);
+  --color-subtle: var(--bg-subtle);
+  --color-border: var(--border-default);
+  --color-muted: var(--text-muted);
+  --color-nav: var(--nav-bg);
+  --color-nav-accent: var(--nav-accent);
+
+  /* DISC tokens */
+  --color-disc-d: var(--disc-d);
+  --color-disc-i: var(--disc-i);
+  --color-disc-s: var(--disc-s);
+  --color-disc-c: var(--disc-c);
+  --color-disc-gray: var(--disc-gray);
+
+  /* Values tokens */
+  --color-values-aesthetic: var(--values-aesthetic);
+  --color-values-economic: var(--values-economic);
+  --color-values-individualistic: var(--values-individualistic);
+  --color-values-political: var(--values-political);
+  --color-values-altruistic: var(--values-altruistic);
+  --color-values-regulatory: var(--values-regulatory);
+  --color-values-theoretical: var(--values-theoretical);
+
+  /* Attribute tokens */
+  --color-attr-ext: var(--attr-ext);
+  --color-attr-int: var(--attr-int);
+
+  /* Friction tokens */
+  --color-friction-high: var(--friction-high);
+  --color-friction-moderate: var(--friction-moderate);
+  --color-friction-low: var(--friction-low);
+
+  /* Alert tokens */
+  --color-alert-critical-bg: var(--alert-critical-bg);
+  --color-alert-critical-border: var(--alert-critical-border);
+  --color-alert-critical-accent: var(--alert-critical-accent);
+  --color-alert-critical-text: var(--alert-critical-text);
+  --color-alert-warning-bg: var(--alert-warning-bg);
+  --color-alert-warning-border: var(--alert-warning-border);
+  --color-alert-warning-accent: var(--alert-warning-accent);
+  --color-alert-warning-text: var(--alert-warning-text);
+  --color-alert-info-bg: var(--alert-info-bg);
+  --color-alert-info-border: var(--alert-info-border);
+  --color-alert-info-accent: var(--alert-info-accent);
+  --color-alert-info-text: var(--alert-info-text);
+  --color-alert-success-bg: var(--alert-success-bg);
+  --color-alert-success-border: var(--alert-success-border);
+  --color-alert-success-accent: var(--alert-success-accent);
+  --color-alert-success-text: var(--alert-success-text);
 }
 
 body {
@@ -34,7 +129,12 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* Smooth card hover lift — Fortune 500 standard */
+/* Display font for headings and peak moments */
+h1, h2, h3 {
+  font-family: var(--font-display), Georgia, serif;
+}
+
+/* Smooth card hover lift -- Fortune 500 standard */
 .card-lift {
   transition: transform 0.15s ease-out, box-shadow 0.15s ease-out;
 }
@@ -43,7 +143,7 @@ body {
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
 }
 
-/* Verdict block — Peak-End Rule peak moment */
+/* Verdict block -- Peak-End Rule peak moment */
 .verdict-block {
   padding: 24px 28px;
   border-radius: 12px;
@@ -57,7 +157,7 @@ body {
   box-sizing: border-box;
 }
 
-/* ── Login Page — CSS-driven responsive (no JS dependency) ── */
+/* ── Login Page -- CSS-driven responsive (no JS dependency) ── */
 .login-wrapper {
   min-height: 100dvh;
   min-height: 100vh; /* fallback for older browsers */

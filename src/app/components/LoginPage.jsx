@@ -88,7 +88,7 @@ export function LoginPage({ onLogin }) {
     <div className="login-wrapper">
       <div className="login-card">
 
-        {/* Desktop branding — hidden on mobile via CSS */}
+        {/* Desktop branding -- hidden on mobile via CSS */}
         <div className="login-branding-desktop" style={{ background: "linear-gradient(160deg, #E3F7FF 0%, #F0FAF0 100%)", padding: 48, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", textAlign: "center" }}>
           <svg width="72" height="72" viewBox="0 0 72 72" fill="none" style={{ marginBottom: 12 }}>
             <circle cx="36" cy="36" r="34" stroke={C.blue} strokeWidth="4" fill="#fff" />
@@ -126,7 +126,7 @@ export function LoginPage({ onLogin }) {
           </svg>
         </div>
 
-        {/* Mobile branding — hidden on desktop via CSS */}
+        {/* Mobile branding -- hidden on desktop via CSS */}
         <div className="login-branding-mobile" style={{ background: "linear-gradient(160deg, #E3F7FF 0%, #F0FAF0 100%)", padding: "32px 24px 24px", textAlign: "center" }}>
           <div style={{ fontSize: 22, fontWeight: 800, color: C.text, lineHeight: 1.2, marginBottom: 4, letterSpacing: "-0.5px" }}>
             LOVE WHERE YOU LEAD
@@ -134,7 +134,7 @@ export function LoginPage({ onLogin }) {
           <div style={{ fontSize: 14, color: C.muted }}>The Environment You Need. Right Where You Are.</div>
         </div>
 
-        {/* Form — always visible */}
+        {/* Form -- always visible */}
         <div className="login-form" style={{ display: "flex", flexDirection: "column", justifyContent: "center" }}>
 
           {mode === "signin" && (
