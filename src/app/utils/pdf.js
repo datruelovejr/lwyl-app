@@ -1,22 +1,31 @@
 /**
  * PDF and ZIP utilities -- loads JSZip and PDF.js from npm packages.
+ * pdfjs-dist is loaded lazily to avoid SSR issues on Vercel.
  */
 
 import JSZip from 'jszip';
-import * as pdfjsLib from 'pdfjs-dist';
 
-pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs';
+// Lazy-load pdfjs-dist to avoid SSR issues
+let pdfjsLib = null;
+async function getPdfjs() {
+  if (!pdfjsLib) {
+    pdfjsLib = await import('pdfjs-dist');
+    pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs';
+  }
+  return pdfjsLib;
+}
 
 export function loadJSZip() {
   return Promise.resolve(JSZip);
 }
 
-export function loadPDFJS() {
-  return Promise.resolve(pdfjsLib);
+export async function loadPDFJS() {
+  return getPdfjs();
 }
 
 export async function extractTextFromPDF(arrayBuffer) {
-  const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+  const pdfjs = await getPdfjs();
+  const pdf = await pdfjs.getDocument({ data: arrayBuffer }).promise;
   const pageTexts = {};
   const pagesToRead = [2, 3, 4];
   for (const pageNum of pagesToRead) {
