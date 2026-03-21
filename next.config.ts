@@ -1,16 +1,12 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  compiler: {
-    removeConsole: {
-      exclude: ['warn'],
-    },
-  },
-  turbopack: {
-    resolveAlias: {
-      canvas: { browser: '' },
-    },
-  },
+  // Disable strict mode for now to avoid double-render issues
+  reactStrictMode: false,
+
+  // Empty turbopack config to silence warning (Next.js 16 uses Turbopack by default)
+  turbopack: {},
+
   // Handle canvas module for Webpack production builds (Vercel)
   webpack: (config, { isServer }) => {
     // Exclude canvas from being processed - it's optional for pdfjs-dist
@@ -19,9 +15,14 @@ const nextConfig: NextConfig = {
       canvas: false,
     };
 
-    // Mark problematic modules as external on server
-    if (isServer) {
-      config.externals = [...(config.externals || []), 'canvas'];
+    // Fallback for browser-only modules
+    if (!isServer) {
+      config.resolve.fallback = {
+        ...config.resolve.fallback,
+        fs: false,
+        path: false,
+        os: false,
+      };
     }
 
     return config;
