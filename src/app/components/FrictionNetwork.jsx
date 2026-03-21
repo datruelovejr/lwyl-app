@@ -88,19 +88,20 @@ export function FrictionNetwork({ nodes, links, width = 700, height = 500, onNod
     const fg = graphRef.current;
 
     // Custom forces for loose DISC quadrant grouping
-    // Use d3-force directly (already installed as react-force-graph dependency) instead of full d3 bundle
-    const d3 = require('d3-force');
-    fg.d3Force('x', d3.forceX().x(node => {
-      const q = QUADRANT[(node.disc || 'S').split('/')[0]] || QUADRANT.S;
-      return q.x * width;
-    }).strength(0.07));
-    fg.d3Force('y', d3.forceY().y(node => {
-      const q = QUADRANT[(node.disc || 'S').split('/')[0]] || QUADRANT.S;
-      return q.y * height;
-    }).strength(0.07));
-    fg.d3Force('charge').strength(-120);
+    // Use d3-force directly (dynamic import to avoid SSR issues)
+    import('d3-force').then(d3 => {
+      fg.d3Force('x', d3.forceX().x(node => {
+        const q = QUADRANT[(node.disc || 'S').split('/')[0]] || QUADRANT.S;
+        return q.x * width;
+      }).strength(0.07));
+      fg.d3Force('y', d3.forceY().y(node => {
+        const q = QUADRANT[(node.disc || 'S').split('/')[0]] || QUADRANT.S;
+        return q.y * height;
+      }).strength(0.07));
+      fg.d3Force('charge').strength(-120);
 
-    fg.d3ReheatSimulation();
+      fg.d3ReheatSimulation();
+    });
   }, [nodes, width, height]);
 
   // Custom node renderer (canvas)
