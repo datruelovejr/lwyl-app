@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useLWYL } from "../contexts/LWYLContext";
 import { useRouter } from "next/navigation";
 import { calculateFriction } from "../utils/friction";
@@ -13,6 +13,18 @@ export default function ConsultantDashboard() {
   const { orgs, people, selOrgId, setSelOrgId, setSelTeamId } = useLWYL();
   const router = useRouter();
   const [showNewOrg, setShowNewOrg] = useState(false);
+  const [showWelcome, setShowWelcome] = useState(false);
+
+  // Show welcome banner on first visit
+  useEffect(() => {
+    const dismissed = localStorage.getItem('lwyl_welcome_dismissed');
+    if (!dismissed) setShowWelcome(true);
+  }, []);
+
+  const dismissWelcome = () => {
+    setShowWelcome(false);
+    localStorage.setItem('lwyl_welcome_dismissed', 'true');
+  };
 
   const enterOrg = (orgId) => {
     setSelOrgId(orgId);
@@ -22,6 +34,39 @@ export default function ConsultantDashboard() {
 
   return (
     <div className="max-w-4xl mx-auto px-8 py-10">
+      {/* Welcome Banner */}
+      {showWelcome && (
+        <div className="mb-6 bg-gradient-to-r from-sky-500 to-indigo-500 rounded-2xl p-6 text-white relative">
+          <button
+            onClick={dismissWelcome}
+            className="absolute top-4 right-4 text-white/70 hover:text-white transition-colors"
+            aria-label="Dismiss welcome message">
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+          <h2 className="text-lg font-bold mb-2">Welcome to Love Where You Lead!</h2>
+          <p className="text-sm text-white/90 mb-3">
+            This is your consultant dashboard. Create organizations for your clients,
+            send them assessment links, and unlock powerful team insights.
+          </p>
+          <div className="flex gap-4 text-xs text-white/80">
+            <div className="flex items-center gap-1.5">
+              <span className="w-5 h-5 rounded-full bg-white/20 flex items-center justify-center text-[10px] font-bold">1</span>
+              <span>Create an org</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="w-5 h-5 rounded-full bg-white/20 flex items-center justify-center text-[10px] font-bold">2</span>
+              <span>Add assessment link</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="w-5 h-5 rounded-full bg-white/20 flex items-center justify-center text-[10px] font-bold">3</span>
+              <span>Explore insights</span>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex items-center justify-between mb-8">
         <div>

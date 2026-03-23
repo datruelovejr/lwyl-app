@@ -4,7 +4,6 @@ import { createContext, useContext, useState, useEffect, useCallback } from "rea
 import { supabase, signIn, signUp, signOut, resetPassword, getSession, onAuthStateChange } from "../../lib/supabase";
 import { z } from 'zod';
 import { cache } from "../../lib/cache";
-import { initOrgs, initPeople } from "../constants/data";
 
 // Validation schemas for context-level writes
 const orgInsertSchema = z.object({
@@ -61,8 +60,8 @@ export function LWYLProvider({ children }) {
   const [user, setUser] = useState(null);
 
   // Data
-  const [orgs, setOrgs] = useState(initOrgs);
-  const [people, setPeople] = useState(initPeople);
+  const [orgs, setOrgs] = useState([]);
+  const [people, setPeople] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [dataLoaded, setDataLoaded] = useState(false);
 
@@ -295,7 +294,9 @@ export function LWYLProvider({ children }) {
           cache.set('orgs', transformedOrgs);
           cache.set('people', transformedPeople);
         } else if (!servedFromCache) {
-          await seedDataToSupabase();
+          // New clients see empty state - no demo data
+          setOrgs([]);
+          setPeople([]);
         }
         setDataLoaded(true);
       } catch (err) {
@@ -311,51 +312,6 @@ export function LWYLProvider({ children }) {
     }
     loadData();
   }, [user]);
-
-  // ── Seed Data (validated) ──────────────────────────────
-  async function seedDataToSupabase() {
-    try {
-      const orgIdMap = {}, teamIdMap = {}, personIdMap = {};
-      for (const org of initOrgs) {
-        orgIdMap[org.id] = crypto.randomUUID();
-        for (const team of org.teams) teamIdMap[team.id] = crypto.randomUUID();
-      }
-      for (const p of initPeople) personIdMap[p.id] = crypto.randomUUID();
-
-      for (const org of initOrgs) {
-        const newOrgId = orgIdMap[org.id];
-        const validatedOrg = orgInsertSchema.parse({ id: newOrgId, name: org.name, assessment_url: null });
-        await supabase.from('organizations').insert(validatedOrg);
-        // Link the creating user as owner so RLS grants access
-        await supabase.from('user_organizations').insert({
-          user_id: user.id,
-          organization_id: newOrgId,
-          role: 'owner',
-        });
-        for (const team of org.teams) {
-          const validatedTeam = teamInsertSchema.parse({ id: teamIdMap[team.id], org_id: newOrgId, name: team.name });
-          await supabase.from('teams').insert(validatedTeam);
-        }
-      }
-      for (const p of initPeople) {
-        const validatedPerson = personInsertSchema.parse({
-          id: personIdMap[p.id], team_id: teamIdMap[p.teamId], name: p.name,
-          role: p.role || null, is_leader: false,
-          disc_natural: p.disc?.natural || null, disc_adapted: p.disc?.adaptive || null,
-          values_data: p.values || null, attributes: p.attr || null,
-        });
-        await supabase.from('people').insert(validatedPerson);
-      }
-
-      const newOrgs = initOrgs.map(org => ({ id: orgIdMap[org.id], name: org.name, assessmentUrl: "", teams: org.teams.map(t => ({ id: teamIdMap[t.id], name: t.name })) }));
-      const newPeople = initPeople.map(p => ({ ...p, id: personIdMap[p.id], orgId: orgIdMap[p.orgId], teamId: teamIdMap[p.teamId] }));
-      setOrgs(newOrgs);
-      setPeople(newPeople);
-      if (newOrgs.length > 0) setSelOrgId(newOrgs[0].id);
-    } catch (err) {
-      console.error('Failed to seed data');
-    }
-  }
 
   // ── Onboarding ────────────────────────────────────────
   useEffect(() => {
