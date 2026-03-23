@@ -4,6 +4,7 @@ import { useState } from "react";
 import { motion } from "framer-motion";
 import { useIsMobile } from "../utils/useIsMobile";
 import { resetSetupWizard } from "./SetupWizard";
+import { createInvite } from "../../lib/supabase";
 
 export function Settings({
   org, orgs, orgPeople, people, selOrgId, setSelOrgId, selTeamId, setSelTeamId,
@@ -21,6 +22,44 @@ export function Settings({
   const [editTeamName, setEditTeamName] = useState("");
   const [pendingName, setPendingName] = useState("");
   const [linkCopied, setLinkCopied] = useState(false);
+
+  // Invite state
+  const [showInviteModal, setShowInviteModal] = useState(false);
+  const [invitePersonId, setInvitePersonId] = useState("");
+  const [inviteLink, setInviteLink] = useState("");
+  const [inviteLinkCopied, setInviteLinkCopied] = useState(false);
+  const [inviteLoading, setInviteLoading] = useState(false);
+
+  const handleCreateInvite = async () => {
+    setInviteLoading(true);
+    try {
+      const invite = await createInvite({
+        organizationId: selOrgId,
+        personId: invitePersonId || null,
+        role: 'owner',
+      });
+      const link = `${window.location.origin}/invite/${invite.token}`;
+      setInviteLink(link);
+    } catch (err) {
+      console.error('Failed to create invite:', err);
+      alert('Failed to create invite. Please try again.');
+    } finally {
+      setInviteLoading(false);
+    }
+  };
+
+  const handleCopyInviteLink = () => {
+    navigator.clipboard.writeText(inviteLink);
+    setInviteLinkCopied(true);
+    setTimeout(() => setInviteLinkCopied(false), 2000);
+  };
+
+  const resetInviteModal = () => {
+    setShowInviteModal(false);
+    setInvitePersonId("");
+    setInviteLink("");
+    setInviteLinkCopied(false);
+  };
 
   const handleSaveOrg = () => {
     if (editOrgName.trim()) {
@@ -117,6 +156,22 @@ export function Settings({
         </div>
       </div>}
 
+      {/* ── Invite Leader ── */}
+      {viewMode === 'admin' && (
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 mb-5">
+          <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-4">Invite Leader</div>
+          <p className="text-sm text-gray-600 mb-4 leading-relaxed">
+            Send an invite link to give a leader ownership of this organization. When they sign up, they'll automatically be connected.
+          </p>
+          <button
+            onClick={() => setShowInviteModal(true)}
+            className="px-5 py-2.5 rounded-xl bg-emerald-500 text-white text-sm font-semibold hover:bg-emerald-600 cursor-pointer border-none"
+          >
+            Generate Invite Link
+          </button>
+        </div>
+      )}
+
       {viewMode === 'admin' && (<>
       {/* ── Teams ── */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 mb-5">
@@ -206,6 +261,105 @@ export function Settings({
           Re-run Setup Wizard
         </button>
       </div>
+
+      {/* ── Invite Modal ── */}
+      {showInviteModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={resetInviteModal}>
+          <div
+            className="bg-white rounded-2xl shadow-xl max-w-md w-full mx-4 p-6"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-bold text-gray-900">Invite Leader</h2>
+              <button
+                onClick={resetInviteModal}
+                className="text-gray-400 hover:text-gray-600 text-xl leading-none"
+              >
+                &times;
+              </button>
+            </div>
+
+            {!inviteLink ? (
+              <>
+                <p className="text-sm text-gray-600 mb-4">
+                  Generate an invite link for <strong>{org?.name}</strong>. The person who accepts this invite will become the owner of this organization.
+                </p>
+
+                <div className="mb-4">
+                  <label className="text-sm font-semibold text-gray-700 mb-1.5 block">
+                    Link to existing profile? (optional)
+                  </label>
+                  <select
+                    value={invitePersonId}
+                    onChange={e => setInvitePersonId(e.target.value)}
+                    className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-sky-200"
+                  >
+                    <option value="">No - they'll upload their assessment later</option>
+                    {orgPeople.filter(p => p.disc).map(p => (
+                      <option key={p.id} value={p.id}>{p.name}</option>
+                    ))}
+                  </select>
+                  <p className="text-[11px] text-gray-400 mt-1">
+                    If they already have assessment data in the system, link it to their account.
+                  </p>
+                </div>
+
+                <div className="flex gap-2">
+                  <button
+                    onClick={resetInviteModal}
+                    className="flex-1 px-4 py-2.5 rounded-xl border border-gray-200 bg-white text-sm font-semibold text-gray-600 hover:bg-gray-50 cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleCreateInvite}
+                    disabled={inviteLoading}
+                    className="flex-1 px-4 py-2.5 rounded-xl bg-emerald-500 text-white text-sm font-semibold hover:bg-emerald-600 cursor-pointer border-none disabled:opacity-50"
+                  >
+                    {inviteLoading ? 'Generating...' : 'Generate Link'}
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="mb-4">
+                  <div className="text-sm font-semibold text-gray-700 mb-2">Invite Link Ready</div>
+                  <div className="bg-gray-50 rounded-xl p-3 border border-gray-200">
+                    <input
+                      type="text"
+                      readOnly
+                      value={inviteLink}
+                      className="w-full bg-transparent text-xs font-mono text-gray-600 border-none outline-none"
+                    />
+                  </div>
+                  <p className="text-[11px] text-gray-400 mt-2">
+                    This link expires in 7 days and can only be used once.
+                  </p>
+                </div>
+
+                <div className="flex gap-2">
+                  <button
+                    onClick={resetInviteModal}
+                    className="flex-1 px-4 py-2.5 rounded-xl border border-gray-200 bg-white text-sm font-semibold text-gray-600 hover:bg-gray-50 cursor-pointer"
+                  >
+                    Done
+                  </button>
+                  <button
+                    onClick={handleCopyInviteLink}
+                    className={`flex-1 px-4 py-2.5 rounded-xl text-sm font-semibold cursor-pointer border-none ${
+                      inviteLinkCopied
+                        ? 'bg-green-100 text-green-700'
+                        : 'bg-emerald-500 text-white hover:bg-emerald-600'
+                    }`}
+                  >
+                    {inviteLinkCopied ? 'Copied!' : 'Copy Link'}
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -420,6 +420,54 @@ export async function upsertUserPreferences(prefs) {
   }, 'Unable to save your preferences. Please try again.');
 }
 
+// ============ LEADER INVITES ============
+export async function createInvite({ organizationId, personId = null, email = null, role = 'owner' }) {
+  const token = crypto.randomUUID();
+  return withWriteRetry(async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('Not authenticated');
+
+    const { data, error } = await supabase
+      .from('invites')
+      .insert([{
+        token,
+        organization_id: organizationId,
+        person_id: personId,
+        email,
+        role,
+        created_by: user.id,
+      }])
+      .select()
+      .single();
+    if (error) throw error;
+    return data;
+  }, 'Unable to create invite. Please try again.');
+}
+
+export async function getInviteByToken(token) {
+  return withReadRetry(async () => {
+    const { data, error } = await supabase
+      .from('invites')
+      .select(`
+        *,
+        organizations (id, name),
+        people (id, name)
+      `)
+      .eq('token', token)
+      .single();
+    if (error) throw error;
+    return data;
+  }, 'Unable to load invite. Please check the link.');
+}
+
+export async function redeemInvite(token) {
+  return withWriteRetry(async () => {
+    const { data, error } = await supabase.rpc('redeem_invite', { invite_token: token });
+    if (error) throw error;
+    return data;
+  }, 'Unable to accept invite. Please try again.');
+}
+
 // ============ SEED INITIAL DATA ============
 export async function seedInitialData(organizations, teams, people) {
   // Insert organizations
