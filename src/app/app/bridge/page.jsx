@@ -1,7 +1,7 @@
 'use client';
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   ChevronRight, ChevronLeft, Users, Zap, Heart, Brain,
@@ -271,10 +271,27 @@ function DiscCompareRow({ dimKey, aVal, bVal, aName, bName }) {
 // Main Wizard
 export default function BridgeWizardPage() {
   const router = useRouter();
-  const { teamPeople, isLoading, saveAgreement } = useLWYL();
+  const searchParams = useSearchParams();
+  const { teamPeople, isLoading, saveAgreement, leaderId } = useLWYL();
   const [step, setStep] = useState(1);
   const [personA, setPersonA] = useState(null);
   const [personB, setPersonB] = useState(null);
+
+  // Pre-select person from URL param (coming from Leader Insights)
+  useEffect(() => {
+    const withId = searchParams.get('with');
+    if (withId && teamPeople.length > 0 && !personB) {
+      const targetPerson = teamPeople.find(p => p.id === withId && p.disc);
+      if (targetPerson) {
+        setPersonB(targetPerson);
+        // If leader is set, pre-select them as personA
+        if (leaderId) {
+          const leaderPerson = teamPeople.find(p => p.id === leaderId && p.disc);
+          if (leaderPerson) setPersonA(leaderPerson);
+        }
+      }
+    }
+  }, [searchParams, teamPeople, leaderId, personB]);
   const [selectedFrictionType, setSelectedFrictionType] = useState(null);
   const [impactStatement, setImpactStatement] = useState('');
   const [triggersDrainA, setTriggersDrainA] = useState(['', '', '']);

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useMemo } from "react";
+import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { discFull, getDom, normBias, valLevel } from "../constants/data";
 import { useIsMobile } from "../utils/useIsMobile";
@@ -13,6 +14,7 @@ import { getDiscNarrative, getGapNarrative, getValuesNarrative, getExtAttrNarrat
 
 export function LeaderInsights({ people, teamId, orgId, leaderId }) {
   const isMobile = useIsMobile();
+  const router = useRouter();
   const [activeTab, setActiveTab] = useState("environment");
 
   // Find leader and validate they belong to current org (defense in depth)
@@ -675,7 +677,8 @@ export function LeaderInsights({ people, teamId, orgId, leaderId }) {
                 return (
                   <div
                     key={m.id}
-                    className="px-3.5 py-3 rounded-[10px] mb-2"
+                    onClick={() => router.push(`/app/bridge?with=${m.id}`)}
+                    className="px-3.5 py-3 rounded-[10px] mb-2 cursor-pointer transition-all duration-150 hover:scale-[1.01]"
                     style={{
                       background: friction.tier === "high" ? "var(--alert-critical-bg)" : "var(--bg-subtle)",
                       border: `1px solid ${friction.tier === "high" ? "var(--alert-critical-border)" : "var(--border-default)"}`,
@@ -695,15 +698,20 @@ export function LeaderInsights({ people, teamId, orgId, leaderId }) {
                           <div className="text-[11px] text-muted mt-0.5 leading-snug">{frictionSentence}</div>
                         )}
                       </div>
-                      <span
-                        className="text-[10px] font-bold px-2.5 py-0.5 rounded-lg"
-                        style={{
-                          background: `color-mix(in srgb, ${tierVar} 8%, transparent)`,
-                          color: tierVar
-                        }}
-                      >
-                        {tierLabel}
-                      </span>
+                      <div className="flex items-center gap-2">
+                        <span
+                          className="text-[10px] font-bold px-2.5 py-0.5 rounded-lg"
+                          style={{
+                            background: `color-mix(in srgb, ${tierVar} 8%, transparent)`,
+                            color: tierVar
+                          }}
+                        >
+                          {tierLabel}
+                        </span>
+                        <svg className="w-4 h-4 text-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                        </svg>
+                      </div>
                     </div>
                   </div>
                 );
