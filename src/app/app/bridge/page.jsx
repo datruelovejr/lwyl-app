@@ -280,18 +280,19 @@ export default function BridgeWizardPage() {
   // Pre-select person from URL param (coming from Leader Insights)
   useEffect(() => {
     const withId = searchParams.get('with');
-    if (withId && teamPeople.length > 0 && !personB) {
+    if (withId && teamPeople.length > 0 && !personB && step === 1) {
       const targetPerson = teamPeople.find(p => p.id === withId && p.disc);
-      if (targetPerson) {
-        setPersonB(targetPerson);
-        // If leader is set, pre-select them as personA
-        if (leaderId) {
-          const leaderPerson = teamPeople.find(p => p.id === leaderId && p.disc);
-          if (leaderPerson) setPersonA(leaderPerson);
+      if (targetPerson && leaderId) {
+        const leaderPerson = teamPeople.find(p => p.id === leaderId && p.disc);
+        if (leaderPerson) {
+          // Set both people and jump straight to friction map (step 2)
+          setPersonA(leaderPerson);
+          setPersonB(targetPerson);
+          setStep(2);
         }
       }
     }
-  }, [searchParams, teamPeople, leaderId, personB]);
+  }, [searchParams, teamPeople, leaderId, personB, step]);
   const [selectedFrictionType, setSelectedFrictionType] = useState(null);
   const [impactStatement, setImpactStatement] = useState('');
   const [triggersDrainA, setTriggersDrainA] = useState(['', '', '']);
