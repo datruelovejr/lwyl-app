@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import { useLWYL } from '../../contexts/LWYLContext';
 import { getBridgeFrictionNarrative } from '../../knowledge/narrativeEngine';
+import { calculateFriction } from '../../utils/friction';
 import { PersonChip } from '../../components/ui/PersonChip';
 import { GapBar } from '../../components/ui/GapBar';
 import { InsightCard } from '../../components/ui/InsightCard';
@@ -23,49 +24,12 @@ function getDominantDisc(disc) {
   return Object.entries(disc).sort(([, a], [, b]) => b - a)[0][0];
 }
 
-function calcDiscGapPoints(a, b) {
-  return Math.abs(a.D - b.D) + Math.abs(a.I - b.I) + Math.abs(a.S - b.S) + Math.abs(a.C - b.C);
-}
-
-function gapPointsToPercent(gapPoints) {
-  return Math.min(100, Math.round((gapPoints / 400) * 100));
-}
-
-function calcPassionFrictionPoints(a, b) {
-  return (
-    Math.abs((a.Aesthetic || 0) - (b.Aesthetic || 0)) +
-    Math.abs((a.Economic || 0) - (b.Economic || 0)) +
-    Math.abs((a.Individualistic || 0) - (b.Individualistic || 0)) +
-    Math.abs((a.Political || 0) - (b.Political || 0)) +
-    Math.abs((a.Altruistic || 0) - (b.Altruistic || 0)) +
-    Math.abs((a.Regulatory || 0) - (b.Regulatory || 0)) +
-    Math.abs((a.Theoretical || 0) - (b.Theoretical || 0))
-  );
-}
-
-function passionFrictionToPercent(points) {
-  return Math.min(100, Math.round((points / 700) * 100));
-}
-
-function calcProcessFrictionPoints(attrA, attrB) {
-  const aHeart = attrA.ext?.find(a => a.label === 'Heart')?.score ?? 5;
-  const bHeart = attrB.ext?.find(a => a.label === 'Heart')?.score ?? 5;
-  const aHand = attrA.ext?.find(a => a.label === 'Hand')?.score ?? 5;
-  const bHand = attrB.ext?.find(a => a.label === 'Hand')?.score ?? 5;
-  const aHead = attrA.ext?.find(a => a.label === 'Head')?.score ?? 5;
-  const bHead = attrB.ext?.find(a => a.label === 'Head')?.score ?? 5;
-  return Math.abs(aHeart - bHeart) + Math.abs(aHand - bHand) + Math.abs(aHead - bHead);
-}
-
-function processFrictionToPercent(points) {
-  return Math.min(100, Math.round((points / 30) * 100));
-}
-
-function taxLevel(val) {
-  if (val < 25) return { label: 'Low', accent: 'friction-low' };
-  if (val < 50) return { label: 'Moderate', accent: 'friction-moderate' };
-  if (val < 75) return { label: 'High', accent: 'friction-high' };
-  return { label: 'Critical', accent: 'friction-high' };
+// Tier to accent color mapping (uses CSS variables from validated methodology)
+function tierToAccent(tier) {
+  if (tier === 'significant') return { label: 'Significant', accent: 'friction-high' };
+  if (tier === 'high') return { label: 'High', accent: 'friction-high' };
+  if (tier === 'moderate') return { label: 'Moderate', accent: 'friction-moderate' };
+  return { label: 'Low', accent: 'friction-low' };
 }
 
 const STEPS = [
@@ -141,10 +105,16 @@ function generateBridgeInsights(personA, personB, frictionType) {
   if (frictionType === 'preference') {
     const aStyle = DISC_LABELS[aDisc];
     const bStyle = DISC_LABELS[bDisc];
+    // Calculate gap points directly (sum of absolute differences)
     const prefPoints = personA.disc?.natural && personB.disc?.natural
-      ? calcDiscGapPoints(personA.disc.natural, personB.disc.natural) : 0;
+      ? Math.abs(personA.disc.natural.D - personB.disc.natural.D) +
+        Math.abs(personA.disc.natural.I - personB.disc.natural.I) +
+        Math.abs(personA.disc.natural.S - personB.disc.natural.S) +
+        Math.abs(personA.disc.natural.C - personB.disc.natural.C)
+      : 0;
+    const tierLabel = prefPoints >= 140 ? 'significant' : prefPoints >= 80 ? 'high-cost' : prefPoints >= 40 ? 'moderate' : 'low';
     return {
-      frictionInsight: `${aName} operates from a ${aStyle} foundation -- ${aDisc === 'D' ? 'direct, fast, and results-focused' : aDisc === 'I' ? 'energetic, relational, and expressive' : aDisc === 'S' ? 'steady, loyal, and process-oriented' : 'precise, analytical, and quality-driven'}. ${bName} leads with ${bStyle} energy -- ${bDisc === 'D' ? 'decisive and outcome-driven' : bDisc === 'I' ? 'enthusiastic and people-first' : bDisc === 'S' ? 'consistent and team-focused' : 'thorough and standards-driven'}. With ${prefPoints} gap points, this is a ${prefPoints > 100 ? 'high-cost' : 'moderate'} Preference friction -- the kind that shows up daily in communication pace, decision-making, and how each person defines "getting it right."`,
+      frictionInsight: `${aName} operates from a ${aStyle} foundation -- ${aDisc === 'D' ? 'direct, fast, and results-focused' : aDisc === 'I' ? 'energetic, relational, and expressive' : aDisc === 'S' ? 'steady, loyal, and process-oriented' : 'precise, analytical, and quality-driven'}. ${bName} leads with ${bStyle} energy -- ${bDisc === 'D' ? 'decisive and outcome-driven' : bDisc === 'I' ? 'enthusiastic and people-first' : bDisc === 'S' ? 'consistent and team-focused' : 'thorough and standards-driven'}. With ${prefPoints} gap points, this is a ${tierLabel} Preference friction -- the kind that shows up daily in communication pace, decision-making, and how each person defines "getting it right."`,
       aCommitments: discCommitments[aDisc]?.to || [],
       bCommitments: discCommitments[bDisc]?.to || [],
     };
@@ -370,15 +340,22 @@ export default function BridgeWizardPage() {
     }, 600);
   }
 
-  const prefPoints = personA?.disc?.natural && personB?.disc?.natural
-    ? calcDiscGapPoints(personA.disc.natural, personB.disc.natural) : 0;
-  const prefTax = gapPointsToPercent(prefPoints);
-  const passTax = personA?.values && personB?.values
-    ? passionFrictionToPercent(calcPassionFrictionPoints(personA.values, personB.values)) : 0;
-  const procTax = personA?.attr && personB?.attr
-    ? processFrictionToPercent(calcProcessFrictionPoints(personA.attr, personB.attr)) : 0;
-  const highestTax = Math.max(prefTax, passTax, procTax);
-  const dominantFriction = highestTax === prefTax ? 'preference' : highestTax === passTax ? 'passion' : 'process';
+  // Use the single source of truth for friction calculation
+  const friction = personA && personB ? calculateFriction(personA, personB) : null;
+
+  // Determine which friction type is highest (for highlighting)
+  const dominantFriction = friction ? (() => {
+    const prefGap = friction.preference.gap;
+    const passGap = friction.passion.gap;
+    // Process uses tier severity, not gap points (different scale)
+    const procSeverity = friction.process.tier === 'high' ? 2 : friction.process.tier === 'moderate' ? 1 : 0;
+    const prefSeverity = prefGap >= 80 ? 2 : prefGap >= 40 ? 1 : 0;
+    const passSeverity = passGap >= 80 ? 2 : passGap >= 40 ? 1 : 0;
+
+    if (prefSeverity >= passSeverity && prefSeverity >= procSeverity) return 'preference';
+    if (passSeverity >= procSeverity) return 'passion';
+    return 'process';
+  })() : 'preference';
 
   function handleGenerateInsights() {
     if (!personA || !personB || !selectedFrictionType) return;
@@ -467,17 +444,45 @@ export default function BridgeWizardPage() {
   );
 
   // Step 2: Friction Map
-  const renderStep2 = () => (
+  const renderStep2 = () => {
+    // Build friction data from the validated calculation
+    const frictionTypes = friction ? [
+      {
+        type: 'preference',
+        label: 'Preference Friction',
+        description: 'HOW they work -- DISC behavioral style differences. Confirmed, measurable.',
+        gap: friction.preference.gap,
+        tier: friction.preference.tier,
+        maxGap: 400,
+        icon: <Users size={18} />
+      },
+      {
+        type: 'passion',
+        label: 'Passion Signal',
+        description: 'WHY they work -- Values and motivation gaps. A signal worth investigating.',
+        gap: friction.passion.gap,
+        tier: friction.passion.tier,
+        maxGap: 700,
+        icon: <Heart size={18} />
+      },
+      {
+        type: 'process',
+        label: 'Process Signal',
+        description: 'HOW they think -- Attributes and decision-making style. A signal worth exploring.',
+        gap: null, // Process uses tier, not gap points
+        tier: friction.process.tier,
+        maxGap: null,
+        icon: <Brain size={18} />
+      },
+    ] : [];
+
+    return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}>
       <SectionHeader title="Where is the friction?" subtitle={`Three sources of friction between ${personA?.name} and ${personB?.name}. Select the one to address first.`} />
 
       <div className="space-y-4 mb-8">
-        {[
-          { type: 'preference', label: 'Preference Friction', description: 'HOW they work -- DISC behavioral style differences. Confirmed, measurable cost.', value: prefTax, icon: <Users size={18} /> },
-          { type: 'passion', label: 'Passion Signal', description: 'WHY they work -- Values and motivation gaps. A signal worth investigating.', value: passTax, icon: <Heart size={18} /> },
-          { type: 'process', label: 'Process Signal', description: 'HOW they think -- Attributes and decision-making style. A signal worth exploring.', value: procTax, icon: <Brain size={18} /> },
-        ].map(({ type, label, description, value, icon }) => {
-          const level = taxLevel(value);
+        {frictionTypes.map(({ type, label, description, gap, tier, maxGap, icon }) => {
+          const level = tierToAccent(tier);
           const isSelected = selectedFrictionType === type;
           const isHighest = type === dominantFriction;
           return (
@@ -504,14 +509,20 @@ export default function BridgeWizardPage() {
                   <div className="text-sm text-muted">{description}</div>
                 </div>
                 <div className="text-right flex-shrink-0">
-                  <div className={`text-xl font-extrabold text-${level.accent}`}>{value}%</div>
+                  {gap !== null ? (
+                    <div className={`text-xl font-extrabold text-${level.accent}`}>{gap} pts</div>
+                  ) : (
+                    <div className={`text-xl font-extrabold text-${level.accent}`}>{level.label}</div>
+                  )}
                   <div className={`text-xs font-semibold text-${level.accent}`}>{level.label}</div>
                 </div>
                 {isSelected && <CheckCircle2 size={20} className="text-nav-accent flex-shrink-0" />}
               </div>
-              <div className="mt-3">
-                <GapBar value={value} maxValue={100} showNumber={false} />
-              </div>
+              {gap !== null && maxGap && (
+                <div className="mt-3">
+                  <GapBar value={gap} maxValue={maxGap} showNumber={false} />
+                </div>
+              )}
             </button>
           );
         })}
@@ -539,6 +550,7 @@ export default function BridgeWizardPage() {
       )}
     </motion.div>
   );
+  };
 
   // Step 3: Impact Statement
   const renderStep3 = () => {

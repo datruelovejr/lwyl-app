@@ -114,9 +114,9 @@ export default function OrgDashboardPage() {
       pairs.push({ personA: members[i], personB: members[j], friction: calculateFriction(members[i], members[j]) });
     }
   }
-  pairs.sort((a, b) => b.friction.totalScore - a.friction.totalScore);
+  pairs.sort((a, b) => b.friction.preference.gap - a.friction.preference.gap);
 
-  const highCount = pairs.filter(p => p.friction.tier === "high").length;
+  const highCount = pairs.filter(p => p.friction.tier === "significant" || p.friction.tier === "high").length;
   const urgentPairs = pairs.filter(p => p.friction.tier !== "low").slice(0, 5);
 
   const taxData = members.map(p => ({ person: p, tax: getEnvironmentTaxSummary(p) }))
@@ -286,7 +286,7 @@ export default function OrgDashboardPage() {
             <Card className="border-l-4" style={{ borderLeftColor: 'var(--nav-accent)' }}>
               <h3 className="text-sm font-bold text-foreground mb-1">Start here</h3>
               <p className="text-sm text-foreground/80 leading-relaxed mb-3">
-                Your most urgent pair is {aName} & {bName} with {top.friction.totalScore} gap points. That is where the most energy is being lost on your team right now.
+                Your most urgent pair is {aName} & {bName} with {top.friction.preference.gap} gap points. That is where the most energy is being lost on your team right now.
               </p>
               <div className="flex gap-4">
                 <ActionLink onClick={() => router.push("/app/bridge")}>Open Bridge Wizard</ActionLink>

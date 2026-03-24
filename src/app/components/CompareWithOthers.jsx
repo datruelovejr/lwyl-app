@@ -193,11 +193,12 @@ export function CompareWithOthers({ person, team, onClose, photos = {} }) {
               };
 
               const tierBg = {
+                significant: { bg: "var(--alert-critical-bg)", border: "var(--alert-critical-border)", text: "var(--alert-critical-accent)" },
                 high: { bg: "var(--alert-critical-bg)", border: "var(--alert-critical-border)", text: "var(--alert-critical-accent)" },
                 moderate: { bg: "var(--alert-warning-bg)", border: "var(--alert-warning-border)", text: "var(--alert-warning-accent)" },
                 low: { bg: "var(--alert-success-bg)", border: "var(--alert-success-border)", text: "var(--alert-success-accent)" }
               };
-              const frictionTier = tierBg[friction.tier];
+              const frictionTier = tierBg[friction.tier] || tierBg.low;
 
               // Values comparison
               const pTopVals = Object.entries(p.values).filter(([, s]) => s >= 60).map(([k]) => k);
@@ -229,8 +230,8 @@ export function CompareWithOthers({ person, team, onClose, photos = {} }) {
                       <div className="text-[11px] text-muted mt-0.5">Friction analysis across Preference, Passion, and Process</div>
                     </div>
                     <div className="text-center min-w-[100px]">
-                      <div className="text-4xl font-extrabold leading-none" style={{ color: frictionTier.text }}>{friction.totalScore}</div>
-                      <div className="text-[10px] font-bold mt-1" style={{ color: frictionTier.text }}>{friction.tier.toUpperCase()} FRICTION</div>
+                      <div className="text-4xl font-extrabold leading-none" style={{ color: frictionTier.text }}>{friction.preference.gap}</div>
+                      <div className="text-[10px] font-bold mt-1" style={{ color: frictionTier.text }}>{friction.tier === 'significant' ? 'SIGNIFICANT' : friction.tier.toUpperCase()} FRICTION</div>
                     </div>
                   </motion.div>
 
@@ -242,17 +243,17 @@ export function CompareWithOthers({ person, team, onClose, photos = {} }) {
                     className="grid grid-cols-3 gap-2.5 mb-4"
                   >
                     {[
-                      { label: "Preference", sub: "DISC Style", score: friction.preferenceScore, max: 12, colorVar: "var(--disc-d)" },
-                      { label: "Passion", sub: "Values", score: friction.passionScore, max: 14, colorVar: "var(--values-altruistic)" },
-                      { label: "Process", sub: "Attributes", score: friction.processScore, max: 9, colorVar: "var(--attr-ext)" }
+                      { label: "Preference", sub: "DISC Style", value: friction.preference.gap, display: `${friction.preference.gap} pts`, tier: friction.preference.tier, colorVar: "var(--disc-d)" },
+                      { label: "Passion", sub: "Values", value: friction.passion.gap, display: `${friction.passion.gap} pts`, tier: friction.passion.tier, colorVar: "var(--values-altruistic)" },
+                      { label: "Process", sub: "Attributes", value: friction.process.tier, display: friction.process.tier.charAt(0).toUpperCase() + friction.process.tier.slice(1), tier: friction.process.tier, colorVar: "var(--attr-ext)" }
                     ].map(pillar => (
                       <div key={pillar.label} className="bg-card border border-border rounded-lg p-3 text-center">
                         <div className="text-[9px] font-bold tracking-wider uppercase text-muted">{pillar.label}</div>
                         <div
                           className="text-2xl font-extrabold leading-tight"
-                          style={{ color: pillar.score >= pillar.max * 0.5 ? "var(--friction-high)" : pillar.score >= pillar.max * 0.25 ? "var(--alert-warning-accent)" : "var(--alert-success-accent)" }}
+                          style={{ color: (pillar.tier === 'significant' || pillar.tier === 'high') ? "var(--friction-high)" : pillar.tier === 'moderate' ? "var(--alert-warning-accent)" : "var(--alert-success-accent)" }}
                         >
-                          {pillar.score}
+                          {pillar.display}
                         </div>
                         <div className="text-[9px] text-muted">{pillar.sub}</div>
                       </div>

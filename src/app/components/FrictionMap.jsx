@@ -27,7 +27,7 @@ function getPairStory(personA, personB, friction) {
   const b = personB.name.split(' ')[0];
   const stories = [];
 
-  friction.discGaps.filter(g => g.tier !== 'low').sort((x, y) => y.gap - x.gap).forEach(g => {
+  friction.preference.details.filter(g => g.tier !== 'low').sort((x, y) => y.gap - x.gap).forEach(g => {
     const higher = g.aScore > g.bScore ? a : b;
     const lower = g.aScore > g.bScore ? b : a;
     const hiScore = Math.max(g.aScore, g.bScore);
@@ -110,10 +110,10 @@ function getConnectionAgreementPrompts(personA, personB, friction) {
   const a = personA.name.split(' ')[0];
   const b = personB.name.split(' ')[0];
   const prompts = [];
-  const topGap = friction.discGaps.filter(g => g.tier !== 'low').sort((x, y) => y.gap - x.gap)[0];
+  const topGap = friction.preference.details.filter(g => g.tier !== 'low').sort((x, y) => y.gap - x.gap)[0];
   if (topGap) prompts.push(`How do ${a} and ${b} want to handle ${discLabel[topGap.dim].toLowerCase()} differences?`);
-  if (friction.passionScore >= 3) prompts.push(`What does ${a} need to feel motivated that ${b} might not naturally provide? And the reverse?`);
-  if (friction.processResults.some(r => r.resultType === 'conflict')) prompts.push(`When ${a} and ${b} make decisions together, whose process instinct leads?`);
+  if (friction.passion.tier !== 'low') prompts.push(`What does ${a} need to feel motivated that ${b} might not naturally provide? And the reverse?`);
+  if (friction.process.details.some(r => r.result === 'conflict')) prompts.push(`When ${a} and ${b} make decisions together, whose process instinct leads?`);
   prompts.push(`What's the one thing ${a} needs ${b} to stop assuming about them? And the reverse?`);
   return prompts;
 }
@@ -146,21 +146,21 @@ function PairDetail({ personA, personB, friction, onBack }) {
         </div>
         <div className="flex gap-2 items-center">
           <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${
-            friction.tier === 'high' ? 'bg-friction-high/10 text-friction-high' :
+            (friction.tier === 'significant' || friction.tier === 'high') ? 'bg-friction-high/10 text-friction-high' :
             friction.tier === 'moderate' ? 'bg-friction-moderate/10 text-friction-moderate' :
             'bg-friction-low/10 text-friction-low'
           }`}>
-            {friction.tier === 'high' ? 'High Friction' : friction.tier === 'moderate' ? 'Moderate' : 'Low Friction'}
+            {friction.tier === 'significant' ? 'Significant Friction' : friction.tier === 'high' ? 'High Friction' : friction.tier === 'moderate' ? 'Moderate' : 'Low Friction'}
           </span>
           {onBack && <ActionLink onClick={onBack}>Back</ActionLink>}
         </div>
       </div>
 
-      {/* Score summary */}
+      {/* Score summary - using gap points and tiers from validated methodology */}
       <div className="flex gap-3 flex-wrap mb-6">
-        <StatBlock value={friction.preferenceScore} label="Preference" sublabel="DISC gaps" accentColor={friction.preferenceScore >= 6 ? 'friction-high' : friction.preferenceScore >= 3 ? 'friction-moderate' : 'friction-low'} />
-        <StatBlock value={friction.passionScore} label="Passion" sublabel="Values gaps" accentColor={friction.passionScore >= 6 ? 'friction-high' : friction.passionScore >= 3 ? 'friction-moderate' : 'friction-low'} />
-        <StatBlock value={friction.processScore} label="Process" sublabel="How they decide" accentColor={friction.processScore >= 4 ? 'friction-high' : friction.processScore >= 2 ? 'friction-moderate' : 'friction-low'} />
+        <StatBlock value={friction.preference.gap} label="Preference" sublabel="DISC gaps" accentColor={friction.preference.tier === 'significant' || friction.preference.tier === 'high' ? 'friction-high' : friction.preference.tier === 'moderate' ? 'friction-moderate' : 'friction-low'} />
+        <StatBlock value={friction.passion.gap} label="Passion" sublabel="Values gaps" accentColor={friction.passion.tier === 'significant' || friction.passion.tier === 'high' ? 'friction-high' : friction.passion.tier === 'moderate' ? 'friction-moderate' : 'friction-low'} />
+        <StatBlock value={friction.process.tier.charAt(0).toUpperCase() + friction.process.tier.slice(1)} label="Process" sublabel="How they decide" accentColor={friction.process.tier === 'high' ? 'friction-high' : friction.process.tier === 'moderate' ? 'friction-moderate' : 'friction-low'} />
       </div>
 
       {/* Environment stress */}
@@ -229,7 +229,7 @@ function PairDetail({ personA, personB, friction, onBack }) {
           ))}
         </div>
         <div className="grid grid-cols-2 gap-2">
-          {friction.valuesDetail.valGaps.filter(g => g.tier !== 'low').map(g => (
+          {friction.passion.details.filter(g => g.tier !== 'low').map(g => (
             <div key={g.dim} className="p-2.5 rounded-lg bg-subtle border border-border text-[11px]">
               <span className="font-bold" style={{ color: `var(--values-${g.dim.toLowerCase()})` }}>{g.dim}</span>
               <span className="text-muted ml-2">{a}: {g.aScore} / {b}: {g.bScore} / Gap: {g.gap}</span>
@@ -288,11 +288,11 @@ export function FrictionMap({ people, teamId, orgId, onClose, isPage }) {
         result.push({ personA: members[i], personB: members[j], friction: calculateFriction(members[i], members[j]) });
       }
     }
-    result.sort((a, b) => b.friction.totalScore - a.friction.totalScore);
+    result.sort((a, b) => b.friction.preference.gap - a.friction.preference.gap);
     return result;
   }, [memberIds]);
 
-  const highPairs = pairs.filter(p => p.friction.tier === 'high');
+  const highPairs = pairs.filter(p => p.friction.tier === 'significant' || p.friction.tier === 'high');
   const modPairs = pairs.filter(p => p.friction.tier === 'moderate');
   const lowPairs = pairs.filter(p => p.friction.tier === 'low');
 
@@ -303,7 +303,7 @@ export function FrictionMap({ people, teamId, orgId, onClose, isPage }) {
   }), [memberIds]);
   const graphLinks = useMemo(() => pairs.map(p => ({
     source: p.personA.id, target: p.personB.id,
-    frictionScore: p.friction.totalScore, tier: p.friction.tier,
+    frictionScore: p.friction.preference.gap, tier: p.friction.tier,
   })), [pairs]);
 
   // Detail view
@@ -405,7 +405,7 @@ export function FrictionMap({ people, teamId, orgId, onClose, isPage }) {
                       <span className="text-xs font-semibold text-friction-high">High Friction</span>
                     </div>
                     <p className="text-sm text-foreground/80 leading-relaxed mb-2">
-                      {topStory ? topStory.story : `Friction score of ${pair.friction.totalScore}. Multiple dimensions creating tension.`}
+                      {topStory ? topStory.story : `Preference gap of ${pair.friction.preference.gap} points. Multiple dimensions creating tension.`}
                     </p>
                     <InsightCard.Actions>
                       <ActionLink onClick={() => setSelectedPair(pair)}>See full analysis</ActionLink>

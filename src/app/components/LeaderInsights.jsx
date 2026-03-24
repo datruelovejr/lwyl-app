@@ -653,11 +653,11 @@ export function LeaderInsights({ people, teamId, orgId, leaderId }) {
               <p className="text-xs text-muted mt-0.5 mb-4 m-0">Where the gaps are between you and each person</p>
               {members
                 .map(m => ({ m, friction: calculateFriction(leader, m) }))
-                .sort((a, b) => b.friction.totalScore - a.friction.totalScore)
+                .sort((a, b) => b.friction.preference.gap - a.friction.preference.gap)
                 .map(({ m, friction }) => {
-                const tierVar = friction.tier === "high" ? "var(--alert-critical-accent)" : friction.tier === "moderate" ? "var(--alert-warning-accent)" : "var(--alert-success-accent)";
-                const tierLabel = friction.tier === "high" ? "High Friction" : friction.tier === "moderate" ? "Moderate" : "Aligned";
-                const topGap = friction.discGaps.filter(g => g.tier !== "low").sort((x, y) => y.gap - x.gap)[0];
+                const tierVar = (friction.tier === "significant" || friction.tier === "high") ? "var(--alert-critical-accent)" : friction.tier === "moderate" ? "var(--alert-warning-accent)" : "var(--alert-success-accent)";
+                const tierLabel = friction.tier === "significant" ? "Significant Friction" : friction.tier === "high" ? "High Friction" : friction.tier === "moderate" ? "Moderate" : "Aligned";
+                const topGap = friction.preference.details.filter(g => g.tier !== "low").sort((x, y) => y.gap - x.gap)[0];
                 const leaderFirst = leader.name.split(" ")[0];
                 const memberFirst = m.name.split(" ")[0];
 
@@ -680,8 +680,8 @@ export function LeaderInsights({ people, teamId, orgId, leaderId }) {
                     onClick={() => router.push(`/app/bridge?with=${m.id}`)}
                     className="px-3.5 py-3 rounded-[10px] mb-2 cursor-pointer transition-all duration-150 hover:scale-[1.01]"
                     style={{
-                      background: friction.tier === "high" ? "var(--alert-critical-bg)" : "var(--bg-subtle)",
-                      border: `1px solid ${friction.tier === "high" ? "var(--alert-critical-border)" : "var(--border-default)"}`,
+                      background: (friction.tier === "significant" || friction.tier === "high") ? "var(--alert-critical-bg)" : "var(--bg-subtle)",
+                      border: `1px solid ${(friction.tier === "significant" || friction.tier === "high") ? "var(--alert-critical-border)" : "var(--border-default)"}`,
                       borderLeft: `4px solid ${tierVar}`
                     }}
                   >
