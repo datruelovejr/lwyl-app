@@ -138,11 +138,15 @@ export function UploadForm({ orgs, selOrgId, selTeamId: parentTeamId, onAdd, onC
 
       if (result.success) {
         const person = createPersonFromData(result.data, teamId);
-        onAdd(person, { bulk: true });
-        if (result.partial) {
-          results.partial.push({ name: result.name, fileName: name, fieldCount: result.fieldCount });
-        } else {
-          results.success.push({ name: result.name, fileName: name });
+        try {
+          await onAdd(person, { bulk: true });
+          if (result.partial) {
+            results.partial.push({ name: result.name, fileName: name, fieldCount: result.fieldCount });
+          } else {
+            results.success.push({ name: result.name, fileName: name });
+          }
+        } catch (err) {
+          results.failed.push({ fileName: name, error: err.message || 'Failed to save' });
         }
       } else {
         results.failed.push({ fileName: name, error: result.error });
@@ -326,7 +330,12 @@ export function UploadForm({ orgs, selOrgId, selTeamId: parentTeamId, onAdd, onC
         const autoForm = { ...form, ...extracted, teamId: form.teamId || parentTeamId || "" };
         if (autoForm.name && autoForm.teamId && autoForm.dN_D && autoForm.dN_I && autoForm.dN_S && autoForm.dN_C) {
           const person = createPersonFromData(autoForm, autoForm.teamId);
-          onAdd(person);
+          try {
+            await onAdd(person);
+          } catch (err) {
+            setExtractStatus("failed");
+            setExtractLog(`Failed to save: ${err.message || 'Unknown error'}. Please try again.`);
+          }
           return;
         }
         // Missing name or team -- fall through to review
@@ -351,8 +360,10 @@ export function UploadForm({ orgs, selOrgId, selTeamId: parentTeamId, onAdd, onC
   const fb = (k) => (e) => setForm(prev => ({ ...prev, [k]: e.target.value }));
 
   const valid = form.name && form.teamId && form.dN_D && form.dN_I && form.dN_S && form.dN_C;
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState(null);
 
-  const submit = () => {
+  const submit = async () => {
     const person = {
       id: crypto.randomUUID(), name: form.name, orgId: selOrgId, teamId: form.teamId,
       disc: { natural: { D: +form.dN_D, I: +form.dN_I, S: +form.dN_S, C: +form.dN_C }, adaptive: { D: +form.dA_D || 0, I: +form.dA_I || 0, S: +form.dA_S || 0, C: +form.dA_C || 0 } },
@@ -362,7 +373,15 @@ export function UploadForm({ orgs, selOrgId, selTeamId: parentTeamId, onAdd, onC
         int: [{ name: "Self-Esteem", score: +form.i_se || 0, bias: normBias(form.i_seB) }, { name: "Role Awareness", score: +form.i_ra || 0, bias: normBias(form.i_raB) }, { name: "Self-Direction", score: +form.i_sd || 0, bias: normBias(form.i_sdB) }]
       }
     };
-    onAdd(person);
+    setSubmitting(true);
+    setSubmitError(null);
+    try {
+      await onAdd(person);
+    } catch (err) {
+      setSubmitError(err.message || 'Failed to save. Please try again.');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const fieldStyle = (key) => ({
@@ -645,8 +664,14 @@ export function UploadForm({ orgs, selOrgId, selTeamId: parentTeamId, onAdd, onC
         </div>
       </div>
 
+      {submitError && (
+        <div style={{ padding: "10px 14px", borderRadius: 8, border: "1px solid #EF9A9A", background: "#FFEBEE", marginTop: 8, marginBottom: 8 }}>
+          <div style={{ fontSize: 12, fontWeight: 700, color: "#C62828" }}>❌ {submitError}</div>
+        </div>
+      )}
+
       <div style={{ display: "flex", gap: 8, marginTop: 8, alignItems: "center" }}>
-        <Btn primary onClick={submit} disabled={!valid}>Add to Roster</Btn>
+        <Btn primary onClick={submit} disabled={!valid || submitting}>{submitting ? "Saving..." : "Add to Roster"}</Btn>
         <Btn onClick={onCancel}>Cancel</Btn>
         {!valid && (
           <div style={{ fontSize: 11, color: "#E65100", fontWeight: 600 }}>

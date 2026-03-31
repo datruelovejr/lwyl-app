@@ -33,8 +33,8 @@ const personInsertSchema = z.object({
   name: z.string().min(1).max(255).trim(),
   role: z.string().max(255).nullish().transform(v => v || null),
   is_leader: z.boolean().default(false),
-  disc_natural: z.string().max(50).nullish().transform(v => v || null),
-  disc_adapted: z.string().max(50).nullish().transform(v => v || null),
+  disc_natural: z.any().nullish().transform(v => v || null),
+  disc_adapted: z.any().nullish().transform(v => v || null),
   values_data: z.any().nullish().transform(v => v || null),
   attributes: z.any().nullish().transform(v => v || null),
 });
@@ -385,14 +385,34 @@ export function LWYLProvider({ children }) {
   };
 
   const addPerson = async (p, { bulk = false } = {}) => {
-    const validated = personInsertSchema.parse({
-      id: p.id, team_id: p.teamId, name: p.name, role: p.role || null, is_leader: false,
-      disc_natural: p.disc?.natural || null, disc_adapted: p.disc?.adaptive || null,
-      values_data: p.values || null, attributes: p.attr || null,
-    });
-    setPeople(prev => [...prev, p]);
-    await supabase.from('people').insert(validated);
-    return p.id;
+    try {
+      const validated = personInsertSchema.parse({
+        id: p.id, team_id: p.teamId, name: p.name, role: p.role || null, is_leader: false,
+        disc_natural: p.disc?.natural || null, disc_adapted: p.disc?.adaptive || null,
+        values_data: p.values || null, attributes: p.attr || null,
+      });
+
+      // Add to local state first
+      setPeople(prev => [...prev, p]);
+
+      // Also update the cache immediately so profile page can find the person
+      const currentCachedPeople = cache.get('people')?.data || [];
+      cache.set('people', [...currentCachedPeople, p]);
+
+      // Then persist to Supabase
+      const { error } = await supabase.from('people').insert(validated);
+      if (error) {
+        console.error('[LWYL] Failed to save person to database:', error.message);
+        // Rollback local state on DB error
+        setPeople(prev => prev.filter(person => person.id !== p.id));
+        throw error;
+      }
+
+      return p.id;
+    } catch (err) {
+      console.error('[LWYL] addPerson failed:', err);
+      throw err;
+    }
   };
 
   const addPendingPerson = async (name) => {
@@ -409,6 +429,32 @@ export function LWYLProvider({ children }) {
   const deletePerson = async (personId) => {
     setPeople(prev => prev.filter(p => p.id !== personId));
     await supabase.from('people').delete().eq('id', personId);
+  };
+
+  const updatePerson = async (personId, updates) => {
+    // Build the Supabase update payload
+    const dbUpdates = {};
+    if (updates.name !== undefined) dbUpdates.name = updates.name;
+    if (updates.role !== undefined) dbUpdates.role = updates.role || null;
+    if (updates.disc !== undefined) {
+      dbUpdates.disc_natural = updates.disc?.natural || null;
+      dbUpdates.disc_adapted = updates.disc?.adaptive || null;
+    }
+    if (updates.values !== undefined) dbUpdates.values_data = updates.values || null;
+    if (updates.attr !== undefined) dbUpdates.attributes = updates.attr || null;
+
+    // Update local state immediately
+    setPeople(prev => prev.map(p => {
+      if (p.id !== personId) return p;
+      const updated = { ...p, ...updates };
+      // Remove pending status if assessment data is being added
+      if (updates.disc) delete updated.status;
+      return updated;
+    }));
+
+    // Persist to Supabase
+    await supabase.from('people').update(dbUpdates).eq('id', personId);
+    return personId;
   };
 
   // ── Assessment ────────────────────────────────────────
@@ -435,7 +481,7 @@ export function LWYLProvider({ children }) {
     // Onboarding
     onboardingDone, handleOnboardingComplete,
     // CRUD
-    addOrg, updateOrg, addTeam, updateTeam, deleteTeam, addPerson, addPendingPerson, deletePerson,
+    addOrg, updateOrg, addTeam, updateTeam, deleteTeam, addPerson, addPendingPerson, updatePerson, deletePerson,
     // Assessment
     showAssessment, openAssessment, closeAssessment, copyAssessmentLink,
     // View mode

@@ -3,10 +3,22 @@
 import { use } from "react";
 import { useLWYL } from "../../../contexts/LWYLContext";
 import { Viewer } from "../../../components/Viewer";
+import { LoadingMoment } from "../../../components/ui/LoadingMoment";
 
 export default function ProfilePage({ params }) {
   const { id } = use(params);
-  const { people, leaderId, photos, onUploadPhoto, selTeamId, orgPeople } = useLWYL();
+  const { people, leaderId, photos, onUploadPhoto, selTeamId, orgPeople, isLoading } = useLWYL();
+
+  // Wait for data to load before checking if person exists
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-background p-8">
+        <div className="max-w-2xl mx-auto">
+          <LoadingMoment message="Loading profile..." />
+        </div>
+      </div>
+    );
+  }
 
   const person = people.find(p => p.id === id);
   const leader = people.find(p => p.id === leaderId) || null;
