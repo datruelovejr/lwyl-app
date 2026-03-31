@@ -2,6 +2,8 @@
 // Sources: 3Ps_SOPs.md (Daniel's consulting methodology)
 // Generates Preference, Passion, and Process SOPs from assessment data
 
+import { getDominantDisc } from "../constants/data";
+
 // ═══════════════════════════════════════════════════════════════════
 // PREFERENCE SOPs (DISC)
 // ═══════════════════════════════════════════════════════════════════
@@ -320,10 +322,6 @@ const PROCESS_SOPS = {
 // GENERATORS
 // ═══════════════════════════════════════════════════════════════════
 
-function getDom(disc) {
-  return Object.entries(disc).sort(([, a], [, b]) => b - a)[0][0];
-}
-
 function getLevel(score) {
   if (score >= 70) return "high";
   if (score <= 39) return "low";
@@ -347,7 +345,9 @@ function get3HProfile(attr) {
 export function generatePreferenceSOP(person) {
   if (!person.disc?.natural) return null;
   const nat = person.disc.natural;
-  const dom = getDom(nat);
+  const domRaw = getDominantDisc(nat, person.disc?.adaptive);
+  // For SOP content, use first dimension if hybrid (e.g., "S/C" -> "S")
+  const dom = domRaw.includes('/') ? domRaw.split('/')[0] : domRaw;
   const name = person.name.split(" ")[0];
 
   const dims = ["D", "I", "S", "C"].map(d => {

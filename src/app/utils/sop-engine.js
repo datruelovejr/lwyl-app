@@ -6,13 +6,9 @@
  * All functions are pure, deterministic, no LLM calls.
  */
 
-import { normBias } from "../constants/data";
+import { normBias, getDominantDisc } from "../constants/data";
 
 // ── Helpers ──────────────────────────────────────────────────────
-
-function getDominantDisc(natural) {
-  return Object.entries(natural).sort(([, a], [, b]) => b - a)[0][0];
-}
 
 function getIndividualTax(person) {
   if (!person.disc?.natural || !person.disc?.adaptive) return 0;
@@ -222,7 +218,9 @@ const PROCESS_SOP = {
 export function generatePreferenceSOPs(people) {
   const complete = people.filter(p => p.disc?.natural);
   return complete.map(p => {
-    const dom = getDominantDisc(p.disc.natural);
+    const domRaw = getDominantDisc(p.disc.natural, p.disc.adaptive);
+    // For SOP content, use first dimension if hybrid (e.g., "S/C" -> "S")
+    const dom = domRaw.includes('/') ? domRaw.split('/')[0] : domRaw;
     const val = p.disc.natural[dom];
     const isHigh = val >= 50;
     const sop = DISC_SOP[dom];

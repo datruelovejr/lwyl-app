@@ -27,7 +27,7 @@ export async function extractTextFromPDF(arrayBuffer) {
   const pdfjs = await getPdfjs();
   const pdf = await pdfjs.getDocument({ data: arrayBuffer }).promise;
   const pageTexts = {};
-  const pagesToRead = [2, 3, 4];
+  const pagesToRead = [1, 2, 3, 4];
   for (const pageNum of pagesToRead) {
     if (pageNum <= pdf.numPages) {
       const page = await pdf.getPage(pageNum);
@@ -38,12 +38,69 @@ export async function extractTextFromPDF(arrayBuffer) {
   return { pageTexts, totalPages: pdf.numPages };
 }
 
+// Extract name from page 1 (cover page) - name is typically the first line
+export function parseNameFromCover(text) {
+  if (!text) return "";
+  const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+
+  // Skip patterns - things that are definitely NOT names
+  const skipPatterns = [
+    /^advanced\s*insights/i, /^profile/i, /^assessment/i, /^report/i,
+    /^prepared\s*(for|by)/i, /^innermetrix/i, /^copyright/i, /^thomas/i,
+    /^\d+$/, /^page\s*\d+/i, /^disc\s*index/i, /behavioral/i,
+    /^this\s/i, /^the\s/i, /marston/i, /quadrant/i,
+  ];
+
+  // Date patterns - name should appear before the date
+  const datePatterns = [
+    /\b(january|february|march|april|may|june|july|august|september|october|november|december)\s+\d{1,2},?\s+\d{2,4}\b/i,
+    /\b\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4}\b/,
+    /\b\d{4}[\/\-]\d{1,2}[\/\-]\d{1,2}\b/,
+  ];
+
+  // Find date line to limit search
+  let dateLineIdx = lines.length;
+  for (let i = 0; i < lines.length; i++) {
+    if (datePatterns.some(p => p.test(lines[i]))) {
+      dateLineIdx = i;
+      break;
+    }
+  }
+
+  // Look for first name-like line before the date (check first 10 lines max)
+  for (let i = 0; i < Math.min(dateLineIdx, 10); i++) {
+    const line = lines[i];
+
+    // Skip if matches any skip pattern
+    if (skipPatterns.some(p => p.test(line))) continue;
+
+    // Skip very short or very long lines
+    if (line.length < 3 || line.length > 60) continue;
+
+    // Skip pure numbers
+    if (/^\d+$/.test(line)) continue;
+
+    // Name should be mostly letters, spaces, periods, hyphens
+    const nameChars = (line.match(/[a-zA-Z\s.\-']/g) || []).length;
+    const ratio = nameChars / line.length;
+
+    // Accept if >85% valid name characters and has at least one space (first + last name)
+    if (ratio > 0.85 && line.includes(' ')) {
+      return line;
+    }
+  }
+
+  return "";
+}
+
 export function parseDISC(text) {
   const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
   const skipPatterns = [
     /^advanced\s*insights/i, /^executive\s*summary/i, /^copyright/i,
-    /^innermetrix/i, /^natural\s*(and|&)\s*adaptive/i,
-    /^styles?\s*comparison/i, /^adv\s*anced/i, /^\d+$/, /^0$/,
+    /^innermetrix/i, /^natural\s*(and|&)\s*adaptive/i, /^natural\s*style/i,
+    /^adaptive\s*style/i, /^styles?\s*comparison/i, /^adv\s*anced/i,
+    /^\d+$/, /^0$/, /^page\s*\d+/i, /^the\s+natural\s+style/i,
+    /^the\s+adaptive\s+style/i, /how\s+you\s+behave/i, /^behaviors?\s/i,
   ];
   let name = "";
   for (const line of lines) {

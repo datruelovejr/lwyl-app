@@ -11,7 +11,7 @@ import { useIsMobile } from "../utils/useIsMobile";
 import { usePathname, useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { getDom } from "../constants/data";
+import { getDominantDisc } from "../constants/data";
 
 export default function AppLayout({ children }) {
   return (
@@ -115,11 +115,14 @@ function LWYLSidebar({ isMobile }) {
 
   const domColor = (p) => {
     if (!p.disc) return 'var(--border-default)';
-    const dom = getDom(p.disc.natural);
-    if (dom.includes('D')) return 'var(--disc-d)';
-    if (dom.includes('I')) return 'var(--disc-i)';
-    if (dom.includes('S')) return 'var(--disc-s)';
-    return 'var(--disc-c)';
+    const dom = getDominantDisc(p.disc.natural, p.disc.adaptive);
+    const colors = { D: 'var(--disc-d)', I: 'var(--disc-i)', S: 'var(--disc-s)', C: 'var(--disc-c)' };
+    // Handle hybrid (e.g., "S/C") with diagonal gradient
+    if (dom.includes('/')) {
+      const dims = dom.split('/');
+      return `linear-gradient(135deg, ${colors[dims[0]]} 50%, ${colors[dims[1]]} 50%)`;
+    }
+    return colors[dom] || 'var(--disc-c)';
   };
 
   const navItems = [

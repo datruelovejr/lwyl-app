@@ -5,6 +5,7 @@ import { motion } from "framer-motion";
 import { useLWYL } from "../../contexts/LWYLContext";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import { getDominantDisc } from "../../constants/data";
 import {
   Handshake, CheckCircle2, Plus, Trash2, ChevronRight,
   Calendar, Bell, Clock, RefreshCw, ChevronDown, ChevronUp, Edit3, X
@@ -12,7 +13,14 @@ import {
 
 const DISC_COLORS = { D: "var(--disc-d)", I: "var(--disc-i)", S: "var(--disc-s)", C: "var(--disc-c)" };
 
-const getDominantDisc = (disc) => Object.entries(disc).sort(([,a],[,b]) => b - a)[0][0];
+// Get color for DISC dimension, handling hybrid (e.g., "S/C") with gradient
+const getDiscColor = (disc) => {
+  if (!disc) return "var(--disc-c)";
+  if (DISC_COLORS[disc]) return DISC_COLORS[disc];
+  // Hybrid case - return gradient
+  const dims = disc.split('/');
+  return `linear-gradient(135deg, ${DISC_COLORS[dims[0]]} 50%, ${DISC_COLORS[dims[1]]} 50%)`;
+};
 
 const FRICTION_INFO = {
   preference: {
@@ -254,8 +262,8 @@ export default function AgreementsPage() {
 
   // Framework-based insight generator (no AI needed)
   function generateFrameworkInsight(pA, pB, friction) {
-    const aDisc = pA.disc?.natural ? getDominantDisc(pA.disc.natural) : "S";
-    const bDisc = pB.disc?.natural ? getDominantDisc(pB.disc.natural) : "S";
+    const aDisc = pA.disc?.natural ? getDominantDisc(pA.disc.natural, pA.disc.adaptive) : "S";
+    const bDisc = pB.disc?.natural ? getDominantDisc(pB.disc.natural, pB.disc.adaptive) : "S";
     const discLabels = { D: "Dominance", I: "Influence", S: "Steadiness", C: "Conscientiousness" };
 
     if (friction === "preference") {
@@ -381,8 +389,8 @@ export default function AgreementsPage() {
               const info = FRICTION_INFO[agreement.frictionType];
               const pA = teamPeople.find(p => p.id === agreement.personAId);
               const pB = teamPeople.find(p => p.id === agreement.personBId);
-              const dominantA = pA?.disc?.natural ? getDominantDisc(pA.disc.natural) : "C";
-              const dominantB = pB?.disc?.natural ? getDominantDisc(pB.disc.natural) : "S";
+              const dominantA = pA?.disc?.natural ? getDominantDisc(pA.disc.natural, pA?.disc?.adaptive) : "C";
+              const dominantB = pB?.disc?.natural ? getDominantDisc(pB.disc.natural, pB?.disc?.adaptive) : "S";
               const isExpanded = expandedId === agreement.id;
 
               // Check-in urgency
@@ -523,7 +531,7 @@ export default function AgreementsPage() {
             <div className="text-xs font-bold uppercase tracking-wide text-disc-c mb-3">Person A</div>
             <div className="space-y-2">
               {allPeople.map(person => {
-                const dominant = person.disc?.natural ? getDominantDisc(person.disc.natural) : "S";
+                const dominant = person.disc?.natural ? getDominantDisc(person.disc.natural, person.disc.adaptive) : "S";
                 const isSelected = personA?.id === person.id;
                 const isDisabled = personB?.id === person.id;
                 return (
@@ -556,7 +564,7 @@ export default function AgreementsPage() {
             <div className="text-xs font-bold uppercase tracking-wide text-alert-success-accent mb-3">Person B</div>
             <div className="space-y-2">
               {allPeople.map(person => {
-                const dominant = person.disc?.natural ? getDominantDisc(person.disc.natural) : "S";
+                const dominant = person.disc?.natural ? getDominantDisc(person.disc.natural, person.disc.adaptive) : "S";
                 const isSelected = personB?.id === person.id;
                 const isDisabled = personA?.id === person.id;
                 return (
@@ -693,7 +701,7 @@ export default function AgreementsPage() {
           <div className="bg-card rounded-xl p-6 border border-border shadow-sm">
             <div className="flex items-center gap-2 mb-4">
               <div className="w-8 h-8 rounded-lg flex items-center justify-center text-white font-bold text-xs"
-                style={{ background: personA.disc?.natural ? DISC_COLORS[getDominantDisc(personA.disc.natural)] : "var(--disc-c)" }}>
+                style={{ background: personA.disc?.natural ? getDiscColor(getDominantDisc(personA.disc.natural, personA.disc.adaptive)) : "var(--disc-c)" }}>
                 {personA.name.split(" ").map(n => n[0]).join("").slice(0, 2)}
               </div>
               <h3 className="text-sm font-bold text-foreground">{personA.name.split(" ")[0]} Commits To</h3>
@@ -732,7 +740,7 @@ export default function AgreementsPage() {
           <div className="bg-card rounded-xl p-6 border border-border shadow-sm">
             <div className="flex items-center gap-2 mb-4">
               <div className="w-8 h-8 rounded-lg flex items-center justify-center text-white font-bold text-xs"
-                style={{ background: personB.disc?.natural ? DISC_COLORS[getDominantDisc(personB.disc.natural)] : "var(--disc-s)" }}>
+                style={{ background: personB.disc?.natural ? getDiscColor(getDominantDisc(personB.disc.natural, personB.disc.adaptive)) : "var(--disc-s)" }}>
                 {personB.name.split(" ").map(n => n[0]).join("").slice(0, 2)}
               </div>
               <h3 className="text-sm font-bold text-foreground">{personB.name.split(" ")[0]} Commits To</h3>

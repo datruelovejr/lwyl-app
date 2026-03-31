@@ -3,7 +3,45 @@ import { C } from "./colors";
 export const discFull = { D: "Dominance", I: "Influence", S: "Steadiness", C: "Compliance" };
 export const biasInfo = { "+": { word: "Requires", bg: "#F0FAF0", fg: "#2E7D32", bd: "#2E7D32" }, "\u2212": { word: "Undervalues", bg: "#FFF8F5", fg: "#E65100", bd: "#E65100" }, "=": { word: "Balanced", bg: "#F5F9FF", fg: "#1565C0", bd: "#1565C0" } };
 export const valLevel = s => s >= 70 ? { l: "Very High", c: "#2E7D32" } : s >= 60 ? { l: "High", c: "#558B2F" } : s >= 40 ? { l: "Average", c: C.muted } : s >= 25 ? { l: "Low", c: "#E65100" } : { l: "Very Low", c: "#C62828" };
+// DEPRECATED: Use getDominantDisc instead. This returns all dims >= 60 which causes color bugs.
 export const getDom = n => { const sorted = Object.entries(n).sort((a, b) => b[1] - a[1]); return sorted.filter(e => e[1] >= 60).map(e => e[0]).join("/") || sorted[0][0]; };
+
+/**
+ * Get the single dominant DISC dimension.
+ * Uses Adaptive score as tiebreaker when Natural scores are equal.
+ * @param {Object} natural - { D: number, I: number, S: number, C: number }
+ * @param {Object} adaptive - { D: number, I: number, S: number, C: number } (optional)
+ * @returns {string} Single letter: 'D', 'I', 'S', or 'C'
+ */
+export const getDominantDisc = (natural, adaptive) => {
+  if (!natural) return 'S';
+
+  // Find the max Natural score
+  const maxNatural = Math.max(...Object.values(natural));
+
+  // Get all dimensions with that max score (potential ties)
+  const candidates = Object.entries(natural)
+    .filter(([, score]) => score === maxNatural)
+    .map(([dim]) => dim);
+
+  // If only one candidate, return it
+  if (candidates.length === 1) return candidates[0];
+
+  // Tiebreaker: highest Adaptive score among tied dimensions
+  if (adaptive) {
+    const maxAdaptive = Math.max(...candidates.map(d => adaptive[d] || 0));
+    const adaptiveWinners = candidates.filter(d => (adaptive[d] || 0) === maxAdaptive);
+
+    // True tie: both Natural AND Adaptive identical - return all (e.g., "S/C")
+    if (adaptiveWinners.length > 1) {
+      return adaptiveWinners.sort().join('/');
+    }
+    return adaptiveWinners[0];
+  }
+
+  // No adaptive data, return all tied dimensions
+  return candidates.sort().join('/');
+};
 export const isEqualExtProfile = (extArr) => { const scores = extArr.map(a => a.score); const max = Math.max(...scores); const min = Math.min(...scores); return (max - min) <= 0.5; };
 export const normBias = (b) => b === "-" ? "\u2212" : b;
 

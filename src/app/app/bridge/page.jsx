@@ -11,6 +11,7 @@ import {
 import { useLWYL } from '../../contexts/LWYLContext';
 import { getBridgeFrictionNarrative } from '../../knowledge/narrativeEngine';
 import { calculateFriction } from '../../utils/friction';
+import { getDominantDisc } from '../../constants/data';
 import { PersonChip } from '../../components/ui/PersonChip';
 import { GapBar } from '../../components/ui/GapBar';
 import { InsightCard } from '../../components/ui/InsightCard';
@@ -20,9 +21,13 @@ import { LoadingMoment } from '../../components/ui/LoadingMoment';
 
 const DISC_LABELS = { D: 'Decisive', I: 'Interactive', S: 'Stabilizing', C: 'Cautious' };
 
-function getDominantDisc(disc) {
-  return Object.entries(disc).sort(([, a], [, b]) => b - a)[0][0];
-}
+// Get DISC label, handling hybrid (e.g., "S/C" -> "Stabilizing/Cautious")
+const getDiscLabel = (disc) => {
+  if (!disc) return 'Unknown';
+  if (DISC_LABELS[disc]) return DISC_LABELS[disc];
+  // Hybrid case
+  return disc.split('/').map(d => DISC_LABELS[d]).join('/');
+};
 
 // Tier to accent color mapping (uses CSS variables from validated methodology)
 function tierToAccent(tier) {
@@ -46,8 +51,8 @@ const STEPS = [
 
 // Bridge Insights Engine
 function generateBridgeInsights(personA, personB, frictionType) {
-  const aDisc = personA.disc?.natural ? getDominantDisc(personA.disc.natural) : 'S';
-  const bDisc = personB.disc?.natural ? getDominantDisc(personB.disc.natural) : 'S';
+  const aDisc = personA.disc?.natural ? getDominantDisc(personA.disc.natural, personA.disc.adaptive) : 'S';
+  const bDisc = personB.disc?.natural ? getDominantDisc(personB.disc.natural, personB.disc.adaptive) : 'S';
   const aName = personA.name.split(' ')[0];
   const bName = personB.name.split(' ')[0];
 
@@ -103,8 +108,8 @@ function generateBridgeInsights(personA, personB, frictionType) {
   };
 
   if (frictionType === 'preference') {
-    const aStyle = DISC_LABELS[aDisc];
-    const bStyle = DISC_LABELS[bDisc];
+    const aStyle = getDiscLabel(aDisc);
+    const bStyle = getDiscLabel(bDisc);
     // Calculate gap points directly (sum of absolute differences)
     const prefPoints = personA.disc?.natural && personB.disc?.natural
       ? Math.abs(personA.disc.natural.D - personB.disc.natural.D) +
@@ -384,7 +389,7 @@ export default function BridgeWizardPage() {
           <div className="text-xs font-bold uppercase tracking-wide text-disc-c mb-3">Person A</div>
           <div className="flex flex-col gap-2">
             {allPeople.map(person => {
-              const dominant = person.disc?.natural ? getDominantDisc(person.disc.natural) : 'S';
+              const dominant = person.disc?.natural ? getDominantDisc(person.disc.natural, person.disc.adaptive) : 'S';
               const isSelected = personA?.id === person.id;
               const isDisabled = personB?.id === person.id;
               return (
@@ -406,7 +411,7 @@ export default function BridgeWizardPage() {
           <div className="text-xs font-bold uppercase tracking-wide text-disc-s mb-3">Person B</div>
           <div className="flex flex-col gap-2">
             {allPeople.map(person => {
-              const dominant = person.disc?.natural ? getDominantDisc(person.disc.natural) : 'S';
+              const dominant = person.disc?.natural ? getDominantDisc(person.disc.natural, person.disc.adaptive) : 'S';
               const isSelected = personB?.id === person.id;
               const isDisabled = personA?.id === person.id;
               return (
@@ -554,7 +559,7 @@ export default function BridgeWizardPage() {
 
   // Step 3: Impact Statement
   const renderStep3 = () => {
-    const aDisc = personA?.disc?.natural ? getDominantDisc(personA.disc.natural) : 'S';
+    const aDisc = personA?.disc?.natural ? getDominantDisc(personA.disc.natural, personA.disc.adaptive) : 'S';
     const discBehaviors = {
       D: { behavior: 'move fast and make decisions without full consensus', interpretation: 'dismissive or controlling', intention: 'to get results and protect the team\'s time', impact: 'like their input doesn\'t matter' },
       I: { behavior: 'talk through ideas before they\'re fully formed', interpretation: 'unfocused or scattered', intention: 'to build energy and think collaboratively', impact: 'like the conversation isn\'t going anywhere' },
@@ -573,7 +578,7 @@ export default function BridgeWizardPage() {
         <div className="bg-alert-info-bg rounded-2xl p-5 border border-alert-info-border mb-5">
           <div className="text-xs font-bold uppercase tracking-wide text-alert-info-accent mb-3">Suggested Template</div>
           <p className="text-sm text-alert-info-text leading-relaxed italic">
-            "Because of my {DISC_LABELS[aDisc]} style, I tend to <strong>{defaults.behavior}</strong>. I know this can come across as <strong>{defaults.interpretation}</strong>, even though my intention is <strong>{defaults.intention}</strong>. When I do this, it may make you feel <strong>{defaults.impact}</strong>. I'm working on being more aware of this."
+            "Because of my {getDiscLabel(aDisc)} style, I tend to <strong>{defaults.behavior}</strong>. I know this can come across as <strong>{defaults.interpretation}</strong>, even though my intention is <strong>{defaults.intention}</strong>. When I do this, it may make you feel <strong>{defaults.impact}</strong>. I'm working on being more aware of this."
           </p>
         </div>
 
@@ -582,7 +587,7 @@ export default function BridgeWizardPage() {
             {personA?.name}'s Impact Statement <span className="text-muted font-normal">(edit or write your own)</span>
           </label>
           <textarea value={impactStatement} onChange={e => setImpactStatement(e.target.value)}
-            placeholder={`"Because of my ${DISC_LABELS[aDisc]} style, I tend to ${defaults.behavior}..."`}
+            placeholder={`"Because of my ${getDiscLabel(aDisc)} style, I tend to ${defaults.behavior}..."`}
             rows={5} className="w-full px-4 py-3 rounded-xl border border-border text-sm focus:outline-none focus:border-nav-accent bg-card resize-none" />
         </div>
 
@@ -773,7 +778,7 @@ export default function BridgeWizardPage() {
             { person: personA, commitments: bridgeInsights.aCommitments },
             { person: personB, commitments: bridgeInsights.bCommitments },
           ].map(({ person, commitments }) => {
-            const dom = person?.disc?.natural ? getDominantDisc(person.disc.natural) : 'S';
+            const dom = person?.disc?.natural ? getDominantDisc(person.disc.natural, person.disc.adaptive) : 'S';
             return (
               <div key={person?.id} className="bg-card rounded-2xl p-6 border border-border shadow-sm">
                 <div className="flex items-center gap-2 mb-4">

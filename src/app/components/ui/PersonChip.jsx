@@ -9,6 +9,19 @@ const DISC_CLASSES = {
   C: { bg: 'bg-disc-c', ring: 'ring-disc-c', tint: 'bg-disc-c/10' },
 };
 
+// Get DISC style, handling hybrid (e.g., "S/C") with gradient
+function getDiscStyle(disc) {
+  if (!disc) return DISC_CLASSES.D;
+  if (DISC_CLASSES[disc]) return DISC_CLASSES[disc];
+  // Hybrid case - use first dimension for ring/tint, gradient for bg
+  const first = disc.split('/')[0];
+  return {
+    ...DISC_CLASSES[first],
+    isHybrid: true,
+    dims: disc.split('/'),
+  };
+}
+
 const SIZES = {
   sm: { circle: 'w-8 h-8 text-xs', showName: false },
   md: { circle: 'w-10 h-10 text-sm', showName: true },
@@ -28,7 +41,7 @@ function getInitials(name) {
  * and framer-motion selection state.
  */
 export function PersonChip({ name, disc = 'D', size = 'md', selected = false, onClick, fullWidth = false }) {
-  const discStyle = DISC_CLASSES[disc] || DISC_CLASSES.D;
+  const discStyle = getDiscStyle(disc);
   const sizeStyle = SIZES[size] || SIZES.md;
   const initials = getInitials(name);
   const isClickable = typeof onClick === 'function';
@@ -59,9 +72,12 @@ export function PersonChip({ name, disc = 'D', size = 'md', selected = false, on
       <span
         className={[
           'inline-flex items-center justify-center rounded-full font-bold text-white shrink-0',
-          discStyle.bg,
+          !discStyle.isHybrid && discStyle.bg,
           sizeStyle.circle,
-        ].join(' ')}
+        ].filter(Boolean).join(' ')}
+        style={discStyle.isHybrid ? {
+          background: `linear-gradient(135deg, var(--disc-${discStyle.dims[0].toLowerCase()}) 50%, var(--disc-${discStyle.dims[1].toLowerCase()}) 50%)`
+        } : undefined}
       >
         {initials}
       </span>

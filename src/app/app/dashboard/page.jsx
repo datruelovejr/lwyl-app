@@ -3,6 +3,7 @@
 import { useLWYL } from "../../contexts/LWYLContext";
 import { useRouter } from "next/navigation";
 import { calculateFriction } from "../../utils/friction";
+import { getDominantDisc } from "../../constants/data";
 import { getEnvironmentTaxSummary } from "../../knowledge/assessmentInsights";
 import { SectionHeader } from "../../components/ui/SectionHeader";
 import { InsightCard } from "../../components/ui/InsightCard";
@@ -13,10 +14,6 @@ import { AlertCard } from "../../components/ui/AlertCard";
 import { Card } from "../../components/ui/Card";
 import { LoadingMoment } from "../../components/ui/LoadingMoment";
 import { motion } from "framer-motion";
-
-function getDom(nat) {
-  return Object.entries(nat).sort(([, a], [, b]) => b - a)[0][0];
-}
 
 function getPairStory(personA, personB, friction) {
   const a = personA.name.split(" ")[0];
@@ -204,8 +201,8 @@ export default function OrgDashboardPage() {
           {urgentPairs.map((pair, i) => {
             const topStory = getPairStory(pair.personA, pair.personB, pair.friction)[0];
             const isHigh = pair.friction.tier === "high";
-            const aDom = getDom(pair.personA.disc.natural);
-            const bDom = getDom(pair.personB.disc.natural);
+            const aDom = getDominantDisc(pair.personA.disc.natural, pair.personA.disc.adaptive);
+            const bDom = getDominantDisc(pair.personB.disc.natural, pair.personB.disc.adaptive);
 
             const taxA = getEnvironmentTaxSummary(pair.personA);
             const taxB = getEnvironmentTaxSummary(pair.personB);

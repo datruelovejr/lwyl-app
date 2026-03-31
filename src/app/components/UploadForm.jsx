@@ -4,7 +4,7 @@ import { useState, useRef } from 'react';
 import { C } from '../constants/colors';
 import { normBias } from '../constants/data';
 import { Btn } from './Btn';
-import { loadJSZip, extractTextFromPDF, parseDISC, parseValues, parseAttributes } from '../utils/pdf';
+import { loadJSZip, extractTextFromPDF, parseDISC, parseValues, parseAttributes, parseNameFromCover } from '../utils/pdf';
 
 // ────── UPLOAD FORM ──────
 export function UploadForm({ orgs, selOrgId, selTeamId: parentTeamId, onAdd, onCancel }) {
@@ -46,6 +46,7 @@ export function UploadForm({ orgs, selOrgId, selTeamId: parentTeamId, onAdd, onC
         return { success: false, error: 'PDF parsing failed. Please try a different file or try a different file.', fileName };
       }
 
+      const page1 = pdfResult.pageTexts[1] || "";
       const page2 = pdfResult.pageTexts[2] || "";
       const page3 = pdfResult.pageTexts[3] || "";
       const page4 = pdfResult.pageTexts[4] || "";
@@ -54,6 +55,8 @@ export function UploadForm({ orgs, selOrgId, selTeamId: parentTeamId, onAdd, onC
         return { success: false, error: "No text found on pages 2-4", fileName };
       }
 
+      // Extract name from cover page (page 1), fall back to page 2
+      const coverName = page1 ? parseNameFromCover(page1) : "";
       const discData = page2 ? parseDISC(page2) : {};
       const valData = page3 ? parseValues(page3) : {};
       const attrData = page4 ? parseAttributes(page4) : {};
@@ -62,7 +65,9 @@ export function UploadForm({ orgs, selOrgId, selTeamId: parentTeamId, onAdd, onC
       const extracted = {};
       let fieldCount = 0;
 
-      if (discData.name && discData.name.length > 1) extracted.name = discData.name;
+      // Prefer name from cover page, fall back to page 2
+      const extractedName = coverName || discData.name || "";
+      if (extractedName && extractedName.length > 1) extracted.name = extractedName;
 
       const discFields = ["dN_D", "dN_I", "dN_S", "dN_C", "dA_D", "dA_I", "dA_S", "dA_C"];
       for (const key of discFields) { if (discData[key]) { extracted[key] = discData[key]; fieldCount++; } }
@@ -236,7 +241,7 @@ export function UploadForm({ orgs, selOrgId, selTeamId: parentTeamId, onAdd, onC
       const isPDF = headerBytes[0] === 0x25 && headerBytes[1] === 0x50 && headerBytes[2] === 0x44 && headerBytes[3] === 0x46;
       const isZIP = headerBytes[0] === 0x50 && headerBytes[1] === 0x4B;
 
-      let page2 = "", page3 = "", page4 = "";
+      let page1 = "", page2 = "", page3 = "", page4 = "";
       const logs = [];
 
       if (isZIP) {
@@ -267,6 +272,7 @@ export function UploadForm({ orgs, selOrgId, selTeamId: parentTeamId, onAdd, onC
           setExtractLog('PDF parsing failed. Please try a different file or try a different file.');
           return;
         }
+        page1 = pdfResult.pageTexts[1] || "";
         page2 = pdfResult.pageTexts[2] || "";
         page3 = pdfResult.pageTexts[3] || "";
         page4 = pdfResult.pageTexts[4] || "";
@@ -285,6 +291,8 @@ export function UploadForm({ orgs, selOrgId, selTeamId: parentTeamId, onAdd, onC
         return;
       }
 
+      // Extract name from cover page (page 1), fall back to page 2
+      const coverName = page1 ? parseNameFromCover(page1) : "";
       const discData = page2 ? parseDISC(page2) : {};
       const valData = page3 ? parseValues(page3) : {};
       const attrData = page4 ? parseAttributes(page4) : {};
@@ -292,7 +300,9 @@ export function UploadForm({ orgs, selOrgId, selTeamId: parentTeamId, onAdd, onC
       const extracted = {};
       const filled = new Set();
 
-      if (discData.name && discData.name.length > 1) { extracted.name = discData.name; filled.add("name"); }
+      // Prefer name from cover page, fall back to page 2
+      const extractedName = coverName || discData.name || "";
+      if (extractedName && extractedName.length > 1) { extracted.name = extractedName; filled.add("name"); }
 
       const discFields = ["dN_D", "dN_I", "dN_S", "dN_C", "dA_D", "dA_I", "dA_S", "dA_C"];
       for (const key of discFields) { if (discData[key]) { extracted[key] = discData[key]; filled.add(key); } }
