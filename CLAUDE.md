@@ -27,11 +27,14 @@ Friction comes in two families. Approach-clash, Difference and Whose-standard, r
 
 ## Known build gaps, the current work list
 
-- The 78 attributes are not stored, only the six rollups. Coverage-gap is blocked. See `/methodology/Coverage_Gap_Data_Plan.md` and `/methodology/ClaudeCode_Brief_Pull78_and_Bands.md`.
-- Bands and norms are not stored, the app fakes them with the flat `valLevel` cutoff.
+State of the database as verified on 2026-07-02 (Supabase project `jhmyhuetrmrqlnteflns`, "Love Where You Lead App"). The `person_attributes` and `disc_values_bands` migrations, once proposals, are now applied and populated in production. See `/methodology/Coverage_Gap_Data_Plan.md` and `/methodology/ClaudeCode_Brief_Pull78_and_Bands.md`.
+
+- **The 78 attributes are now stored.** `person_attributes` holds 31,044 rows, 398 people times 78 attributes each, with raw_score, rank, cluster, and core_dimension. Coverage-gap has the data it needs. The optional `attribute_catalog` table was not created; the catalog lives in code at `tools/attribute-catalog.js`.
+- **DISC and Values bands are stored, the 78-attribute bands are not.** `people.disc_bands` and `people.values_bands` hold the real instrument band words for 395 of 419 people, read from the PDF. But `person_attributes.band` is NULL for every row; the app orders each person's 78 attributes by rank and uses that rank as a stand-in for the band. Rank is a person-relative position, not the instrument's absolute High/Low grade, so any true high/low call on an attribute is not yet on the validated band. `band_source` is set to `pdf-parsed` or `unparsed`. Coverage-gap by cluster and rank (Hard Rule 2) is fine on rank; other high/low calls are not.
+- **The flat `valLevel` cutoff is still in the app** and must still be retired in favor of the stored bands (Hard Rule 1).
 - No person is flagged as leader, so Leader-Team friction cannot run. Capture the leader flag.
 - No role-demand reference, so coverage-gap and competition stay signals.
-- Assessment tokens and rawscores URLs are not stored, so pulls are not repeatable. Store them.
+- **Assessment tokens and rawscores URLs are still not populated.** The `people.assessment_token` and `people.rawscores_url` columns exist but hold 0 rows of data, so pulls are still not repeatable. Populate them.
 
 ## How to work here
 
