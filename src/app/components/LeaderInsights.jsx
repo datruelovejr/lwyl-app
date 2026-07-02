@@ -8,6 +8,7 @@ import { useIsMobile } from "../utils/useIsMobile";
 import { Card, StoryCard, AlertCard, SectionHead, MetricCard } from "./ui";
 import { getEnvironmentTaxSummary } from "../knowledge/assessmentInsights";
 import { calculateFriction } from "../utils/friction";
+import { calculateSamePole } from "../utils/samepole";
 import { generatePreferenceSOPs, generatePassionSOPs, generateProcessSOPs } from "../utils/sop-engine";
 import { generatePreferenceSOP, generatePassionSOP, generateProcessSOP } from "../knowledge/sopEngine";
 import { getDiscNarrative, getGapNarrative, getValuesNarrative, getExtAttrNarrative, getIntAttrNarrative, getPreferenceTaxNarrative } from "../knowledge/narrativeEngine";
@@ -674,6 +675,12 @@ export function LeaderInsights({ people, teamId, orgId, leaderId }) {
                   frictionSentence = dimStories[topGap.dim] || "";
                 }
 
+                const samePole = calculateSamePole(leader, m);
+                const samePoleDims = [
+                  ...samePole.competition.map(c => c.dim),
+                  ...samePole.whoseStandard.map(w => w.dim),
+                ];
+
                 return (
                   <div
                     key={m.id}
@@ -696,6 +703,16 @@ export function LeaderInsights({ people, teamId, orgId, leaderId }) {
                         <div className="text-[13px] font-semibold text-foreground">{m.name}</div>
                         {frictionSentence && (
                           <div className="text-[11px] text-muted mt-0.5 leading-snug">{frictionSentence}</div>
+                        )}
+                        {samePoleDims.length > 0 && (
+                          <div className="flex flex-wrap gap-1 mt-1">
+                            {samePoleDims.slice(0, 4).map((d, i) => (
+                              <span key={i} className="text-[10px] font-semibold px-1.5 py-0.5 rounded"
+                                    style={{ background: "color-mix(in srgb, var(--disc-c) 10%, transparent)", color: "var(--disc-c)" }}>
+                                both high · {d}
+                              </span>
+                            ))}
+                          </div>
                         )}
                       </div>
                       <div className="flex items-center gap-2">
