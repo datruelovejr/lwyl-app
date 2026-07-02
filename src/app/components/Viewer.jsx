@@ -14,6 +14,7 @@ import { CircleProgress } from "./CircleProgress";
 import { DTip, VTip } from "./Tooltips";
 import { IndividualComparison } from "./IndividualComparison";
 import { ConnectionSOPs } from "./ConnectionSOPs";
+import { CoreAttributes } from "./CoreAttributes";
 import { Card } from './ui/Card';
 
 // Lazy-load heavy modals -- only parsed when user opens them
@@ -123,21 +124,23 @@ export function Viewer({ person, leader, agreements, setAgreements, photos = {},
           <Btn onClick={() => setShowReport(true)} style={{ fontSize: 11 }}>
             {isMobile ? "\ud83d\udcc4 Report" : "\ud83d\udcc4 Environment Report"}
           </Btn>
-          {canCompare && (
-            <div className="flex bg-subtle rounded-lg border border-border overflow-hidden">
-              {["profile", "compare"].map(t => (
-                <button
-                  key={t}
-                  onClick={() => setTab(t)}
-                  className={`px-3.5 py-1.5 border-none text-[11px] font-semibold cursor-pointer capitalize ${
-                    tab === t ? 'bg-nav text-white' : 'bg-transparent text-foreground'
-                  }`}
-                >
-                  {t === "compare" ? "Compare to Leader" : "Profile"}
-                </button>
-              ))}
-            </div>
-          )}
+          <div className="flex bg-subtle rounded-lg border border-border overflow-hidden">
+            {[
+              ["profile", "Profile"],
+              ["attributes", "Core Attributes"],
+              ...(canCompare ? [["compare", "Compare to Leader"]] : []),
+            ].map(([t, label]) => (
+              <button
+                key={t}
+                onClick={() => setTab(t)}
+                className={`px-3.5 py-1.5 border-none text-[11px] font-semibold cursor-pointer ${
+                  tab === t ? 'bg-nav text-white' : 'bg-transparent text-foreground'
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
           <div className="px-3.5 py-1.5 bg-subtle rounded-lg border border-border text-center">
             <div className="text-[9px] font-bold text-muted uppercase tracking-wider">Leadership Style</div>
             <div className="text-base font-extrabold mt-0.5">{domStyle}</div>
@@ -148,6 +151,8 @@ export function Viewer({ person, leader, agreements, setAgreements, photos = {},
       {/* Tab content */}
       {tab === "compare" && canCompare ? (
         <IndividualComparison leader={leader} person={person} agreements={agreements} setAgreements={setAgreements} onStartWizard={() => setShowWizard(true)} />
+      ) : tab === "attributes" ? (
+        <CoreAttributes person={sel} team={team} />
       ) : (<div>
 
       {/* DISC */}
