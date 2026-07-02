@@ -128,6 +128,7 @@ function LWYLSidebar({ isMobile }) {
   const navItems = [
     { label: "Dashboard", path: "/app/dashboard", icon: "📊" },
     { label: "The Method", path: "/app/method", icon: "🧭" },
+    { label: "Core Attributes", path: "/app/attributes", icon: "🧩" },
     { label: "Leader Insights", path: "/app/leader", icon: "⭐" },
     { label: "Team Insights", path: "/app/team", icon: "👥" },
     { label: "Friction Map", path: "/app/friction", icon: "🔥" },
