@@ -45,6 +45,9 @@ src/Knowledge/
 public/Friction*
 "Friction Map - Daniel & Rey.pdf"
 Friction\ Map\ -\ Daniel\ \&\ Rey.pdf
+tools/pdfs/
+# Ingestion run logs contain client org/person names — never commit
+*.log
 
 # Design reference images — large files, local use only
 src/*.png

@@ -19,89 +19,138 @@ import { buildAttributeMap } from './attribute-catalog.js';
  */
 export function parseAttributes78(text) {
   const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
-  const attributes = [];
   const attributeMap = buildAttributeMap();
+  const attributes = [];
 
-  // Look for lines that match the pattern: number. name score
-  // e.g., "1. Accountability For Others 8.2"
-  // or in tables: might have pipes or extra whitespace
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
+  // The 78 live on the report's "Core Attribute List" page, one per line as
+  // "Attribute Name (score)", already in descending score order. Rank is the
+  // position in that list, 1 is the highest score. Read only that page, so the
+  // rank is the instrument's rank and not document order. Find the last
+  // occurrence of the header, the list sits at the end of the report.
+  let start = -1;
+  for (let i = lines.length - 1; i >= 0; i--) {
+    if (/^core attribute list$/i.test(lines[i])) { start = i + 1; break; }
+  }
+  if (start === -1) {
+    // No Core Attribute List page. This is not an Attribute Index report, for
+    // example a DISC Plus report. Return empty, the caller skips and reports it.
+    return attributes;
+  }
 
-    // Skip headers and common non-attribute lines
-    if (/^(rank|attribute|score|#|index|core|dimension|cluster)/i.test(line)) continue;
-    if (/^---+|^===+/.test(line)) continue;
-    if (/^(attribute index|core attribute|attributes ranked)/i.test(line)) continue;
-
-    // Try to parse: "N. Attribute Name Score"
-    // The score should be a decimal between ~0 and ~10
-    const match = line.match(/^(\d+)\.\s+(.+?)\s+([\d.]+)$/);
-    if (match) {
-      const [, rankStr, attrNameRaw, scoreStr] = match;
-      const rank = parseInt(rankStr, 10);
-      const attrName = attrNameRaw.trim();
-      const score = parseFloat(scoreStr);
-
-      // Verify score is in valid range
-      if (!isNaN(rank) && !isNaN(score) && score >= 0 && score <= 10) {
-        // Look up in catalog to confirm it's a real attribute
-        if (attributeMap.has(attrName)) {
-          attributes.push({ rank, attribute: attrName, rawScore: score });
-        }
-      }
-    }
-
-    // Fallback: try comma-separated or pipe-separated formats
-    // e.g., "1, Accountability For Others, 8.2" or "1 | Accountability For Others | 8.2"
-    if (attributes.length === 0 || i < 100) {
-      const altMatch = line.match(/^(\d+)\s*[,|]\s*(.+?)\s*[,|]\s*([\d.]+)$/);
-      if (altMatch) {
-        const [, rankStr, attrNameRaw, scoreStr] = altMatch;
-        const rank = parseInt(rankStr, 10);
-        const attrName = attrNameRaw.trim();
-        const score = parseFloat(scoreStr);
-
-        if (!isNaN(rank) && !isNaN(score) && score >= 0 && score <= 10) {
-          if (attributeMap.has(attrName)) {
-            const existing = attributes.find(a => a.rank === rank);
-            if (!existing) {
-              attributes.push({ rank, attribute: attrName, rawScore: score });
-            }
-          }
-        }
-      }
-    }
+  const seen = new Set();
+  for (let i = start; i < lines.length && attributes.length < 78; i++) {
+    const m = lines[i].match(/^(.+?)\s*\((\d+(?:\.\d+)?)\)$/);
+    if (!m) continue;
+    const name = m[1].trim();
+    const score = parseFloat(m[2]);
+    if (isNaN(score) || score < 0 || score > 10) continue;
+    if (!attributeMap.has(name)) continue;
+    if (seen.has(name)) continue;
+    seen.add(name);
+    attributes.push({ rank: attributes.length + 1, attribute: name, rawScore: score });
   }
 
   return attributes;
 }
 
 /**
- * Parse band labels for Values dimensions.
- * Bands are typically: Very High, High, Average, Low, Very Low.
- * Expected format in the report:
- *   [Value Name]: [Band Label]
- * or in a table row.
+ * Normalize an attribute or dimension bias sign to one of "+", "-", "=".
+ * The PDF and the stored data use several minus glyphs, fold them all to "-".
+ */
+export function normalizeBias(sign) {
+  if (sign === '+') return '+';
+  if (sign === '=' || sign == null || sign === '') return '=';
+  return '-'; // covers "-", U+2212, U+2013, U+2014
+}
+
+/**
+ * Parse the six core dimensions and their bias from the "Dimensional Balance"
+ * page. The page lists them in a fixed order, External then Empathy, Practical
+ * Thinking, Systems Judgment, Internal then Self Esteem, Role Awareness, Self
+ * Direction. Each dimension shows a "score bias" line such as "6.7 +". The
+ * axis labels on that page are bare numbers with no bias sign, so they do not
+ * match. Returns an array of six { name, score, bias } in that fixed order, or
+ * fewer if the page is missing or malformed.
  *
  * @param {string} text - The full extracted text from the PDF.
- * @returns {Object} - Map of value name to band, e.g., { "Aesthetic": "High", "Economic": "Average" }
+ * @returns {Array<{name: string, score: number, bias: string}>}
+ */
+export function parseDimensionalBalance(text) {
+  const ORDER = ['Empathy', 'Practical Thinking', 'Systems Judgment', 'Self-Esteem', 'Role Awareness', 'Self-Direction'];
+  const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+
+  let start = -1;
+  for (let i = 0; i < lines.length; i++) {
+    if (/^dimensional balance$/i.test(lines[i])) { start = i + 1; break; }
+  }
+  if (start === -1) return [];
+
+  const found = [];
+  const window = Math.min(lines.length, start + 80);
+  for (let i = start; i < window && found.length < 6; i++) {
+    const m = lines[i].match(/^(\d+(?:\.\d+)?)\s+([+\-=−–—])$/);
+    if (!m) continue;
+    found.push({ score: parseFloat(m[1]), bias: normalizeBias(m[2]) });
+  }
+
+  return found.map((d, i) => ({ name: ORDER[i], score: d.score, bias: d.bias }));
+}
+
+/**
+ * Build the six-dimension storage record in the exact shape the app reads from
+ * people.attributes, External as ext with Heart, Hand, Head labels, Internal as
+ * int with no label, bias stored with the Unicode minus U+2212 to match the
+ * existing data. Returns null unless all six dimensions parsed, never a partial.
+ *
+ * @param {Array<{name:string,score:number,bias:string}>} dims - from parseDimensionalBalance
+ * @returns {{ext: Array, int: Array} | null}
+ */
+export function buildDimensionRecord(dims) {
+  if (!dims || dims.length !== 6) return null;
+  const MINUS = '−';
+  const glyph = b => (b === '+' ? '+' : b === '=' ? '=' : MINUS);
+  const labels = ['Heart', 'Hand', 'Head'];
+  const ext = dims.slice(0, 3).map((d, i) => ({ bias: glyph(d.bias), name: d.name, label: labels[i], score: d.score }));
+  const int = dims.slice(3, 6).map(d => ({ bias: glyph(d.bias), name: d.name, score: d.score }));
+  return { ext, int };
+}
+
+/**
+ * Title-case a band phrase, "very low" becomes "Very Low", "high" becomes "High".
+ */
+function titleCaseBand(s) {
+  return s.toLowerCase().trim().replace(/\b\w/g, c => c.toUpperCase());
+}
+
+/**
+ * Parse the instrument's band word for each of the seven Values. On the "Seven
+ * Dimensions of Value and Motivation" page the report prints the band word on
+ * the line immediately above each value name, for example:
+ *   "High"
+ *   "Aesthetic"
+ *   "You very much prefer form, harmony and balance ..."
+ * The band is read straight from the report, never computed from the score.
+ * The page writes Altruistic as "Altruist", map it back. Returns a map keyed by
+ * the canonical value name, for example { Aesthetic: "High", Economic: "Average" }.
+ *
+ * @param {string} text - The full extracted text from the PDF.
+ * @returns {Object}
  */
 export function parseValuesBands(text) {
   const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+  const valueMap = {
+    Aesthetic: 'Aesthetic', Economic: 'Economic', Individualistic: 'Individualistic',
+    Political: 'Political', Altruist: 'Altruistic', Altruistic: 'Altruistic',
+    Regulatory: 'Regulatory', Theoretical: 'Theoretical',
+  };
+  const bandLine = /^(very high|very low|high|low|average)$/i;
   const bands = {};
-  const valueNames = ["Aesthetic", "Economic", "Individualistic", "Political", "Altruistic", "Regulatory", "Theoretical"];
-  const bandLabels = ["Very High", "Very Low", "High", "Average", "Low"];
 
-  for (const line of lines) {
-    for (const valueName of valueNames) {
-      for (const bandLabel of bandLabels) {
-        // Match: "Aesthetic: High" or "Aesthetic High" or in a row
-        const regex = new RegExp(`\\b${valueName}\\b[:\\s]+(?:Band[:\\s]+)?(${bandLabel})\\b`, 'i');
-        if (regex.test(line)) {
-          bands[valueName] = bandLabel;
-          break;
-        }
-      }
+  for (let i = 0; i + 1 < lines.length; i++) {
+    if (!bandLine.test(lines[i])) continue;
+    const canonical = valueMap[lines[i + 1]];
+    if (canonical && !bands[canonical]) {
+      bands[canonical] = titleCaseBand(lines[i]);
     }
   }
 
@@ -109,30 +158,30 @@ export function parseValuesBands(text) {
 }
 
 /**
- * Parse band labels for DISC dimensions.
- * Each DISC dimension (Decisive, Interactive, Stabilizing, Cautious) has a spectrum band.
- * Expected format in the report:
- *   [DISC Name]: [Band/Spectrum]
- * or in a narrative describing the spectrum.
+ * Parse the instrument's band phrase for each DISC dimension. Each DISC page
+ * carries a sentence such as "Your score shows a moderately high score on the
+ * 'I' spectrum." The DISC spectrum uses a six-level descriptive scale, observed
+ * across the reports as: very high, moderately high, high average, low average,
+ * moderately low, very low. Capture the whole phrase verbatim, never reduce it
+ * to a guess and never compute it from the score. Returns a map keyed by the
+ * DISC letter, for example { D: "Very Low", I: "Moderately High" }.
  *
  * @param {string} text - The full extracted text from the PDF.
- * @returns {Object} - Map of DISC dimension to band, e.g., { "Decisive": "High", "Interactive": "Low" }
+ * @returns {Object}
  */
 export function parseDISCBands(text) {
   const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+  // Capture the full phrase between "shows a" and "score on the 'X' spectrum".
+  // Requiring "shows a" and the quoted letter avoids the explanatory lines such
+  // as "A high score doesn't mean good".
+  const re = /shows a (.+?) score on the '([DISC])'\s+spectrum/i;
   const bands = {};
-  const discNames = ["Decisive", "Interactive", "Stabilizing", "Cautious"];
-  const bandLabels = ["Very High", "High", "Moderate", "Low", "Very Low"];
 
   for (const line of lines) {
-    for (const discName of discNames) {
-      for (const bandLabel of bandLabels) {
-        const regex = new RegExp(`\\b${discName}\\b[:\\s]+(${bandLabel})\\b`, 'i');
-        if (regex.test(line)) {
-          bands[discName] = bandLabel;
-          break;
-        }
-      }
+    const m = line.match(re);
+    if (m) {
+      const letter = m[2].toUpperCase();
+      if (!bands[letter]) bands[letter] = titleCaseBand(m[1]);
     }
   }
 

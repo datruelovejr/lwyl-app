@@ -9,8 +9,14 @@ import JSZip from 'jszip';
 let pdfjsLib = null;
 async function getPdfjs() {
   if (!pdfjsLib) {
-    pdfjsLib = await import('pdfjs-dist');
-    pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs';
+    if (typeof window === 'undefined') {
+      pdfjsLib = await import('pdfjs-dist/legacy/build/pdf.mjs');
+      const workerSrc = new URL('../../../node_modules/pdfjs-dist/legacy/build/pdf.worker.min.mjs', import.meta.url).href;
+      pdfjsLib.GlobalWorkerOptions.workerSrc = workerSrc;
+    } else {
+      pdfjsLib = await import('pdfjs-dist');
+      pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs';
+    }
   }
   return pdfjsLib;
 }
@@ -23,12 +29,16 @@ export async function loadPDFJS() {
   return getPdfjs();
 }
 
-export async function extractTextFromPDF(arrayBuffer) {
+export async function extractTextFromPDF(arrayBuffer, pagesToRead) {
   const pdfjs = await getPdfjs();
-  const pdf = await pdfjs.getDocument({ data: arrayBuffer }).promise;
+  const data = ArrayBuffer.isView(arrayBuffer)
+    ? new Uint8Array(arrayBuffer.buffer, arrayBuffer.byteOffset, arrayBuffer.byteLength)
+    : new Uint8Array(arrayBuffer);
+  const pdf = await pdfjs.getDocument({ data }).promise;
   const pageTexts = {};
-  const pagesToRead = [1, 2, 3, 4];
-  for (const pageNum of pagesToRead) {
+  const pageNumbers = pagesToRead ?? Array.from({ length: pdf.numPages }, (_, i) => i + 1);
+
+  for (const pageNum of pageNumbers) {
     if (pageNum <= pdf.numPages) {
       const page = await pdf.getPage(pageNum);
       const textContent = await page.getTextContent();

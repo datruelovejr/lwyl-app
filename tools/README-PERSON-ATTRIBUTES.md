@@ -29,6 +29,7 @@ Prepare:
 - A sample Innermetrix report PDF for one person.
 - Their UUID from the `people` table.
 - Supabase connection credentials (URL and service role key).
+- A local `.env` file copied from `../.env.example` for convenience.
 
 Run the ingestion:
 
@@ -53,6 +54,40 @@ node tools/ingest-pdf-to-attributes.js \
   "550e8400-e29b-41d4-a716-446655440000" \
   "$SUPABASE_URL"
 ```
+
+### Batch ingestion
+
+If you want to ingest all available assessment PDFs automatically, use the batch runner:
+
+```bash
+node tools/ingest-all-pdfs.js --dry-run
+```
+
+When you are ready to ingest for real:
+
+```bash
+node tools/ingest-all-pdfs.js
+```
+
+By default the script scans the reference folder:
+
+```bash
+../friction-methodology-workspace/reference
+```
+
+To scan a different folder or a local assessment archive, pass `--dir` and optionally `--recursive`:
+
+```bash
+node tools/ingest-all-pdfs.js --dir /path/to/assessments --recursive
+```
+
+If your PDF filenames do not directly map to Supabase person UUIDs, you can provide a JSON map file:
+
+```bash
+node tools/ingest-all-pdfs.js --dir /path/to/assessments --map ./tools/pdf-person-map.json
+```
+
+The script uses the same `.env` credentials handling as the ingestion tool, so it can load `SUPABASE_URL` and `SUPABASE_KEY` from a local `.env` file.
 
 ### 3. Verify the Results
 
