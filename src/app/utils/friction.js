@@ -1,4 +1,5 @@
 import { normBias } from "../constants/data";
+import { highValues } from "./bands";
 
 /**
  * FRICTION CALCULATION — SINGLE SOURCE OF TRUTH
@@ -92,9 +93,14 @@ export function calculateFriction(personA, personB) {
   const passionGap = valGaps.reduce((sum, g) => sum + g.gap, 0);
   const passionTier = getTier(passionGap);
 
-  // Top values analysis
-  const aTopVals = Object.entries(personA.values || {}).filter(([, s]) => s >= 60).map(([k]) => k);
-  const bTopVals = Object.entries(personB.values || {}).filter(([, s]) => s >= 60).map(([k]) => k);
+  // Top values analysis.
+  // Read the instrument's stored grade (band), never the old flat 60 cutoff. If a
+  // person carries no grades, fall back to the legacy cutoff so the read still runs,
+  // but that fallback is the exception, not the rule.
+  const aHigh = highValues(personA.valuesBands);
+  const bHigh = highValues(personB.valuesBands);
+  const aTopVals = aHigh !== null ? aHigh : Object.entries(personA.values || {}).filter(([, s]) => s >= 60).map(([k]) => k);
+  const bTopVals = bHigh !== null ? bHigh : Object.entries(personB.values || {}).filter(([, s]) => s >= 60).map(([k]) => k);
   const sharedVals = aTopVals.filter(v => bTopVals.includes(v));
   const aOnlyVals = aTopVals.filter(v => !bTopVals.includes(v));
   const bOnlyVals = bTopVals.filter(v => !aTopVals.includes(v));

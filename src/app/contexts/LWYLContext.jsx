@@ -271,6 +271,31 @@ export function LWYLProvider({ children }) {
             assessmentUrl: org.assessment_url || "",
             teams: (dbTeams || []).filter(t => t.org_id === org.id).map(t => ({ id: t.id, name: t.name }))
           }));
+          // Step 4: Load the full 78 Core Attributes for these people (used by the
+          // strengths layer and the team coverage-gap). Read-only. If the fetch
+          // fails or returns nothing, people simply carry no attr78 and the reads
+          // that need it say so, rather than guessing.
+          let attr78ByPerson = {};
+          const personIds = dbPeople.map(p => p.id);
+          if (personIds.length > 0) {
+            const { data: paRows, error: paError } = await supabase
+              .from('person_attributes')
+              .select('person_id, attribute, raw_score, rank, cluster, core_dimension, band')
+              .in('person_id', personIds);
+            if (!paError && paRows) {
+              for (const r of paRows) {
+                (attr78ByPerson[r.person_id] ||= []).push({
+                  attribute: r.attribute,
+                  rawScore: r.raw_score,
+                  rank: r.rank,
+                  cluster: r.cluster,
+                  coreDimension: r.core_dimension,
+                  band: r.band,
+                });
+              }
+            }
+          }
+
           const transformedPeople = dbPeople.map(p => ({
             id: p.id,
             name: p.name,
@@ -282,6 +307,12 @@ export function LWYLProvider({ children }) {
             disc: p.disc_natural ? { natural: p.disc_natural, adaptive: p.disc_adapted } : null,
             values: p.values_data,
             attr: p.attributes,
+            // The instrument's own grade per dimension. The band read uses these,
+            // never a flat number cutoff. Null when the assessment did not store them.
+            discBands: p.disc_bands || null,
+            valuesBands: p.values_bands || null,
+            // The full 78 Core Attributes, or empty when not captured for this person.
+            attr78: attr78ByPerson[p.id] || [],
             photoUrl: p.photo_url
           }));
 
