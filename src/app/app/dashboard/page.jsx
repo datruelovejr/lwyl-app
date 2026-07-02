@@ -13,7 +13,6 @@ import { ActionLink } from "../../components/ui/ActionLink";
 import { AlertCard } from "../../components/ui/AlertCard";
 import { Card } from "../../components/ui/Card";
 import { LoadingMoment } from "../../components/ui/LoadingMoment";
-import { TeamMethodSection } from "../../components/TeamMethodSection";
 import { motion } from "framer-motion";
 
 function getPairStory(personA, personB, friction) {
@@ -150,13 +149,6 @@ export default function OrgDashboardPage() {
               {t.name}
             </button>
           ))}
-        </div>
-      )}
-
-      {/* The Method, four-source reads for the selected team */}
-      {members.length >= 1 && (
-        <div className="mb-8">
-          <TeamMethodSection people={members} />
         </div>
       )}
 

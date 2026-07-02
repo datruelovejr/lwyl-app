@@ -25,7 +25,6 @@ import { Expandable } from "./ui/Expandable";
 import { motion } from "framer-motion";
 import { getEnvironmentTaxSummary, compoundPatterns, discInsights } from "../knowledge/assessmentInsights";
 import { getTeamCompositionNarrative } from "../knowledge/narrativeEngine";
-import { TeamMethodSection } from "./TeamMethodSection";
 
 export function TeamInsights({ people, teamId, orgId, leaderId, userId, photos = {}, onUploadPhoto, onViewProfile, onCompare, onShowTips }) {
   const isMobile = useIsMobile();
@@ -131,13 +130,6 @@ export function TeamInsights({ people, teamId, orgId, leaderId, userId, photos =
             </div>
           )}
         </Card>
-      )}
-
-      {/* The Method, four-source reads for this team */}
-      {complete.length > 0 && (
-        <div className="mb-2">
-          <TeamMethodSection people={complete} />
-        </div>
       )}
 
       {/* Leader Comparison */}
