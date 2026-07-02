@@ -5,6 +5,8 @@ import { motion } from 'framer-motion';
 import { List, Network } from 'lucide-react';
 import { discFull, getDom } from '../constants/data';
 import { calculateFriction } from '../utils/friction';
+import { calculateSamePole } from '../utils/samepole';
+import { dyadicCoverageGap } from '../utils/coverage-gap';
 import { getEnvironmentTaxSummary } from '../knowledge/assessmentInsights';
 import { useIsMobile } from '../utils/useIsMobile';
 import { Btn } from './Btn';
@@ -131,6 +133,11 @@ function PairDetail({ personA, personB, friction, onBack }) {
   const taxB = getEnvironmentTaxSummary(personB);
   const eitherStressed = taxA.totalGap >= 80 || taxB.totalGap >= 80;
 
+  // The other three sources, read from the instrument grades. All signals.
+  const samePole = calculateSamePole(personA, personB);
+  const coverage = dyadicCoverageGap(personA, personB);
+  const hasStructural = samePole.competition.length > 0 || samePole.whoseStandard.length > 0 || coverage.gaps.length > 0;
+
   return (
     <div className="max-w-3xl mx-auto">
       <div className="flex items-center justify-between mb-6">
@@ -202,6 +209,46 @@ function PairDetail({ personA, personB, friction, onBack }) {
             <div className="text-xs mt-1">{a} and {b} are naturally well-aligned.</div>
           </div>
         </Card>
+      )}
+
+      {/* The other three sources: competition, whose-standard, coverage-gap. All signals. */}
+      {hasStructural && (
+        <div className="mb-4">
+          <SectionHeader title="The other three kinds of friction" subtitle={`Where ${a} and ${b} sit at the same pole, or share a hole. Signals to check, never facts.`} />
+          {samePole.competition.length > 0 && (
+            <InsightCard>
+              <div className="text-xs font-bold text-muted uppercase tracking-wide mb-2">Who owns the one call &middot; competition</div>
+              <div className="flex flex-wrap gap-1.5">
+                {samePole.competition.map((c, i) => (
+                  <span key={i} className="text-[11px] font-semibold px-2 py-0.5 rounded-md bg-friction-high/10 text-friction-high">{c.dim} <span className="opacity-60">&middot; {c.instrument}</span></span>
+                ))}
+              </div>
+              <p className="text-[11px] text-muted mt-2">Both run high on a finite-resource trait. Real only if they share the one seat or decision. The fix is to split ownership, never to "understand each other."</p>
+            </InsightCard>
+          )}
+          {samePole.whoseStandard.length > 0 && (
+            <InsightCard>
+              <div className="text-xs font-bold text-muted uppercase tracking-wide mb-2">Whose way wins &middot; whose-standard</div>
+              <div className="flex flex-wrap gap-1.5">
+                {samePole.whoseStandard.map((w, i) => (
+                  <span key={i} className="text-[11px] font-semibold px-2 py-0.5 rounded-md bg-subtle text-foreground">{w.dim} <span className="text-muted">&middot; {w.about}</span></span>
+                ))}
+              </div>
+              <p className="text-[11px] text-muted mt-2">Both sit high on the same quality standard. The fix is to set one agreed standard, not to translate styles.</p>
+            </InsightCard>
+          )}
+          {coverage.gaps.length > 0 && (
+            <InsightCard>
+              <div className="text-xs font-bold text-muted uppercase tracking-wide mb-2">A shared hole &middot; coverage gap</div>
+              <div className="flex flex-wrap gap-1.5">
+                {coverage.gaps.map((g, i) => (
+                  <span key={i} className="text-[11px] font-semibold px-2 py-0.5 rounded-md bg-friction-high/10 text-friction-high">{g.capacity}</span>
+                ))}
+              </div>
+              <p className="text-[11px] text-muted mt-2">Both run thin on an outward capacity. Confirm the role needs it, then build a system, hand off, or hire. Outward capacities only.</p>
+            </InsightCard>
+          )}
+        </div>
       )}
 
       {/* Connection Agreement prompts */}
