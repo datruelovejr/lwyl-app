@@ -165,6 +165,8 @@ The Attribute Index measures natural decision-making style and capacity, what ta
 
 **The bias principle.** The symbols plus, minus, and equals represent bias, the direction of the person's relationship to that dimension and the order in which they take information into account. Bias is direction. Two people with nearly identical scores can have opposite biases, which means opposite relationships to that capacity. Score and bias are both required to read a dimension. Score alone is incomplete.
 
+**Reading the two axes.** In each dimension below, the High and Low bullets are the magnitude read, more clarity or less. The Plus and Minus bullets are the direction. The two axes are independent, so a high score can carry either bias, and the off-diagonal person, a high score with the less common bias, is real. Read both, never the score region as if it named a bias.
+
 #### Pattern I. External Decision Making (How We Think of the World)
 
 How the person interacts with the environment, people, and systems. Three styles: Heart, Hand, Head.
@@ -172,18 +174,18 @@ How the person interacts with the environment, people, and systems. Three styles
 **A. Empathy (Heart / Personal Style).** Seeing the humanistic, personal perspective. Concern for understanding and connecting with the individuals involved. This style intuitively gets people.
 - High score: high clarity in reading the impact of the environment on a person, at high velocity. Sensitive to others, also willing to assert their own will.
 - Low score: poor understanding or appreciation of others, emotional distance, possible insensitivity.
-- Plus bias (overvalue): prefers professional relationships over personal, may use others to reach goals.
-- Minus bias (undervalue): prefers personal over professional, warm and accommodating, risk of being overly tolerant and blind to faults.
+- Plus bias (overvalue): prefers personal relationships over professional, warm and accommodating, risk of being overly tolerant and blind to faults.
+- Minus bias (undervalue): prefers professional relationships over personal, willing to assert own will over others, may use others to reach goals.
 
 **B. Practical Thinking (Hand / Practical Style).** Looking at things in a practical, real-world, results-oriented way. No-nonsense, tactical, getting results, living in the now.
-- High score (confident): steady, persistent, resourceful, creative, timely.
-- Low score (frustrated): reluctant to engage in work, poor grasp of the work process, may lack common sense as an implementer.
+- High score: high clarity in practical, real-world, results-oriented thinking, more data on how things work.
+- Low score: little clarity here, reluctant to engage in work, poor grasp of the work process, not a natural implementer.
 - Plus bias (confident): currently confident in solving problems.
 - Minus bias (frustrated): feels hindered, frustrated by results, reluctant to fully engage, can turn judgmental under stress. This maps to a learned-helplessness pattern.
 
 **C. Systems Judgment (Head / Analytical Style).** Conceptual and structural perspective. Strategic thinking. Seeing the world theoretically and getting the big picture.
-- High score (structure): complies with established rules and authority, enjoys structure and order, identifies self with the organization.
-- Low score (free spirit): confrontational or rebellious, often unaware of rules, dislikes structure, a maverick.
+- High score: high clarity in conceptual, structural, big-picture thinking.
+- Low score: little clarity here, often unaware of or uninterested in the system of rules and structure.
 - Plus bias (required structure): needs structure to perform best, willing to conform, may show blind faith in the established order.
 - Minus bias (autonomy): independent, bends rules, dislikes being managed, most effective with autonomy.
 
@@ -192,20 +194,20 @@ How the person interacts with the environment, people, and systems. Three styles
 Clarity and amount of information the subconscious processes about the self.
 
 **D. Self-Esteem / Self-Belief.** Clarity about your own true unique abilities and worth, and the order in which you take yourself into account.
-- High score: good ego, inner strength, sees undeveloped potential and is motivated to improve.
-- Low score: self-depreciation, feeling unfulfilled, sees self-worth through others' eyes.
+- High score: high clarity about your own worth and abilities, inner strength.
+- Low score: little clarity about your own worth, self-depreciation, feeling unfulfilled, sees self-worth through others' eyes.
 - Plus bias (strong ego): overvalues self, very confident, self-centered, dislikes criticism.
 - Minus bias (humility): undervalues self, humble, sees worth through others' eyes.
 
 **E. Role Awareness.** Clarity about the roles you hold right now, their application, and the satisfaction you draw from them.
-- High score (identity from roles): keen understanding of life roles, socially well adjusted, draws achievement from roles.
-- Low score (role confusion): seeking or between roles, role conflict or dissatisfaction, anxiety until resolved.
+- High score: high clarity about your life roles and how to meet them.
+- Low score: little clarity about your roles, seeking or between roles, role conflict or dissatisfaction, anxiety until resolved.
 - Plus bias: identity comes from title and role success or failure.
 - Minus bias: role confusion, disconnect from current role, not fully engaged.
 
 **F. Self-Direction (Compass).** Clarity and belief in the future you see for your path, such as job, health, and goals.
-- High score (stubborn): clear sense of direction, strong future self-identity, self-confident and resilient.
-- Low score (persuadable): lacks drive toward future goals, nearsighted, many questions about direction.
+- High score: high clarity and belief in the future you see for your path.
+- Low score: little clarity about your direction, lacks drive toward future goals, nearsighted, many questions about direction.
 - Plus bias (stubborn): confident in ultimate direction even while questioning specifics.
 - Minus bias (persuadable): moldable about future path, situational, future may be vague.
 
@@ -265,6 +267,7 @@ Hard rules. Each one exists because an error was caught and traced to its root.
 | Individualistic is not Political | Individualistic is uniqueness and independence. Political is power and control. Never swap or merge | Definitions were found crossed in a source doc |
 | Internal is not External | Never merge the two attribute patterns | Different factors, different interventions |
 | Score needs bias | An attribute read on score alone is incomplete. Always pair with bias | Identical scores, opposite biases, opposite people |
+| Empathy bias polarity | Overvalue Empathy is the personal, friend pole, warm and over-tolerant, blind to faults. Undervalue is the professional pole, asserts own will, uses others. Do not swap | "Professional" sounds higher, so it gets misfiled as overvalue, the everyday-word trap on the bias direction, caught 2026-07-08 |
 | Use Natural, not Adaptive | Friction uses Natural DISC scores | Adaptive confounds person and environment |
 | Count is 78 | The Core Attribute List is 78, verified | An 88 reference was uncorroborated and traced to a source that did not contain it |
 | EBIB stays in its family | EBIB applies to approach-clash only, never to structural friction | Prescribing lens-understanding for competition or coverage-gap is the error that broke earlier builds |

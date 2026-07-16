@@ -1,0 +1,265 @@
+{
+  "project": "LWYL friction component finalize, four-type model plus experience",
+  "handoff": "HANDOFF-2026-07-15.md",
+  "branch": "friction-four-type-finalize",
+  "updated": "2026-07-15",
+  "instructions": [
+    "Read this file first, every session, before any work.",
+    "Work tasks in order of dependency. A task is workable only when every id in depends_on is done.",
+    "A task is done only when its completion_criteria AND testing_criteria are met and a separate check confirms it. Never mark done from your own say-so.",
+    "After each task, set status and write result with the evidence, the file changed, the test output, the reviewer verdict, the deploy state.",
+    "Single writer. In a parallel run, only the orchestrating session edits this file. Parallel agents report back, the orchestrator records status.",
+    "If a task is skipped or descoped, set status blocked or descoped and say why in result. Never silently drop a task."
+  ],
+  "hard_rules": [
+    "All work on the branch above, never on main until the confirm phase passes and Daniel signs off.",
+    "Mockup before code. No screen changes until its mockup is built and Daniel approves it.",
+    "The old model stays until the new one is confirmed. Never remove calculateFriction or the old vocabulary before task confirm-new-model is done.",
+    "Validator then blindspot-reviewer on every methodology change, before approval.",
+    "Deploy incrementally, one screen per commit, confirm Vercel READY before the next.",
+    "Writing, no em dashes, no semicolons, no ellipses, active voice, strength leads."
+  ],
+  "status_values": ["incomplete", "in_progress", "blocked", "in_review", "done", "descoped"],
+  "tasks": [
+    {
+      "id": "P0-branch",
+      "phase": "0 Setup",
+      "desc": "Create the feature branch off main and confirm the local NEXT_PUBLIC build works.",
+      "depends_on": [],
+      "completion_criteria": "Branch created and checked out. Local next build passes with the NEXT_PUBLIC env exported.",
+      "testing_criteria": "npm run build exits clean.",
+      "status": "incomplete",
+      "result": ""
+    },
+    {
+      "id": "P1-mockup-dashboard",
+      "phase": "1 Mockup every page",
+      "desc": "Mockup the Dashboard to the explainers DNA, four-type model, interpreted blame-free voice, brand skin.",
+      "depends_on": ["P0-branch"],
+      "completion_criteria": "Mockup built to app-rebuild/explainers standard, renders headless with no error.",
+      "testing_criteria": "Daniel reacts and approves. Screenshot captured.",
+      "status": "incomplete",
+      "result": ""
+    },
+    {
+      "id": "P1-mockup-method",
+      "phase": "1 Mockup every page",
+      "desc": "Mockup The Method, the four-type friction display. This is the one Daniel most needs to see, current version beside the good mockup.",
+      "depends_on": ["P0-branch"],
+      "completion_criteria": "Mockup built, and a screenshot of the CURRENT Method screen captured for side-by-side.",
+      "testing_criteria": "Daniel sees both and approves the good one.",
+      "status": "incomplete",
+      "result": ""
+    },
+    {
+      "id": "P1-mockup-friction-map",
+      "phase": "1 Mockup every page",
+      "desc": "Mockup the pair Friction Map, all four sources on a pair, interpreted voice, no preference-tax language.",
+      "depends_on": ["P0-branch"],
+      "completion_criteria": "Mockup built to DNA, renders headless.",
+      "testing_criteria": "Daniel approves.",
+      "status": "incomplete",
+      "result": ""
+    },
+    {
+      "id": "P1-mockup-leader-insights",
+      "phase": "1 Mockup every page",
+      "desc": "Mockup Leader Insights on the four-type model.",
+      "depends_on": ["P0-branch"],
+      "completion_criteria": "Mockup built to DNA.",
+      "testing_criteria": "Daniel approves.",
+      "status": "incomplete",
+      "result": ""
+    },
+    {
+      "id": "P1-mockup-team-insights",
+      "phase": "1 Mockup every page",
+      "desc": "Mockup Team Insights.",
+      "depends_on": ["P0-branch"],
+      "completion_criteria": "Mockup built to DNA.",
+      "testing_criteria": "Daniel approves.",
+      "status": "incomplete",
+      "result": ""
+    },
+    {
+      "id": "P1-mockup-retention",
+      "phase": "1 Mockup every page",
+      "desc": "Mockup Retention Risk, kept separate from friction, the KRI read.",
+      "depends_on": ["P0-branch"],
+      "completion_criteria": "Mockup built to DNA.",
+      "testing_criteria": "Daniel approves.",
+      "status": "incomplete",
+      "result": ""
+    },
+    {
+      "id": "P1-mockup-compare",
+      "phase": "1 Mockup every page",
+      "desc": "Mockup Compare to others.",
+      "depends_on": ["P0-branch"],
+      "completion_criteria": "Mockup built to DNA.",
+      "testing_criteria": "Daniel approves.",
+      "status": "incomplete",
+      "result": ""
+    },
+    {
+      "id": "P1-mockup-core-attributes",
+      "phase": "1 Mockup every page",
+      "desc": "Mockup Core Attributes, the 78 read and four moves, to the Cognition_Tab_Mockup design language.",
+      "depends_on": ["P0-branch"],
+      "completion_criteria": "Mockup built to DNA.",
+      "testing_criteria": "Daniel approves.",
+      "status": "incomplete",
+      "result": ""
+    },
+    {
+      "id": "P1-mockup-profile",
+      "phase": "1 Mockup every page",
+      "desc": "Mockup Profile to the approved Profile_Mockup_v1 language.",
+      "depends_on": ["P0-branch"],
+      "completion_criteria": "Mockup built to DNA.",
+      "testing_criteria": "Daniel approves.",
+      "status": "incomplete",
+      "result": ""
+    },
+    {
+      "id": "P1-mockup-bridge",
+      "phase": "1 Mockup every page",
+      "desc": "Mockup Bridge Wizard.",
+      "depends_on": ["P0-branch"],
+      "completion_criteria": "Mockup built to DNA.",
+      "testing_criteria": "Daniel approves.",
+      "status": "incomplete",
+      "result": ""
+    },
+    {
+      "id": "P1-mockup-agreements",
+      "phase": "1 Mockup every page",
+      "desc": "Mockup Agreements.",
+      "depends_on": ["P0-branch"],
+      "completion_criteria": "Mockup built to DNA.",
+      "testing_criteria": "Daniel approves.",
+      "status": "incomplete",
+      "result": ""
+    },
+    {
+      "id": "P1-mockup-upload",
+      "phase": "1 Mockup every page",
+      "desc": "Mockup Upload.",
+      "depends_on": ["P0-branch"],
+      "completion_criteria": "Mockup built to DNA.",
+      "testing_criteria": "Daniel approves.",
+      "status": "incomplete",
+      "result": ""
+    },
+    {
+      "id": "P1-mockup-settings",
+      "phase": "1 Mockup every page",
+      "desc": "Mockup Settings.",
+      "depends_on": ["P0-branch"],
+      "completion_criteria": "Mockup built to DNA.",
+      "testing_criteria": "Daniel approves.",
+      "status": "incomplete",
+      "result": ""
+    },
+    {
+      "id": "P2A-rewire-method",
+      "phase": "2 Track A, model and voice",
+      "desc": "Wire The Method to the approved mockup on teamFrictionReport.",
+      "depends_on": ["P1-mockup-method"],
+      "completion_criteria": "Screen matches the approved mockup, reads the four-type model, no preference-tax language.",
+      "testing_criteria": "Renders on Morengo demo org with correct reads. Daniel spot-check.",
+      "status": "incomplete",
+      "result": ""
+    },
+    {
+      "id": "P2A-rewire-friction-map",
+      "phase": "2 Track A, model and voice",
+      "desc": "Rewire Friction Map from calculateFriction old model to the four-type reads and the approved mockup.",
+      "depends_on": ["P1-mockup-friction-map"],
+      "completion_criteria": "No calculateFriction, no Preference or Passion or Process or Internal vocabulary, matches mockup.",
+      "testing_criteria": "Renders on a real pair with correct reads. Daniel spot-check.",
+      "status": "incomplete",
+      "result": ""
+    },
+    {
+      "id": "P2A-rewire-leader-insights",
+      "phase": "2 Track A, model and voice",
+      "desc": "Rewire Leader Insights to the four-type model, remove preference-tax language.",
+      "depends_on": ["P1-mockup-leader-insights"],
+      "completion_criteria": "Four-type reads, no old vocabulary, matches mockup.",
+      "testing_criteria": "Renders correctly for a set leader. Daniel spot-check.",
+      "status": "incomplete",
+      "result": ""
+    },
+    {
+      "id": "P2A-rewire-dashboard",
+      "phase": "2 Track A, model and voice",
+      "desc": "Rewire Dashboard to the four-type model and the peak-insight mockup.",
+      "depends_on": ["P1-mockup-dashboard"],
+      "completion_criteria": "Four-type reads, peak insight leads, no old vocabulary.",
+      "testing_criteria": "Renders on Morengo. Daniel spot-check.",
+      "status": "incomplete",
+      "result": ""
+    },
+    {
+      "id": "P2A-rewire-compare-bridge",
+      "phase": "2 Track A, model and voice",
+      "desc": "Rewire Compare and Bridge off calculateFriction, plus clean old vocabulary from AuditDashboard, EnvironmentReport, IndividualComparison, RetentionRisk.",
+      "depends_on": ["P1-mockup-compare", "P1-mockup-bridge"],
+      "completion_criteria": "No calculateFriction or preference-tax references remain in these components.",
+      "testing_criteria": "grep for the old vocabulary returns zero. App builds.",
+      "status": "incomplete",
+      "result": ""
+    },
+    {
+      "id": "P2B-coverage-disc-values",
+      "phase": "2 Track B, methodology, validator-gated",
+      "desc": "Define and add DISC behavior-gap and Values drive-gap to coverage-gap, per Coverage_Gap_Rule.md.",
+      "depends_on": ["P0-branch"],
+      "completion_criteria": "Definition tightened, validator pass, blindspot pass, engine implements it, labeled signal until the demand reference confirms.",
+      "testing_criteria": "Ground-truth check on a known team. Validator and blindspot verdicts recorded.",
+      "status": "incomplete",
+      "result": ""
+    },
+    {
+      "id": "P2B-real-bothhigh-tests",
+      "phase": "2 Track B, methodology, validator-gated",
+      "desc": "Replace the Whose-Standard and Competition proxy counts with the real both-high tests from Scarcity_Test_Sorting_Rule.md.",
+      "depends_on": ["P0-branch"],
+      "completion_criteria": "Both-high sort by target object and shared demand, validator pass, blindspot pass.",
+      "testing_criteria": "Ground-truth on known pairs. Verdicts recorded.",
+      "status": "incomplete",
+      "result": ""
+    },
+    {
+      "id": "confirm-new-model",
+      "phase": "3 Confirm",
+      "desc": "Verify the four-type model on real data across every friction screen. Daniel signs off.",
+      "depends_on": ["P2A-rewire-method", "P2A-rewire-friction-map", "P2A-rewire-leader-insights", "P2A-rewire-dashboard", "P2A-rewire-compare-bridge"],
+      "completion_criteria": "All friction screens run the four-type model correctly. Daniel signs off in writing.",
+      "testing_criteria": "Side-by-side old versus new. Deploy preview READY.",
+      "status": "incomplete",
+      "result": ""
+    },
+    {
+      "id": "remove-old-model",
+      "phase": "3 Confirm",
+      "desc": "Remove calculateFriction and all old vocabulary. Only after confirm-new-model is done.",
+      "depends_on": ["confirm-new-model"],
+      "completion_criteria": "calculateFriction and the old model deleted, no references remain anywhere.",
+      "testing_criteria": "grep returns zero old-model references. App builds. Deploy READY.",
+      "status": "incomplete",
+      "result": ""
+    },
+    {
+      "id": "deploy",
+      "phase": "4 Deploy",
+      "desc": "Merge to main and confirm production deploy.",
+      "depends_on": ["remove-old-model"],
+      "completion_criteria": "Merged, deployed, live.",
+      "testing_criteria": "Vercel state READY confirmed on the production deploy.",
+      "status": "incomplete",
+      "result": ""
+    }
+  ]
+}

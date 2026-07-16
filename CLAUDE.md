@@ -39,3 +39,14 @@ State of the database as verified on 2026-07-02 (Supabase project `jhmyhuetrmrql
 ## How to work here
 
 Read the methodology, propose the change, show the migration and a one-person test, then apply after approval. If a rigor skill is present in `.claude/skills`, the psychometric validator and the blindspot reviewer, run them on methodology changes before delivering.
+
+## Skills and how we work, in `.claude/skills`
+
+- **icm-build-standard.** The operating standard for this project, the authority when a choice feels arbitrary. Verify before you build, let a separate agent grade the work, never fake a number, label signal versus confirmed, speak plainly. Load it at the start of any stage.
+- **orgharmony-psychometric-validator** and **blindspot-reviewer.** The rigor pair. Validator on every methodological decision, then a clean-window blindspot review before approval.
+- **build-a-worker.** Sets up AI workers before any build. Use it to plan parallel-agent sessions, right-size the office, brief before build.
+- **handoff.** Produces the session handoff. Guidelines live in this skill and in icm-build-standard, not restated here.
+
+## Handoff guidelines
+
+At session end, or when the owner says wrap up or hand off, run the `handoff` skill. It writes a dated `HANDOFF-YYYY-MM-DD-<slug>.md` at the repo root, carries the prior handoff's rules and open gaps forward, and never wipes history. The full section format is in the `handoff` and `icm-build-standard` skills.
