@@ -275,25 +275,51 @@ export function LWYLProvider({ children }) {
           // strengths layer and the team coverage-gap). Read-only. If the fetch
           // fails or returns nothing, people simply carry no attr78 and the reads
           // that need it say so, rather than guessing.
+          // Fetched in chunks of 12 people: 12 x 78 = 936 rows stays under the
+          // 1,000-row response cap, and keeps each request URL short. A failed
+          // chunk is logged and skipped so the rest still load.
           let attr78ByPerson = {};
           const personIds = dbPeople.map(p => p.id);
-          if (personIds.length > 0) {
-            const { data: paRows, error: paError } = await supabase
+          const ATTR78_COUNT = 78;
+          const ATTR78_CHUNK = 12;
+          const idChunks = [];
+          for (let i = 0; i < personIds.length; i += ATTR78_CHUNK) {
+            idChunks.push(personIds.slice(i, i + ATTR78_CHUNK));
+          }
+          const chunkResults = await Promise.all(idChunks.map(ids =>
+            supabase
               .from('person_attributes')
               .select('person_id, attribute, raw_score, rank, cluster, core_dimension, band')
-              .in('person_id', personIds);
-            if (!paError && paRows) {
-              for (const r of paRows) {
-                (attr78ByPerson[r.person_id] ||= []).push({
-                  attribute: r.attribute,
-                  rawScore: r.raw_score,
-                  rank: r.rank,
-                  cluster: r.cluster,
-                  coreDimension: r.core_dimension,
-                  band: r.band,
-                });
-              }
+              .in('person_id', ids)
+          ));
+          chunkResults.forEach(({ data: paRows, error: paError }, i) => {
+            if (paError) {
+              console.error(`[LWYL] person_attributes chunk ${i + 1}/${idChunks.length} failed:`, paError.message);
+              return;
             }
+            for (const r of paRows || []) {
+              (attr78ByPerson[r.person_id] ||= []).push({
+                attribute: r.attribute,
+                rawScore: r.raw_score,
+                rank: r.rank,
+                cluster: r.cluster,
+                coreDimension: r.core_dimension,
+                band: r.band,
+              });
+            }
+          });
+          // A partial list would read as the full 78 downstream, so keep a
+          // person's list only when all 78 distinct attributes arrived.
+          let incomplete78 = 0;
+          for (const [pid, rows] of Object.entries(attr78ByPerson)) {
+            const distinct = new Set(rows.map(r => r.attribute)).size;
+            if (rows.length !== ATTR78_COUNT || distinct !== ATTR78_COUNT) {
+              delete attr78ByPerson[pid];
+              incomplete78++;
+            }
+          }
+          if (incomplete78 > 0) {
+            console.error(`[LWYL] ${incomplete78} people had an incomplete 78 Core Attributes list and show the stand-in`);
           }
 
           const transformedPeople = dbPeople.map(p => ({
